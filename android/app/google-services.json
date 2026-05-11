@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "802202587833",
+    "project_id": "mindpilot-131f1",
+    "storage_bucket": "mindpilot-131f1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:802202587833:android:6d03cf3b6f38a877580168",
+        "android_client_info": {
+          "package_name": "com.mindpilot.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "802202587833-dhe5c6sbcpvbtj020dr9bmin2ovqhipk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mindpilot.app",
+            "certificate_hash": "50a58d7af2d1a1b545948b7699359432d1b969bb"
+          }
+        },
+        {
+          "client_id": "802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD84oPtOAZ2DZz2F4wgS96-BAUneA1n-Zk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "802202587833-6u4ljq0ulaqpu4gr8rf77ltopvp6ujem.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mindpilot.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

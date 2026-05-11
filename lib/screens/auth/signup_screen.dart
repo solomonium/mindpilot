@@ -37,196 +37,127 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _obscureConfirmPassword = true;
   Country _selectedCountry = countries[0];
 
-  void _showCountryPicker() {
-    CustomBottomSheet.show(
-      context,
-      title: 'Select Country',
-      pages: [
-        CountryPickerSheet(
-          onSelect: (country) {
-            setState(() => _selectedCountry = country);
-            Navigator.pop(context);
-          },
-        ),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    firstName.dispose();
-    lastName.dispose();
-    email.dispose();
-    phone.dispose();
-    password.dispose();
-    confirmPassword.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
 
     return Scaffold(
-      backgroundColor: theme.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              12.verticalSpace,
-              Center(child: SvgPicture.asset(R.png.twezi.svg, height: 40)),
-              20.verticalSpace,
-              PrimaryText(
-                text: R.S.createAccount,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: theme.foundationColor,
+      backgroundColor: theme.brandDark,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.4,
+              child: Image.asset(R.png.loginBg.png, fit: BoxFit.cover),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    theme.brandDark.withOpacity(0.8),
+                    theme.brandDark,
+                  ],
+                ),
               ),
-              4.verticalSpace,
-              Row(
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SecondaryText(
-                    text: R.S.alreadyHaveAcct,
-                    color: theme.secondaryTxt,
-                    fontSize: 14,
+                  40.verticalSpace,
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(R.png.mindpilot.png, height: 30),
+                        10.horizontalSpace,
+                        PrimaryText(text: 'MindPilot', color: theme.accentTxt, fontSize: 20, fontWeight: FontWeight.bold),
+                      ],
+                    ),
                   ),
-                  PrimaryText(
-                    text: "Sign In",
-                    color: theme.primaryBase,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ).rippleClick(() => context.pushOff(const LoginScreen())),
-                ],
-              ),
-              24.verticalSpace,
-              CustomTextField(
-                labelText: R.S.firstName,
-                textController: firstName,
-                hintText: R.S.enterFirstName,
-                textInputType: TextInputType.name,
-                textInputAction: TextInputAction.done,
-                autoFocus: false,
-              ),
-              16.verticalSpace,
-              CustomTextField(
-                labelText: R.S.lastName,
-                textController: lastName,
-                hintText: R.S.enterLastName,
-                textInputType: TextInputType.name,
-                textInputAction: TextInputAction.done,
-                autoFocus: false,
-              ),
-              16.verticalSpace,
-              CustomTextField(
-                labelText: R.S.email,
-                textInputType: TextInputType.emailAddress,
-                textController: email,
-                hintText: 'example@gmail.com',
-                textInputAction: TextInputAction.done,
-                autoFocus: false,
-              ),
-              16.verticalSpace,
-              CustomTextField(
-                labelText: R.S.phoneNumber,
-                textInputType: TextInputType.phone,
-                textController: phone,
-                hintText: R.S.enterPhoneNumber,
-                textInputAction: TextInputAction.done,
-                autoFocus: false,
-                prefixIcon: Padding(
-                  padding: const EdgeInsets.only(left: 8.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  40.verticalSpace,
+                  PrimaryText(text: 'Create Account', color: theme.accentTxt, fontSize: 28, fontWeight: FontWeight.bold),
+                  8.verticalSpace,
+                  Row(
                     children: [
-                      CustomDropdown<Country>(
-                        items: countries,
-                        value: _selectedCountry,
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedCountry = val);
-                        },
-                        onTap: _showCountryPicker,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(_selectedCountry.flag, style: const TextStyle(fontSize: 20)),
-                            const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Container(
-                        width: 1,
-                        height: 24,
-                        color: Colors.grey[300],
-                      ),
-                      const SizedBox(width: 12),
+                      SecondaryText(text: 'Already have an account?', color: theme.accentTxt.withOpacity(0.7)),
+                      8.horizontalSpace,
+                      PrimaryText(text: 'Sign in', color: theme.primaryBase, fontWeight: FontWeight.bold).rippleClick(() {
+                        context.pushOff(const LoginScreen());
+                      }),
                     ],
                   ),
-                ),
+                  32.verticalSpace,
+                  Row(
+                    children: [
+                      Expanded(child: _buildField(context, 'First Name', firstName, Icons.person_outline)),
+                      16.horizontalSpace,
+                      Expanded(child: _buildField(context, 'Last Name', lastName, Icons.person_outline)),
+                    ],
+                  ),
+                  20.verticalSpace,
+                  _buildField(context, 'Email address', email, Icons.email_outlined),
+                  20.verticalSpace,
+                  _buildField(context, 'Password', password, Icons.lock_outline, isPassword: true),
+                  20.verticalSpace,
+                  _buildField(context, 'Confirm Password', confirmPassword, Icons.lock_outline, isPassword: true),
+                  32.verticalSpace,
+                  SecondaryText(
+                    text: 'By signing up, you agree to our Terms of Service and Privacy Policy.',
+                    color: theme.accentTxt.withOpacity(0.54),
+                    fontSize: 12,
+                  ),
+                  24.verticalSpace,
+                  CustomButton(
+                    label: 'Create Account',
+                    onPressed: () => context.pushOff(const PersonalizationScreen()),
+                    backgroundColor: theme.primaryBase,
+                  ),
+                  40.verticalSpace,
+                ],
               ),
-              16.verticalSpace,
-              CustomTextField(
-                labelText: R.S.createPasswordLbl,
-                isPassword: true,
-                textController: password,
-                hintText: R.S.enterCreatePassword,
-                obscure: _obscurePassword,
-                autoFocus: false,
-                textInputAction: TextInputAction.done,
-                textInputType: TextInputType.name,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.grey,
-                  ),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
-                ),
-              ),
-              16.verticalSpace,
-              CustomTextField(
-                labelText: R.S.confirmPassword,
-                isPassword: true,
-                textController: confirmPassword,
-                autoFocus: false,
-                hintText: R.S.enterConfirmPassword,
-                obscure: _obscureConfirmPassword,
-                textInputType: TextInputType.name,
-                textInputAction: TextInputAction.done,
-
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureConfirmPassword
-                        ? Icons.visibility_off
-                        : Icons.visibility,
-                    color: Colors.grey,
-                  ),
-                  onPressed: () => setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                  ),
-                ),
-              ),
-              20.verticalSpace,
-              SecondaryText(
-                text: R.S.termsAndPrivacy,
-                fontSize: 12,
-                color: theme.foundationColor,
-                maxLines: 3,
-                textAlign: TextAlign.start,
-              ),
-              20.verticalSpace,
-              CustomButton(
-                label: R.S.createAccount,
-                onPressed: () => context.pushOff(const MainScreen()),
-              ),
-              40.verticalSpace,
-            ],
+  Widget _buildField(BuildContext context, String label, TextEditingController controller, IconData icon, {bool isPassword = false}) {
+    AppTheme theme = context.watch();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SecondaryText(text: label, color: theme.accentTxt.withOpacity(0.7), fontSize: 13),
+        8.verticalSpace,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: theme.accentTxt.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: isPassword,
+            style: TextStyle(color: theme.accentTxt, fontSize: 14),
+            decoration: InputDecoration(
+              icon: Icon(icon, color: theme.accentTxt.withOpacity(0.54), size: 18),
+              border: InputBorder.none,
+              hintText: label,
+              hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.24), fontSize: 14),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

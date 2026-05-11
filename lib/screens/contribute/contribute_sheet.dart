@@ -227,8 +227,9 @@ void showContributeSheet(BuildContext context) {
   ).then((result) {
     if (result == 'Success') {
       // Handle success notification or update
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contribution successful!')),
+      context.showInAppNotification(
+        'Contribution successful!',
+        type: InAppNotificationType.success,
       );
     }
   });

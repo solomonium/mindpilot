@@ -5,6 +5,8 @@ class IconRes {
   String get account => 'account';
   String get profile => 'profile';
   String get twezi => 'twezi';
+  String get mindpilot => 'mindpilot';
+  String get mindpilotApp => 'mindpilot_app';
   String get biometric => 'biometric';
   String get wallet => 'wallet';
   String get direct => 'direct';
@@ -22,4 +24,6 @@ class IconRes {
   String get plus => 'plus';
   String get claim => 'claim';
   String get heart => 'heart';
+  String get loginBg => 'login_bg';
+  String get focus => 'focus';
 }

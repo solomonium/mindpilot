@@ -15,19 +15,7 @@ class BottomNav extends StatelessWidget {
           height: 100,
           width: double.infinity,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-            color: theme.background,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                spreadRadius: 0,
-                blurRadius: 10,
-                offset: const Offset(0, -4),
-              ),
-            ],
+            color: theme.background.withOpacity(0.05),
           ),
           child: Column(
             children: [
@@ -62,7 +50,7 @@ class _NavItem extends StatelessWidget {
     this.onPressed,
   });
 
-  final String icon;
+  final dynamic icon;
   final String title;
   final bool isSelected;
   final VoidCallback? onPressed;
@@ -70,40 +58,50 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
+    final user = context.watch<AuthProvider>().user;
     return Consumer<HomeProvider>(
       builder: (context, home, _) {
-        return WillPopScope(
-          onWillPop: () async {
-            if (R.N.navKey.currentState!.canPop()) {
-              R.N.navKey.currentState!.popUntil((route) => route.isFirst);
-              return false;
-            }
-            SystemNavigator.pop();
-            return true;
-          },
-          child: InkWell(
-            splashColor: theme.primaryBase,
-            onTap: onPressed,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                22.verticalSpace,
-                SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: SvgPicture.asset(
-                    icon,
-                    color: isSelected ? theme.primaryBase : theme.secondaryTxt,
-                  ),
-                ),
-                10.verticalSpace,
-                SecondaryText(
-                  text: title,
-                  color: isSelected ? theme.primaryBase : theme.secondaryTxt,
-                ),
-              ],
-            ),
+        return InkWell(
+          splashColor: Colors.transparent,
+          onTap: onPressed,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              22.verticalSpace,
+              SizedBox(
+                height: 24,
+                width: 24,
+                child: (title.toLowerCase() == 'profile' && user?.photoURL != null)
+                    ? Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          image: DecorationImage(
+                            image: NetworkImage(user!.photoURL!),
+                            fit: BoxFit.cover,
+                          ),
+                          border: Border.all(
+                            color: isSelected ? theme.primaryBase : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                      )
+                    : icon is IconData
+                        ? Icon(
+                            icon,
+                            color: isSelected ? theme.primaryBase : theme.secondaryTxt,
+                          )
+                        : SvgPicture.asset(
+                            icon,
+                            color: isSelected ? theme.primaryBase : theme.secondaryTxt,
+                          ),
+              ),
+              10.verticalSpace,
+              SecondaryText(
+                text: title,
+                color: isSelected ? theme.primaryBase : theme.secondaryTxt,
+              ),
+            ],
           ),
         );
       },

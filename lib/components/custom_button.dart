@@ -15,6 +15,7 @@ class CustomButton extends StatefulWidget {
   final double? width;
   final bool fullWidth;
   final bool loading;
+  final Widget? prefixIcon;
 
   const CustomButton({
     super.key,
@@ -30,6 +31,7 @@ class CustomButton extends StatefulWidget {
     this.width,
     this.fullWidth = false,
     this.loading = false,
+    this.prefixIcon,
   });
 
   @override
@@ -107,11 +109,21 @@ class _CustomButtonState extends State<CustomButton> {
                     color: borderCol,
                   ),
                 )
-              : PrimaryText(
-                  text: widget.label,
-                  fontSize: widget.fontSize ?? 18,
-                  fontWeight: FontWeight.bold,
-                  color: textCol,
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.prefixIcon != null) ...[
+                      widget.prefixIcon!,
+                      12.horizontalSpace,
+                    ],
+                    PrimaryText(
+                      text: widget.label,
+                      fontSize: widget.fontSize ?? 18,
+                      fontWeight: FontWeight.bold,
+                      color: textCol,
+                    ),
+                  ],
                 ),
         ),
       );
@@ -149,10 +161,20 @@ class _CustomButtonState extends State<CustomButton> {
                   color: textCol,
                 ),
               )
-            : SecondaryText(
-                text: widget.label,
-                fontSize: widget.fontSize ?? 18,
-                color: textCol,
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.prefixIcon != null) ...[
+                    widget.prefixIcon!,
+                    12.horizontalSpace,
+                  ],
+                  SecondaryText(
+                    text: widget.label,
+                    fontSize: widget.fontSize ?? 18,
+                    color: textCol,
+                  ),
+                ],
               ),
       ),
     );

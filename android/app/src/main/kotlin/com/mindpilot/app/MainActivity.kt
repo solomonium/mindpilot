@@ -1,4 +1,4 @@
-package com.mindpilot
+package com.mindpilot.app
 
 import io.flutter.embedding.android.FlutterActivity
 

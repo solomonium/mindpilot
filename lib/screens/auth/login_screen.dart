@@ -11,189 +11,293 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> with FormMixin {
   final email = TextEditingController();
   final password = TextEditingController();
-  bool passwordVisible = false;
-  bool obscurePassword = false;
-
-  @override
-  void dispose() {
-    email.dispose();
-    password.dispose();
-    super.dispose();
-  }
+  bool rememberMe = false;
+  bool _showEmailLogin = false;
 
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                87.verticalSpace,
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SvgPicture.asset(R.png.twezi.svg, height: 50),
-                    8.verticalSpace,
-                    SecondaryText(
-                      text: R.S.welcomeSignIn,
-                      color: theme.secondaryTxt,
-                    ),
-                  ],
-                ),
-                55.verticalSpace,
-                CustomTextField(
-                  textInputType: TextInputType.emailAddress,
-                  labelText: R.S.email,
-                  textController: email,
-                  hintText: R.S.invalidEmail,
-                  autoFocus: false,
-                  validate: Validator.email,
-                  textInputAction: TextInputAction.next,
-                  onChanged: (newValue) {},
-                ),
-                24.verticalSpace,
-                CustomTextField(
-                  isPassword: true,
-                  textInputType: TextInputType.visiblePassword,
-                  labelText: R.S.password,
-                  hintText: R.S.enterPwd,
-                  textController: password,
-                  suffixIcon: GestureDetector(
-                    onTap: () => setState(() {
-                      obscurePassword = !obscurePassword;
-                    }),
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        top: 15,
-                        left: 0,
-                        right: 17,
-                        bottom: 10,
-                      ),
-                      child: Icon(
-                        obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                        color: theme.secondaryTxt,
-                      ),
-                    ),
-                  ),
-                  obscure: !obscurePassword,
-                  autoFocus: false,
-                  // validate: Validator.password(minLength: 8),
-                  validate: (String? value) {
-                    if (value!.isEmpty) {
-                      return "Password is required";
-                    }
-                    if (value.length < 8) {
-                      return "Password must be at least ${8} characters";
-                    }
-                    return null;
-                  },
-                  textInputAction: TextInputAction.done,
-                ),
-                40.verticalSpace,
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: PrimaryText(
-                    text: 'Forgot Password?',
-                    color: theme.primaryBase,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ).rippleClick(() {}),
-                ),
-                CustomButton(
-                  label: R.S.login,
-                  onPressed: () {
-                    validate(() {
-                      context.push(MainScreen());
-                    });
-                  },
-                ),
-                40.verticalSpace,
-                Row(
-                  children: [
-                    Expanded(
-                      child: Divider(color: theme.dividerAndBorderColor),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SecondaryText(
-                        text: 'or sign in with',
-                        color: theme.secondaryTxt,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Expanded(
-                      child: Divider(color: theme.dividerAndBorderColor),
-                    ),
-                  ],
-                ),
-                30.verticalSpace,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _socialButton(R.png.google.imgPng, () {}),
-                    20.horizontalSpace,
-                    _socialButton(R.png.facebook.svg, () {}),
-                  ],
-                ),
-                40.verticalSpace,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SecondaryText(
-                      text: R.S.dontHaveAcct,
-                      color: theme.secondaryTxt,
-                      fontSize: 15,
-                    ),
-                    PrimaryText(
-                      text: R.S.signUp,
-                      color: theme.primaryBase,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                    SecondaryText(
-                      text: "now",
-                      color: theme.secondaryTxt,
-                      fontSize: 15,
-                    ),
-                  ],
-                ).rippleClick(() {
-                  context.pushOff(const SignupScreen());
-                }),
-                40.verticalSpace,
-              ],
+    bool isLoading = context.watch<AuthProvider>().isLoading;
+
+    return LoadingOverlay(
+      isLoading: isLoading,
+      child: Scaffold(
+        backgroundColor: theme.brandDark,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.6,
+              child: Image.asset(R.png.loginBg.png, fit: BoxFit.cover),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _socialButton(String assetPath, VoidCallback onTap) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white,
-        border: Border.all(color: Colors.grey[300]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    theme.brandDark.withOpacity(0.8),
+                    theme.brandDark,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    60.verticalSpace,
+                    Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(R.png.mindpilotApp.png, height: 100),
+                          10.horizontalSpace,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              PrimaryText(
+                                text: 'MindPilot',
+                                color: theme.accentTxt,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              SecondaryText(
+                                text: 'Think clearly. Live intentionally.',
+                                color: theme.accentTxt.withOpacity(0.7),
+                                fontSize: 12,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    30.verticalSpace,
+                    PrimaryText(
+                      text: 'Welcome Back',
+                      color: theme.accentTxt,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    8.verticalSpace,
+                    SecondaryText(
+                      text: 'Sign in to continue your journey',
+                      color: theme.accentTxt.withOpacity(0.7),
+                    ),
+                    40.verticalSpace,
+                    _socialButton(
+                      context,
+                      label: 'Google',
+                      icon: R.png.google.imgPng,
+                      onPressed: () =>
+                          context.read<AuthProvider>().loginWithGoogle(context),
+                    ),
+                    16.verticalSpace,
+                    _socialButton(
+                      context,
+                      label: 'Facebook',
+                      icon: R.png.facebook.svg,
+                      isSvg: true,
+                      onPressed: () {},
+                    ),
+                    32.verticalSpace,
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: _showEmailLogin,
+                            onChanged: (v) =>
+                                setState(() => _showEmailLogin = v!),
+                            side: const BorderSide(color: Colors.white54),
+                            activeColor: theme.primaryBase,
+                          ),
+                        ),
+                        8.horizontalSpace,
+                        SecondaryText(
+                          text: 'Login with Email/Password',
+                          color: theme.accentTxt.withOpacity(0.7),
+                          fontSize: 14,
+                        ),
+                      ],
+                    ),
+                    if (_showEmailLogin) ...[
+                      32.verticalSpace,
+                      _buildTextField(
+                        context,
+                        'Email address',
+                        email,
+                        Icons.email_outlined,
+                      ),
+                      20.verticalSpace,
+                      _buildTextField(
+                        context,
+                        'Password',
+                        password,
+                        Icons.lock_outline,
+                        isPassword: true,
+                      ),
+                      16.verticalSpace,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Checkbox(
+                                  value: rememberMe,
+                                  onChanged: (v) =>
+                                      setState(() => rememberMe = v!),
+                                  side: BorderSide(
+                                    color: theme.accentTxt.withOpacity(0.54),
+                                  ),
+                                  activeColor: theme.primaryBase,
+                                ),
+                              ),
+                              8.horizontalSpace,
+                              SecondaryText(
+                                text: 'Remember me',
+                                color: theme.accentTxt.withOpacity(0.7),
+                                fontSize: 14,
+                              ),
+                            ],
+                          ),
+                          SecondaryText(
+                            text: 'Forgot password?',
+                            color: theme.accentTxt.withOpacity(0.7),
+                            fontSize: 14,
+                          ).rippleClick(() {}),
+                        ],
+                      ),
+                      32.verticalSpace,
+                      CustomButton(
+                        label: 'Sign In',
+                        onPressed: () => context
+                            .read<AuthProvider>()
+                            .loginWithEmail(context, email.text, password.text),
+                        backgroundColor: theme.primaryBase,
+                        loading: context.watch<AuthProvider>().isLoading,
+                      ),
+                    ],
+                    40.verticalSpace,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SecondaryText(
+                          text: "Don't have an account?",
+                          color: Colors.white70,
+                        ),
+                        8.horizontalSpace,
+                        PrimaryText(
+                          text: 'Sign up',
+                          color: theme.primaryBase,
+                          fontWeight: FontWeight.bold,
+                        ).rippleClick(() {
+                          context.pushOff(const SignupScreen());
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      child: assetPath.endsWith('.svg')
-          ? SvgPicture.asset(assetPath, width: 38, height: 38)
-          : Image.asset(assetPath, width: 38, height: 38),
-    ).rippleClick(onTap);
+    ),
+  );
+}
+
+  Widget _buildTextField(
+    BuildContext context,
+    String label,
+    TextEditingController controller,
+    IconData icon, {
+    bool isPassword = false,
+  }) {
+    AppTheme theme = context.watch();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: theme.accentTxt.withOpacity(0.54), size: 20),
+            10.horizontalSpace,
+            SecondaryText(
+              text: label,
+              color: theme.accentTxt.withOpacity(0.7),
+              fontSize: 14,
+            ),
+          ],
+        ),
+        8.verticalSpace,
+        Container(
+          decoration: BoxDecoration(
+            color: theme.accentTxt.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: isPassword,
+            style: TextStyle(color: theme.accentTxt),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: InputBorder.none,
+              hintText: 'Enter your $label',
+              hintStyle: TextStyle(
+                color: theme.accentTxt.withOpacity(0.3),
+                fontSize: 14,
+              ),
+              suffixIcon: isPassword
+                  ? Icon(
+                      Icons.visibility_outlined,
+                      color: theme.accentTxt.withOpacity(0.54),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _socialButton(
+    BuildContext context, {
+    required String label,
+    required dynamic icon,
+    bool isSvg = false,
+    VoidCallback? onPressed,
+  }) {
+    AppTheme theme = context.watch();
+    return CustomButton(
+      fontSize: 16,
+      label: 'Continue with $label',
+      onPressed: onPressed,
+      fullWidth: true,
+      isOutline: true,
+      borderColor: theme.accentTxt.withOpacity(0.1),
+      backgroundColor: theme.accentTxt.withOpacity(0.05),
+      textColor: theme.accentTxt,
+      prefixIcon: icon is IconData
+          ? Icon(icon, color: theme.accentTxt, size: 20)
+          : isSvg
+          ? SvgPicture.asset(icon, width: 20, height: 20)
+          : Image.asset(icon, width: 20, height: 20),
+    );
   }
 }

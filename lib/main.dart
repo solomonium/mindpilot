@@ -1,13 +1,36 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:mindpilot/export.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  try {
+    await Firebase.initializeApp();
+    await dotenv.load(fileName: ".env");
+    await GoogleSignIn.instance.initialize(
+      clientId: '802202587833-dhe5c6sbcpvbtj020dr9bmin2ovqhipk.apps.googleusercontent.com',
+      serverClientId: '802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com',
+    );
+    
+    // Register background handler globally
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    
+    await NotificationService().initialize();
+  } catch (e) {
+    debugPrint('Initialization failed: $e');
+  }
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => JournalProvider()..loadInitialData()),
+        ChangeNotifierProvider(create: (_) => TaskProvider()..loadTasks()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()..loadNotifications()),
         Provider<BuildContext>(create: (c) => c),
       ],
       child: const MyApp(),
@@ -42,7 +65,7 @@ class _MyAppState extends State<MyApp> {
             return MaterialApp(
               theme: theme.themeData,
               navigatorKey: R.N.navKey,
-              title: "Twezi App",
+              title: "Mind Pilot",
               debugShowCheckedModeBanner: false,
               home: const AnimatedSplashScreen(),
               builder: (context, child) => MediaQuery(

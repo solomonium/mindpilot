@@ -36,13 +36,13 @@ class TimeTeller {
   static String tellTimeOfTheDay() {
     int hour = DateTime.now().hour;
     if (hour < 12) {
-      return 'Good Morning...';
+      return 'Good Morning';
     } else if (hour >= 12 && hour < 16) {
-      return 'Good Afternoon...';
+      return 'Good Afternoon';
     } else if (hour >= 16 && hour < 24) {
-      return 'Good Evening...';
+      return 'Good Evening';
     } else {
-      return 'Good Day...';
+      return 'Good Day';
     }
   }
 }

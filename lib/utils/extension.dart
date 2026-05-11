@@ -162,55 +162,77 @@ extension SizedContext on BuildContext {
 
   void showInAppNotification(
     String msg, {
+    String? title,
     InAppNotificationType type = InAppNotificationType.error,
     int duration = 3,
   }) {
     late Color color;
-    switch (type) {
-      case InAppNotificationType.success:
-        color = const Color(0xffAFDEC7);
-        break;
-      case InAppNotificationType.info:
-        color = Colors.orange;
-        break;
-      case InAppNotificationType.error:
-        color = const Color(0xffDB4437);
-        break;
-    }
     late Color textColor;
+    late IconData icon;
+
     switch (type) {
       case InAppNotificationType.success:
-        textColor = const Color(0xff0C5C35);
+        color = const Color(0xff10B981);
+        textColor = Colors.white;
+        icon = Icons.check_circle_outline;
         break;
       case InAppNotificationType.info:
-        textColor = const Color(0xffFFFFFF);
+        color = const Color(0xff3B82F6);
+        textColor = Colors.white;
+        icon = Icons.info_outline;
         break;
       case InAppNotificationType.error:
-        textColor = const Color(0xffF3C1BC);
+        color = const Color(0xffEF4444);
+        textColor = Colors.white;
+        icon = Icons.error_outline;
         break;
     }
+
     R.N.notifyKey.currentState?.show(
       child: Container(
-        decoration: BoxDecoration(color: color),
-        padding: EdgeInsets.fromLTRB(16, Platform.isAndroid ? 16 : 50, 16, 16),
-        margin: EdgeInsets.zero,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            if (type == InAppNotificationType.success)
-              Icon(Icons.check_circle, color: textColor),
-            // Icon(Icons.check_circle, color: textColor),
-            8.horizontalSpace,
+            Icon(icon, color: textColor, size: 24),
+            12.horizontalSpace,
             Expanded(
-              child: SecondaryText(
-                text: msg,
-                color: textColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (title != null) ...[
+                    PrimaryText(
+                      text: title,
+                      color: textColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    2.verticalSpace,
+                  ],
+                  SecondaryText(
+                    text: msg,
+                    color: textColor.withOpacity(0.9),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ],
               ),
             ),
-            Icon(Icons.close, color: textColor),
+            Icon(Icons.close, color: textColor.withOpacity(0.5), size: 18).rippleClick(() {
+              R.N.notifyKey.currentState?.dismiss();
+            }),
           ],
         ),
       ),

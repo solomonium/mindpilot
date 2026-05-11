@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mindpilot/export.dart';
 
 class AnimatedSplashScreen extends StatefulWidget {
@@ -21,19 +21,10 @@ class SplashScreenState extends State<AnimatedSplashScreen>
   }
 
   void navigationPage() async {
-    bool? isFirstTimeUser = await SharedPrefs.getBool('isFirstTime');
-    Map<String, dynamic>? userMap = await SharedPrefs.getMap('USER_DETAILS');
+    final user = FirebaseAuth.instance.currentUser;
 
-    safePrint('First Timer User? $isFirstTimeUser');
-
-    if (isFirstTimeUser != null && isFirstTimeUser == false) {
-      if (userMap.isNotEmpty) {
-        /// Restore user into provider
-
-        context.pushOff(MainScreen());
-      } else {
-        context.pushOff(const LoginScreen());
-      }
+    if (user != null) {
+      context.pushOff(const MainScreen());
     } else {
       context.pushOff(const LoginScreen());
     }
@@ -54,6 +45,9 @@ class SplashScreenState extends State<AnimatedSplashScreen>
 
     animation.addListener(() => setState(() {}));
     animationController.forward();
+    
+    // Trace device token for PN testing
+    NotificationService().logDeviceToken();
 
     startTime();
   }
@@ -67,23 +61,45 @@ class SplashScreenState extends State<AnimatedSplashScreen>
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    safePrint('Opening splash screen');
     return Scaffold(
-      backgroundColor: theme.background,
+      backgroundColor: theme.brandDark,
       body: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              SizedBox(
-                width: animation.value * 100,
-                height: animation.value * 100,
-                child: SvgPicture.asset(R.png.twezi.svg),
-                // Image.asset("assets/images/transit_ease.png"),
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.6,
+              child: Image.asset(R.png.loginBg.png, fit: BoxFit.cover),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.brandDark.withOpacity(0.4),
+                    theme.brandDark.withOpacity(0.8),
+                    theme.brandDark,
+                  ],
+                ),
               ),
-              SecondaryText(text: R.S.comFinanceMadeSimple, fontSize: 13),
-            ],
+            ),
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                SizedBox(
+                  width: animation.value * 200,
+                  height: animation.value * 200,
+                  child: Image.asset(R.png.mindpilotApp.png, fit: BoxFit.contain),
+                ),
+                16.verticalSpace,
+                SecondaryText(text: R.S.comFinanceMadeSimple, fontSize: 13, color: theme.accentTxt.withOpacity(0.8)),
+              ],
+            ),
           ),
         ],
       ),

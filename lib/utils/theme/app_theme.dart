@@ -37,6 +37,8 @@ class AppTheme {
   late Color searchFillColor;
   late Color dividerAndBorderColor;
   late Color cardColor;
+  late Color brandDark;
+  late Color homeBg;
   late LinearGradient primaryGradient;
   late LinearGradient secondaryGradient;
   late List<BoxShadow> softShadow;
@@ -51,7 +53,7 @@ class AppTheme {
         return AppTheme(false)
           ..background = const Color(0xFFFFFFFF)
           ..whiteBackground = const Color(0xFFFAFAFA)
-          ..primaryBase = const Color(0xFF1170B2)
+          ..primaryBase = const Color(0xFF6366F1)
           ..foundationColor = const Color(0xFF000000)
           ..foundationColorBlack = const Color(0xFF333333)
           ..primaryText = const Color(0xff272624)
@@ -64,7 +66,7 @@ class AppTheme {
           ..successTint = const Color(0xffAFDEC7)
           ..successShade = const Color(0xff05341D)
           ..errorPrimary = const Color(0xffDB4437)
-          ..purplePrimary = const Color(0xff6211B2)
+          ..purplePrimary = const Color(0xFF6366F1)
           ..errorTint = const Color(0xffF3C1BC)
           ..errorShade = const Color(0xff491712)
           ..warningPrimary = const Color(0xffed8811)
@@ -73,10 +75,12 @@ class AppTheme {
           ..warningShade = const Color(0xff97541D)
           ..hintText = const Color(0xff8A8A8A)
           ..labelText = const Color(0xff69625A)
-          ..primaryButton = const Color(0xFF0061FF)
+          ..primaryButton = const Color(0xFF6366F1)
           ..cardColor = const Color(0xFFFAFAFA)
+          ..brandDark = const Color(0xFF0F172A)
+          ..homeBg = const Color(0xFFF8F9FE)
           ..primaryGradient = const LinearGradient(
-            colors: [Color(0xFF0061FF), Color(0xFF00C6FF)],
+            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
@@ -87,7 +91,7 @@ class AppTheme {
           )
           ..softShadow = [
             BoxShadow(
-              color: const Color(0xFF0061FF).withOpacity(0.12),
+              color: const Color(0xFF6366F1).withOpacity(0.12),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -118,6 +122,8 @@ class AppTheme {
           ..labelText = const Color(0xff69625A)
           ..primaryButton = const Color(0xFF0061FF)
           ..cardColor = const Color(0xff181914)
+          ..brandDark = const Color(0xFF0F172A)
+          ..homeBg = const Color(0xFF1F1F1F)
           ..primaryGradient = const LinearGradient(
             colors: [Color(0xFF0061FF), Color(0xFF00A3FF)],
             begin: Alignment.topLeft,
@@ -190,6 +196,10 @@ class AppTheme {
           ..cardColor = isSystemDark
               ? const Color(0xff181914)
               : const Color(0xFFFAFAFA)
+          ..brandDark = const Color(0xFF0F172A)
+          ..homeBg = isSystemDark
+              ? const Color(0xFF1F1F1F)
+              : const Color(0xFFF8F9FE)
           ..primaryGradient = isSystemDark
               ? const LinearGradient(
                   colors: [Color(0xFF0061FF), Color(0xFF00A3FF)],

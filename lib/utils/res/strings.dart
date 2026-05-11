@@ -30,6 +30,21 @@ class Strings {
   String get login => 'Log in';
 
   /// Home Screen
+  String get goodMorningDavid => 'Good Morning, David 👋';
+  String get readyToMake => 'Ready to make today productive?';
+  String get dailyInsight => 'Daily Insight';
+  String get quickActions => 'Quick Actions';
+  String get decisionAnalyzer => 'Decision Analyzer';
+  String get focusSession => 'Focus Session';
+  String get todaysProgress => "Today's Progress";
+  String get takeAction => 'Take Action';
+  String get myGroups => 'My Groups';
+  String get recentActivity => 'Recent Activity';
+  String get viewAll => 'View All';
+  String get seeAll => 'See All';
+  String get balanceText => 'Balance: ';
+
+  // Legacy/Reference Strings (needed for compilation)
   String get helloBeatrice => 'Hello, Beatrice!';
   String get pendingActions => 'You have 2 actions pending today';
   String get totalWalletBalance => 'Total Wallet Balance';
@@ -41,12 +56,6 @@ class Strings {
   String get fileClaim => 'File a claim';
   String get startFundraiser => 'Start a fundraiser';
   String get urgentActions => 'Urgent Actions';
-  String get takeAction => 'Take Action';
-  String get myGroups => 'My Groups';
-  String get recentActivity => 'Recent Activity';
-  String get viewAll => 'View All';
-  String get seeAll => 'See All';
-  String get balanceText => 'Balance: ';
 
   /// Wallet Screen
   String get walletOverview => 'Wallet Overview';

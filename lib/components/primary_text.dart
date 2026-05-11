@@ -10,6 +10,8 @@ class PrimaryText extends StatelessWidget {
 
   final int? maxLines;
   final double? letterSpacing;
+  final double? height;
+  final TextDecoration? decoration;
 
   const PrimaryText({
     super.key,
@@ -21,6 +23,8 @@ class PrimaryText extends StatelessWidget {
     this.textAlign,
     this.maxLines,
     this.letterSpacing,
+    this.height,
+    this.decoration,
   });
 
   @override
@@ -37,6 +41,8 @@ class PrimaryText extends StatelessWidget {
         fontSize: fontSize ?? 17.0,
         fontWeight: fontWeight ?? FontWeight.w600,
         letterSpacing: letterSpacing,
+        height: height,
+        decoration: decoration,
       ),
     );
   }

@@ -21,20 +21,37 @@ dependencies:
   shared_preferences: ^2.5.4
   intl: ^0.20.2
   flutter_dotenv: ^6.0.0
-  google_fonts: ^6.2.1
+  google_fonts: ^8.1.0
   flutter_svg: ^2.0.10
   flutter_screenutil: ^5.9.3
   animations: ^2.1.1
   intl_phone_field: ^3.1.5
+  firebase_core: ^4.7.0
+  firebase_auth: ^6.4.0
+  google_sign_in: ^7.2.0
+  firebase_messaging: ^16.1.2
+  flutter_local_notifications: ^21.0.0
+  audioplayers: ^6.1.1
+  google_generative_ai: ^0.4.5
+  flutter_markdown: ^0.7.3+2
+  sqflite: ^2.4.1
+  path: ^1.9.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/mindpilot_app.png"
+  remove_alpha_ios: true
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets//icons/
-    - assets//images/
+    - assets/icons/
+    - assets/images/

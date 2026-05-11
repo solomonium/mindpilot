@@ -9,10 +9,14 @@ export 'package:intl/intl.dart' hide TextDirection;
 export 'package:pretty_dio_logger/pretty_dio_logger.dart';
 export 'package:provider/provider.dart';
 export 'package:shared_preferences/shared_preferences.dart';
+export 'package:flutter_markdown/flutter_markdown.dart';
+export 'package:google_sign_in/google_sign_in.dart';
 
 export 'components/components.dart';
 export 'models/models.dart';
 export 'provider/provider.dart';
 export 'screens/screens.dart';
+export 'screens/profile/journal_entries_screen.dart';
+export 'screens/profile/progress_report_screen.dart';
 export 'services/services.dart';
 export 'utils/utils.dart';

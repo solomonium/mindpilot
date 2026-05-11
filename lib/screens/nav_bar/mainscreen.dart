@@ -30,23 +30,49 @@ class _MainScreenState extends State<MainScreen> {
           }
         }
       },
-      child: Scaffold(
-        backgroundColor: theme.background,
-        bottomNavigationBar: const BottomNav(),
-        body: Consumer<HomeProvider>(
-          builder: (context, store, child) {
-            return IndexedStack(
-              index: store.navIndex,
-              children: [
-                HomeScreen(),
-                GroupScreen(),
-                WalletScreen(),
-                DirectScreen(),
-                ProfileScreen(),
-              ],
-            );
-          },
-        ),
+      child: Consumer<HomeProvider>(
+        builder: (context, store, child) {
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0.6,
+                  child: Image.asset(R.png.loginBg.png, fit: BoxFit.cover),
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        theme.brandDark.withOpacity(0.2),
+                        theme.brandDark.withOpacity(0.6),
+                        theme.brandDark,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                floatingActionButton: const GlowingChatFab(),
+                bottomNavigationBar: const BottomNav(),
+                body: IndexedStack(
+                  index: store.navIndex,
+                  children: const [
+                    HomeScreen(),
+                    FocusSessionScreen(),
+                    JournalScreen(),
+                    ProgressScreen(),
+                    ProfileScreen(),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
