@@ -1,0 +1,5 @@
+package com.mindpilot
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
