@@ -5,6 +5,9 @@ class TaskItem {
   final String title;
   final String description;
   final String date;
+  final String? completionTime;
+  final String? startTime;
+  final int? durationMinutes;
   final bool isDone;
 
   TaskItem({
@@ -12,6 +15,9 @@ class TaskItem {
     required this.title,
     required this.description,
     required this.date,
+    this.completionTime,
+    this.startTime,
+    this.durationMinutes,
     this.isDone = false,
   });
 
@@ -21,6 +27,9 @@ class TaskItem {
       'title': title,
       'description': description,
       'date': date,
+      'completionTime': completionTime,
+      'startTime': startTime,
+      'durationMinutes': durationMinutes,
       'isDone': isDone ? 1 : 0,
     };
   }
@@ -45,6 +54,9 @@ class TaskProvider extends ChangeNotifier {
         title: item['title'],
         description: item['description'],
         date: item['date'],
+        completionTime: item['completionTime'],
+        startTime: item['startTime'],
+        durationMinutes: item['durationMinutes'],
         isDone: item['isDone'] == 1,
       ));
     }
@@ -58,12 +70,26 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addTask(String title, String description) async {
+  Future<void> addTask(
+    String title, 
+    String description, {
+    String? completionTime,
+    String? startTime,
+    int? durationMinutes,
+  }) async {
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final task = TaskItem(title: title, description: description, date: today);
+    final task = TaskItem(
+      title: title, 
+      description: description, 
+      date: today,
+      completionTime: completionTime,
+      startTime: startTime,
+      durationMinutes: durationMinutes,
+    );
     await _dbHelper.insertTask(task.toMap());
     await loadTasks();
   }
+
 
   Future<void> toggleTaskDone(TaskItem task) async {
     final updatedTask = TaskItem(
@@ -71,6 +97,7 @@ class TaskProvider extends ChangeNotifier {
       title: task.title,
       description: task.description,
       date: task.date,
+      completionTime: task.completionTime,
       isDone: !task.isDone,
     );
     await _dbHelper.updateTask(task.id!, updatedTask.toMap());

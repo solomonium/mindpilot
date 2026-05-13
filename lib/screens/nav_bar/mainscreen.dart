@@ -1,5 +1,6 @@
 // ignore_for_file: must_be_immutable
 
+import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
 
 class MainScreen extends StatefulWidget {
@@ -13,21 +14,32 @@ class _MainScreenState extends State<MainScreen> {
   bool firstSwipe = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndPromptPermissions();
+    });
+  }
+
+  Future<void> _checkAndPromptPermissions() async {
+    final isAllowed = await NotificationService().isNotificationsEnabled();
+    if (!isAllowed) {
+      await NotificationService().requestPermissions();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
         final homeProvider = context.read<HomeProvider>();
         if (homeProvider.navIndex != 0) {
           homeProvider.navIndex = 0;
-          return false;
         } else {
-          if (firstSwipe) {
-            firstSwipe = false;
-            return false;
-          } else {
-            return true;
-          }
+          SystemNavigator.pop();
         }
       },
       child: Consumer<HomeProvider>(

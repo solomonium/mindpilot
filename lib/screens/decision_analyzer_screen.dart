@@ -24,24 +24,27 @@ class _DecisionAnalyzerScreenState extends State<DecisionAnalyzerScreen> {
   }
 
   void _initializeGemini() async {
-    final apiKey = 'AIzaSyCjYNWFh9g0XspukeBSRm86HpbyEoa4IhU';
-    
-    // Dynamically fetch available models
+    final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+
     final models = await _geminiService.listModels(apiKey);
     String selectedModel = 'gemini-1.5-flash';
-    
     if (models.isNotEmpty) {
-      // Pick the first available gemini model as a safe bet
       selectedModel = models.first;
     }
-    
     _geminiService.init(apiKey, modelName: selectedModel);
   }
 
   Future<void> _analyzeDecision() async {
     final text = _controller.text.trim();
+    final isPro = context.read<AuthProvider>().isPro;
+
     if (text.isEmpty) {
       context.showInAppNotification('Please describe your situation first.');
+      return;
+    }
+
+    if (!isPro) {
+      AppHelper.showPaywall(context, feature: 'AI Decision Analysis');
       return;
     }
 

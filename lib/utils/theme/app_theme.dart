@@ -41,6 +41,8 @@ class AppTheme {
   late Color homeBg;
   late LinearGradient primaryGradient;
   late LinearGradient secondaryGradient;
+  late LinearGradient glassGradient;
+  late LinearGradient glassGradientSecondary;
   late List<BoxShadow> softShadow;
   AppTheme(this.isDark) {
     txt = isDark ? Colors.white : const Color(0xff323B56);
@@ -89,6 +91,16 @@ class AppTheme {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
+          ..glassGradient = LinearGradient(
+            colors: [const Color(0xFF6366F1).withOpacity(0.3), const Color(0xFF8B5CF6).withOpacity(0.3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+          ..glassGradientSecondary = LinearGradient(
+            colors: [const Color(0xffE9AD21).withOpacity(0.3), const Color(0xffFFD700).withOpacity(0.3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
           ..softShadow = [
             BoxShadow(
               color: const Color(0xFF6366F1).withOpacity(0.12),
@@ -131,6 +143,16 @@ class AppTheme {
           )
           ..secondaryGradient = const LinearGradient(
             colors: [Color(0xffE9AD21), Color(0xffCC9900)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+          ..glassGradient = LinearGradient(
+            colors: [const Color(0xFF0061FF).withOpacity(0.3), const Color(0xFF00A3FF).withOpacity(0.3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+          ..glassGradientSecondary = LinearGradient(
+            colors: [const Color(0xffE9AD21).withOpacity(0.3), const Color(0xffCC9900).withOpacity(0.3)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
@@ -222,6 +244,20 @@ class AppTheme {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
+          ..glassGradient = LinearGradient(
+            colors: isSystemDark 
+                ? [const Color(0xFF0061FF).withOpacity(0.3), const Color(0xFF00A3FF).withOpacity(0.3)]
+                : [const Color(0xFF0061FF).withOpacity(0.3), const Color(0xFF00C6FF).withOpacity(0.3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+          ..glassGradientSecondary = LinearGradient(
+            colors: isSystemDark
+                ? [const Color(0xffE9AD21).withOpacity(0.3), const Color(0xffCC9900).withOpacity(0.3)]
+                : [const Color(0xffE9AD21).withOpacity(0.3), const Color(0xffFFD700).withOpacity(0.3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
           ..softShadow = isSystemDark
               ? [
                   BoxShadow(

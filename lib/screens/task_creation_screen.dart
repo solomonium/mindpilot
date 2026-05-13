@@ -11,6 +11,36 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   bool _isLoading = false;
+  TimeOfDay? _startTime;
+  int _durationMinutes = 30; // Default 30 mins
+
+
+  Future<void> _pickTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _startTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        AppTheme theme = context.read();
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: theme.primaryBase,
+              onPrimary: theme.accentTxt,
+              surface: theme.brandDark,
+              onSurface: theme.accentTxt,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(foregroundColor: theme.primaryBase),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _startTime) {
+      setState(() => _startTime = picked);
+    }
+  }
 
   Future<void> _saveTask() async {
     final title = _titleController.text.trim();
@@ -22,8 +52,41 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
     }
 
     setState(() => _isLoading = true);
-    await context.read<TaskProvider>().addTask(title, desc);
+    String? startTimeStr;
+    String? completionTimeStr;
+
+    if (_startTime != null) {
+      final now = DateTime.now();
+      final startDt = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+      final endDt = startDt.add(Duration(minutes: _durationMinutes));
+      
+      startTimeStr = DateFormat('hh:mm a').format(startDt);
+      completionTimeStr = DateFormat('hh:mm a').format(endDt);
+    }
+
+    await context.read<TaskProvider>().addTask(
+      title, 
+      desc, 
+      startTime: startTimeStr,
+      durationMinutes: _durationMinutes,
+      completionTime: completionTimeStr,
+    );
+
+    if (_startTime != null) {
+      final now = DateTime.now();
+      var startDt = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+      
+      // If the selected time has already passed today, assume it's for tomorrow
+      if (startDt.isBefore(now)) {
+        startDt = startDt.add(const Duration(days: 1));
+      }
+      
+      await NotificationService().scheduleTaskAlarm(title, startDt, _durationMinutes);
+    }
+
+
     setState(() => _isLoading = false);
+
 
     if (mounted) {
       context.showInAppNotification(
@@ -110,6 +173,77 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
                     controller: _descController,
                     maxLines: 4,
                   ),
+                  24.verticalSpace,
+                  SecondaryText(
+                    text: 'Starting Time',
+                    color: theme.accentTxt.withOpacity(0.9),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  12.verticalSpace,
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: theme.accentTxt.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        PrimaryText(
+                          text: _startTime == null ? 'Set Start Time' : _startTime!.format(context),
+                          color: theme.accentTxt.withOpacity(_startTime == null ? 0.4 : 1),
+                          fontSize: 16,
+                        ),
+                        Icon(Icons.access_time, color: theme.primaryBase),
+                      ],
+                    ),
+                  ).rippleClick(_pickTime),
+                  24.verticalSpace,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SecondaryText(
+                        text: 'Duration',
+                        color: theme.accentTxt.withOpacity(0.9),
+                        fontWeight: FontWeight.bold,
+                      ),
+                      PrimaryText(
+                        text: '${_durationMinutes ~/ 60}h ${_durationMinutes % 60}m',
+                        color: theme.primaryBase,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ],
+                  ),
+                  8.verticalSpace,
+                  Slider(
+                    value: _durationMinutes.toDouble(),
+                    min: 30,
+                    max: 180,
+                    divisions: 15, // 10 min increments
+                    activeColor: theme.primaryBase,
+                    inactiveColor: theme.accentTxt.withOpacity(0.1),
+                    onChanged: (val) => setState(() => _durationMinutes = val.toInt()),
+                  ),
+                  if (_startTime != null) ...[
+                    12.verticalSpace,
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.primaryBase.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: SecondaryText(
+                          text: 'Scheduled: ${_startTime!.format(context)} - ${DateFormat('hh:mm a').format(DateTime(2024, 1, 1, _startTime!.hour, _startTime!.minute).add(Duration(minutes: _durationMinutes)))}',
+                          color: theme.primaryBase,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                   40.verticalSpace,
                   CustomButton(
                     label: 'Create Task',

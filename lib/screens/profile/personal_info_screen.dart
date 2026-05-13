@@ -13,7 +13,11 @@ class PersonalInformationScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: PrimaryText(text: 'Personal Information', color: theme.accentTxt, fontSize: 18, fontWeight: FontWeight.bold),
+        title: PrimaryText(
+            text: 'Personal Information',
+            color: theme.accentTxt,
+            fontSize: 18,
+            fontWeight: FontWeight.bold),
         leading: Icon(Icons.arrow_back_ios, color: theme.accentTxt).clickable(() => context.pop()),
       ),
       body: Stack(
@@ -52,13 +56,14 @@ class PersonalInformationScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: theme.accentTxt.withOpacity(0.1),
-                          image: user?.photoURL != null 
-                            ? DecorationImage(image: NetworkImage(user!.photoURL!), fit: BoxFit.cover)
-                            : null,
+                          image: user?.photoURL != null
+                              ? DecorationImage(
+                                  image: NetworkImage(user!.photoURL!), fit: BoxFit.cover)
+                              : null,
                         ),
-                        child: user?.photoURL == null 
-                          ? Center(child: Icon(Icons.person, color: theme.accentTxt, size: 40)) 
-                          : null,
+                        child: user?.photoURL == null
+                            ? Center(child: Icon(Icons.person, color: theme.accentTxt, size: 40))
+                            : null,
                       ),
                       Positioned(
                         bottom: 0,
@@ -82,6 +87,7 @@ class PersonalInformationScreen extends StatelessWidget {
                   label: 'Save Changes',
                   onPressed: () => context.pop(),
                   fullWidth: true,
+                  isGlass: true,
                 ),
               ],
             ),
@@ -93,14 +99,10 @@ class PersonalInformationScreen extends StatelessWidget {
 
   Widget _infoTile(BuildContext context, String label, String value) {
     AppTheme theme = context.watch();
-    return Container(
+    return GlassContainer(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: theme.primaryGradient,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: theme.primaryBase.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
+      gradient: theme.glassGradient,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -109,7 +111,8 @@ class PersonalInformationScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              PrimaryText(text: value, fontSize: 15, fontWeight: FontWeight.w600, color: theme.accentTxt),
+              PrimaryText(
+                  text: value, fontSize: 15, fontWeight: FontWeight.w600, color: theme.accentTxt),
               Icon(Icons.edit_outlined, color: theme.accentTxt, size: 18),
             ],
           ),

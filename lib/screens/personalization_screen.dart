@@ -47,90 +47,103 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: () => context.pushOff(const MainScreen()),
-            child: SecondaryText(text: 'Skip', color: theme.primaryBase),
+      backgroundColor: theme.brandDark,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.6,
+              child: Image.asset(R.png.loginBg.png, fit: BoxFit.cover),
+            ),
           ),
-          20.horizontalSpace,
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              PrimaryText(
-                text: "Let's Personalize",
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                textAlign: TextAlign.center,
-              ),
-              8.verticalSpace,
-              SecondaryText(
-                text: "What are your main goals?\nYou can change these later.",
-                textAlign: TextAlign.center,
-              ),
-              32.verticalSpace,
-              Expanded(
-                child: ListView.separated(
-                  itemCount: goals.length,
-                  separatorBuilder: (context, index) => 16.verticalSpace,
-                  itemBuilder: (context, index) {
-                    final goal = goals[index];
-                    final isSelected = selectedGoal == index;
-                    return _goalTile(goal, isSelected, () {
-                      setState(() => selectedGoal = index);
-                    });
-                  },
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.brandDark.withOpacity(0.4),
+                    theme.brandDark.withOpacity(0.8),
+                    theme.brandDark,
+                  ],
                 ),
               ),
-              24.verticalSpace,
-              CustomButton(
-                label: 'Continue',
-                onPressed: selectedGoal != -1 ? () => context.pushOff(const MainScreen()) : null,
-                backgroundColor: theme.primaryBase,
-              ),
-              20.verticalSpace,
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(5, (index) => Container(
-                    width: index == 1 ? 12 : 6,
-                    height: 6,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      color: index == 1 ? theme.primaryBase : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  20.verticalSpace,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => _finishPersonalization(),
+                      child: SecondaryText(text: 'Skip', color: theme.accentTxt.withOpacity(0.6)),
                     ),
-                  )),
-                ),
+                  ),
+                  20.verticalSpace,
+                  PrimaryText(
+                    text: "Let's Personalize",
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    textAlign: TextAlign.center,
+                    color: theme.accentTxt,
+                  ),
+                  8.verticalSpace,
+                  SecondaryText(
+                    text: "What are your main goals?\nYou can change these later.",
+                    textAlign: TextAlign.center,
+                    color: theme.accentTxt.withOpacity(0.7),
+                  ),
+                  40.verticalSpace,
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: goals.length,
+                      separatorBuilder: (context, index) => 16.verticalSpace,
+                      itemBuilder: (context, index) {
+                        final goal = goals[index];
+                        final isSelected = selectedGoal == index;
+                        return _goalTile(goal, isSelected, () {
+                          setState(() => selectedGoal = index);
+                        });
+                      },
+                    ),
+                  ),
+                  24.verticalSpace,
+                  CustomButton(
+                    label: 'Continue',
+                    onPressed: selectedGoal != -1 ? () => _finishPersonalization() : null,
+                    backgroundColor: theme.primaryBase,
+                  ),
+                  40.verticalSpace,
+                ],
               ),
-              20.verticalSpace,
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
+  void _finishPersonalization() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('HAS_SEEN_PERSONALIZATION', true);
+    if (mounted) {
+      context.pushOff(const LoginScreen());
+    }
+  }
+
   Widget _goalTile(Map<String, dynamic> goal, bool isSelected, VoidCallback onTap) {
     AppTheme theme = context.watch();
-    return Container(
+    return GlassContainer(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isSelected ? theme.primaryBase.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSelected ? theme.primaryBase : Colors.grey[200]!,
-          width: isSelected ? 2 : 1,
-        ),
-      ),
+      gradient: isSelected ? null : theme.glassGradient,
+      color: isSelected ? theme.primaryBase.withOpacity(0.2) : null,
+      border: isSelected ? Border.all(color: theme.primaryBase, width: 2) : null,
       child: Row(
         children: [
           Container(
@@ -146,11 +159,22 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PrimaryText(text: goal['title'], fontSize: 16, fontWeight: FontWeight.w600),
-                SecondaryText(text: goal['subtitle'], fontSize: 12),
+                PrimaryText(
+                  text: goal['title'], 
+                  fontSize: 16, 
+                  fontWeight: FontWeight.w600,
+                  color: theme.accentTxt,
+                ),
+                SecondaryText(
+                  text: goal['subtitle'], 
+                  fontSize: 12,
+                  color: theme.accentTxt.withOpacity(0.6),
+                ),
               ],
             ),
           ),
+          if (isSelected)
+            Icon(Icons.check_circle, color: theme.primaryBase, size: 24),
         ],
       ),
     ).rippleClick(onTap);

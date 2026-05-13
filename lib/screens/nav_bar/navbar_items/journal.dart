@@ -24,7 +24,8 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   void _initializeGemini() async {
-    final apiKey = 'AIzaSyCjYNWFh9g0XspukeBSRm86HpbyEoa4IhU';
+    final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+
     final models = await _geminiService.listModels(apiKey);
     String selectedModel = 'gemini-1.5-flash';
     if (models.isNotEmpty) {
@@ -47,16 +48,10 @@ class _JournalScreenState extends State<JournalScreen> {
     final framework = ChatProcessor.generateFramework(intent);
     final title = ChatProcessor.generateTitle(text, intent);
 
-    final prompt = """
+    final prompt =
+        """
 Topic: $title
-${ChatProcessor.buildDecisionAnalysisPrompt(
-      userMessage: text,
-      intent: intent,
-      emotion: emotion,
-      framework: framework,
-      importance: importance,
-      selectedFeeling: emojiLabels[selectedEmoji],
-    )}
+${ChatProcessor.buildDecisionAnalysisPrompt(userMessage: text, intent: intent, emotion: emotion, framework: framework, importance: importance, selectedFeeling: emojiLabels[selectedEmoji])}
 """;
 
     // Logging for debugging
@@ -73,10 +68,7 @@ ${ChatProcessor.buildDecisionAnalysisPrompt(
     setState(() => _isLoading = false);
 
     if (mounted && response != null) {
-      context.push(AnalysisResultScreen(
-        analysis: response,
-        title: title,
-      ));
+      context.push(AnalysisResultScreen(analysis: response, title: title));
     }
   }
 
@@ -115,23 +107,14 @@ ${ChatProcessor.buildDecisionAnalysisPrompt(
               ),
               12.verticalSpace,
               SecondaryText(
-                text: 'Describe your situation in detail. The AI will analyze and guide you.',
+                text:
+                    'Describe your situation in detail. The Mind Pilot will analyze and guide you.',
                 color: theme.accentTxt.withOpacity(0.7),
               ),
               24.verticalSpace,
-              Container(
+              GlassContainer(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: theme.primaryGradient,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.primaryBase.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
+                gradient: theme.glassGradient,
                 child: TextField(
                   controller: _controller,
                   maxLines: 5,
@@ -175,12 +158,17 @@ ${ChatProcessor.buildDecisionAnalysisPrompt(
                     onTap: () => setState(() => selectedEmoji = index),
                     child: Column(
                       children: [
-                        Text(emojis[index], style: const TextStyle(fontSize: 24)),
+                        Text(
+                          emojis[index],
+                          style: const TextStyle(fontSize: 24),
+                        ),
                         4.verticalSpace,
                         SecondaryText(
                           text: emojiLabels[index],
                           fontSize: 10,
-                          color: isSelected ? theme.accentTxt : theme.accentTxt.withOpacity(0.5),
+                          color: isSelected
+                              ? theme.accentTxt
+                              : theme.accentTxt.withOpacity(0.5),
                         ),
                       ],
                     ),
@@ -191,7 +179,7 @@ ${ChatProcessor.buildDecisionAnalysisPrompt(
               CustomButton(
                 label: 'Analyze My Decision',
                 onPressed: _analyzeDecision,
-                backgroundColor: theme.primaryBase,
+                isGlass: true,
               ),
             ],
           ),

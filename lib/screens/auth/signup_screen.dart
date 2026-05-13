@@ -5,7 +5,11 @@ class Country {
   final String flag;
   final String dialCode;
 
-  const Country({required this.name, required this.flag, required this.dialCode});
+  const Country({
+    required this.name,
+    required this.flag,
+    required this.dialCode,
+  });
 }
 
 const List<Country> countries = [
@@ -33,9 +37,9 @@ class _SignupScreenState extends State<SignupScreen> {
   final password = TextEditingController();
   final confirmPassword = TextEditingController();
 
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-  Country _selectedCountry = countries[0];
+  bool obscurePassword = true;
+  bool obscureConfirmPassword = true;
+  Country selectedCountry = countries[0];
 
   @override
   Widget build(BuildContext context) {
@@ -79,18 +83,35 @@ class _SignupScreenState extends State<SignupScreen> {
                       children: [
                         Image.asset(R.png.mindpilot.png, height: 30),
                         10.horizontalSpace,
-                        PrimaryText(text: 'MindPilot', color: theme.accentTxt, fontSize: 20, fontWeight: FontWeight.bold),
+                        PrimaryText(
+                          text: 'Mind Pilot',
+                          color: theme.accentTxt,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ],
                     ),
                   ),
                   40.verticalSpace,
-                  PrimaryText(text: 'Create Account', color: theme.accentTxt, fontSize: 28, fontWeight: FontWeight.bold),
+                  PrimaryText(
+                    text: 'Create Account',
+                    color: theme.accentTxt,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                   8.verticalSpace,
                   Row(
                     children: [
-                      SecondaryText(text: 'Already have an account?', color: theme.accentTxt.withOpacity(0.7)),
+                      SecondaryText(
+                        text: 'Already have an account?',
+                        color: theme.accentTxt.withOpacity(0.7),
+                      ),
                       8.horizontalSpace,
-                      PrimaryText(text: 'Sign in', color: theme.primaryBase, fontWeight: FontWeight.bold).rippleClick(() {
+                      PrimaryText(
+                        text: 'Sign in',
+                        color: theme.primaryBase,
+                        fontWeight: FontWeight.bold,
+                      ).rippleClick(() {
                         context.pushOff(const LoginScreen());
                       }),
                     ],
@@ -98,27 +119,61 @@ class _SignupScreenState extends State<SignupScreen> {
                   32.verticalSpace,
                   Row(
                     children: [
-                      Expanded(child: _buildField(context, 'First Name', firstName, Icons.person_outline)),
+                      Expanded(
+                        child: _buildField(
+                          context,
+                          'First Name',
+                          firstName,
+                          Icons.person_outline,
+                        ),
+                      ),
                       16.horizontalSpace,
-                      Expanded(child: _buildField(context, 'Last Name', lastName, Icons.person_outline)),
+                      Expanded(
+                        child: _buildField(
+                          context,
+                          'Last Name',
+                          lastName,
+                          Icons.person_outline,
+                        ),
+                      ),
                     ],
                   ),
                   20.verticalSpace,
-                  _buildField(context, 'Email address', email, Icons.email_outlined),
+                  _buildField(
+                    context,
+                    'Email address',
+                    email,
+                    Icons.email_outlined,
+                  ),
                   20.verticalSpace,
-                  _buildField(context, 'Password', password, Icons.lock_outline, isPassword: true),
+                  _buildField(
+                    context,
+                    'Password',
+                    password,
+                    Icons.lock_outline,
+                    isPassword: true,
+                  ),
                   20.verticalSpace,
-                  _buildField(context, 'Confirm Password', confirmPassword, Icons.lock_outline, isPassword: true),
+                  _buildField(
+                    context,
+                    'Confirm Password',
+                    confirmPassword,
+                    Icons.lock_outline,
+                    isPassword: true,
+                  ),
                   32.verticalSpace,
                   SecondaryText(
-                    text: 'By signing up, you agree to our Terms of Service and Privacy Policy.',
+                    text:
+                        'By signing up, you agree to our Terms of Service and Privacy Policy.',
                     color: theme.accentTxt.withOpacity(0.54),
                     fontSize: 12,
                   ),
                   24.verticalSpace,
                   CustomButton(
                     label: 'Create Account',
-                    onPressed: () => context.pushOff(const PersonalizationScreen()),
+                    onPressed: () {},
+                    // =>
+                    //     context.pushOff(const PersonalizationScreen()),
                     backgroundColor: theme.primaryBase,
                   ),
                   40.verticalSpace,
@@ -131,12 +186,22 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _buildField(BuildContext context, String label, TextEditingController controller, IconData icon, {bool isPassword = false}) {
+  Widget _buildField(
+    BuildContext context,
+    String label,
+    TextEditingController controller,
+    IconData icon, {
+    bool isPassword = false,
+  }) {
     AppTheme theme = context.watch();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SecondaryText(text: label, color: theme.accentTxt.withOpacity(0.7), fontSize: 13),
+        SecondaryText(
+          text: label,
+          color: theme.accentTxt.withOpacity(0.7),
+          fontSize: 13,
+        ),
         8.verticalSpace,
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -150,10 +215,17 @@ class _SignupScreenState extends State<SignupScreen> {
             obscureText: isPassword,
             style: TextStyle(color: theme.accentTxt, fontSize: 14),
             decoration: InputDecoration(
-              icon: Icon(icon, color: theme.accentTxt.withOpacity(0.54), size: 18),
+              icon: Icon(
+                icon,
+                color: theme.accentTxt.withOpacity(0.54),
+                size: 18,
+              ),
               border: InputBorder.none,
               hintText: label,
-              hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.24), fontSize: 14),
+              hintStyle: TextStyle(
+                color: theme.accentTxt.withOpacity(0.24),
+                fontSize: 14,
+              ),
             ),
           ),
         ),
@@ -178,9 +250,11 @@ class _CountryPickerSheetState extends State<CountryPickerSheet> {
   void _filterCountries(String query) {
     setState(() {
       _filteredCountries = countries
-          .where((country) =>
-              country.name.toLowerCase().contains(query.toLowerCase()) ||
-              country.dialCode.contains(query))
+          .where(
+            (country) =>
+                country.name.toLowerCase().contains(query.toLowerCase()) ||
+                country.dialCode.contains(query),
+          )
           .toList();
     });
   }
@@ -205,14 +279,26 @@ class _CountryPickerSheetState extends State<CountryPickerSheet> {
           height: 400,
           child: ListView.separated(
             itemCount: _filteredCountries.length,
-            separatorBuilder: (context, index) => Divider(color: theme.dividerAndBorderColor, height: 1),
+            separatorBuilder: (context, index) =>
+                Divider(color: theme.dividerAndBorderColor, height: 1),
             itemBuilder: (context, index) {
               final country = _filteredCountries[index];
               return ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Text(country.flag, style: const TextStyle(fontSize: 24)),
-                title: PrimaryText(text: country.name, fontSize: 14, fontWeight: FontWeight.w600),
-                trailing: PrimaryText(text: country.dialCode, fontSize: 14, color: theme.secondaryTxt),
+                leading: Text(
+                  country.flag,
+                  style: const TextStyle(fontSize: 24),
+                ),
+                title: PrimaryText(
+                  text: country.name,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                trailing: PrimaryText(
+                  text: country.dialCode,
+                  fontSize: 14,
+                  color: theme.secondaryTxt,
+                ),
                 onTap: () => widget.onSelect(country),
               );
             },

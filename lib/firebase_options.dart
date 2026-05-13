@@ -3,6 +3,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -40,9 +41,9 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyD4J2z380yMB7ToJDTyoZZhLjPoyiqw-3s',
-    appId: '1:802202587833:web:6af45f6d6223702d580168',
+  static FirebaseOptions web = FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_API_KEY_WEB'] ?? '',
+    appId: dotenv.env['FIREBASE_APP_ID_WEB'] ?? '',
     messagingSenderId: '802202587833',
     projectId: 'mindpilot-131f1',
     authDomain: 'mindpilot-131f1.firebaseapp.com',
@@ -50,37 +51,37 @@ class DefaultFirebaseOptions {
     measurementId: 'G-VCJHSPJF1S',
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyD84oPtOAZ2DZz2F4wgS96-BAUneA1n-Zk',
-    appId: '1:802202587833:android:6d03cf3b6f38a877580168',
+  static FirebaseOptions android = FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_API_KEY_ANDROID'] ?? '',
+    appId: dotenv.env['FIREBASE_APP_ID_ANDROID'] ?? '',
     messagingSenderId: '802202587833',
     projectId: 'mindpilot-131f1',
     storageBucket: 'mindpilot-131f1.firebasestorage.app',
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDGHTisrJ5CJXYedrChuJIAyevi1yPfsXM',
-    appId: '1:802202587833:ios:9e48c83870ff102f580168',
+  static FirebaseOptions ios = FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_API_KEY_IOS'] ?? '',
+    appId: dotenv.env['FIREBASE_APP_ID_IOS'] ?? '',
     messagingSenderId: '802202587833',
     projectId: 'mindpilot-131f1',
     storageBucket: 'mindpilot-131f1.firebasestorage.app',
-    iosClientId: '802202587833-6u4ljq0ulaqpu4gr8rf77ltopvp6ujem.apps.googleusercontent.com',
+    iosClientId: dotenv.env['FIREBASE_IOS_CLIENT_ID'],
     iosBundleId: 'com.example.archonitDevTest',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDGHTisrJ5CJXYedrChuJIAyevi1yPfsXM',
-    appId: '1:802202587833:ios:9e48c83870ff102f580168',
+  static FirebaseOptions macos = FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_API_KEY_IOS'] ?? '',
+    appId: dotenv.env['FIREBASE_APP_ID_IOS'] ?? '',
     messagingSenderId: '802202587833',
     projectId: 'mindpilot-131f1',
     storageBucket: 'mindpilot-131f1.firebasestorage.app',
-    iosClientId: '802202587833-6u4ljq0ulaqpu4gr8rf77ltopvp6ujem.apps.googleusercontent.com',
+    iosClientId: dotenv.env['FIREBASE_IOS_CLIENT_ID'],
     iosBundleId: 'com.example.archonitDevTest',
   );
 
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyD4J2z380yMB7ToJDTyoZZhLjPoyiqw-3s',
-    appId: '1:802202587833:web:9a845f3c432e4848580168',
+  static FirebaseOptions windows = FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_API_KEY_WEB'] ?? '',
+    appId: dotenv.env['FIREBASE_APP_ID_WINDOWS'] ?? '',
     messagingSenderId: '802202587833',
     projectId: 'mindpilot-131f1',
     authDomain: 'mindpilot-131f1.firebaseapp.com',

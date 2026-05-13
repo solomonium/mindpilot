@@ -7,9 +7,12 @@ class SecondaryText extends StatelessWidget {
   final FontWeight? fontWeight;
   final TextOverflow? textOverflow;
   final TextAlign? textAlign;
+  final FontStyle? fontStyle;
 
   final int? maxLines;
   final double? letterSpacing;
+  final double? height;
+  final TextDecoration? decoration;
 
   const SecondaryText({
     super.key,
@@ -21,6 +24,9 @@ class SecondaryText extends StatelessWidget {
     this.textAlign,
     this.maxLines,
     this.letterSpacing,
+    this.fontStyle,
+    this.height,
+    this.decoration,
   });
 
   @override
@@ -37,6 +43,9 @@ class SecondaryText extends StatelessWidget {
         fontSize: fontSize ?? 14.0,
         fontWeight: fontWeight ?? FontWeight.w400,
         letterSpacing: letterSpacing,
+        fontStyle: fontStyle,
+        height: height,
+        decoration: decoration,
       ),
     );
   }

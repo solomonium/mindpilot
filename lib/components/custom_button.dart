@@ -16,6 +16,7 @@ class CustomButton extends StatefulWidget {
   final bool fullWidth;
   final bool loading;
   final Widget? prefixIcon;
+  final bool isGlass;
 
   const CustomButton({
     super.key,
@@ -32,6 +33,7 @@ class CustomButton extends StatefulWidget {
     this.fullWidth = false,
     this.loading = false,
     this.prefixIcon,
+    this.isGlass = false,
   });
 
   @override
@@ -131,6 +133,61 @@ class _CustomButtonState extends State<CustomButton> {
 
     final bgCol = widget.backgroundColor ?? defaultPrimaryColor;
     final textCol = widget.textColor ?? theme.whiteBackground;
+
+    if (widget.isGlass) {
+      return GlassContainer(
+        borderRadius: 14,
+        padding: EdgeInsets.zero,
+        gradient: widget.backgroundColor == null ? theme.glassGradient : null,
+        child: SizedBox(
+          height: widget.height,
+          width: finalWidth,
+          child: ElevatedButton(
+            focusNode: _focusNode,
+            onPressed: widget.loading
+                ? null
+                : (widget.onPressed != null ? _handleOnPressed : null),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: textCol,
+              padding: widget.padding ?? const EdgeInsets.symmetric(horizontal: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: widget.borderColor != null
+                    ? BorderSide(color: widget.borderColor!, width: 1.5)
+                    : BorderSide.none,
+              ),
+              elevation: 0,
+              shadowColor: Colors.transparent,
+            ),
+            child: widget.loading
+                ? SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: textCol,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.prefixIcon != null) ...[
+                        widget.prefixIcon!,
+                        12.horizontalSpace,
+                      ],
+                      SecondaryText(
+                        text: widget.label,
+                        fontSize: widget.fontSize ?? 18,
+                        color: textCol,
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       height: widget.height,

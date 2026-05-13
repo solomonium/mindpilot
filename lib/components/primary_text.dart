@@ -7,6 +7,7 @@ class PrimaryText extends StatelessWidget {
   final FontWeight? fontWeight;
   final TextOverflow? textOverflow;
   final TextAlign? textAlign;
+  final FontStyle? fontStyle;
 
   final int? maxLines;
   final double? letterSpacing;
@@ -25,6 +26,7 @@ class PrimaryText extends StatelessWidget {
     this.letterSpacing,
     this.height,
     this.decoration,
+    this.fontStyle,
   });
 
   @override
@@ -43,6 +45,7 @@ class PrimaryText extends StatelessWidget {
         letterSpacing: letterSpacing,
         height: height,
         decoration: decoration,
+        fontStyle: fontStyle,
       ),
     );
   }

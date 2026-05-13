@@ -11,10 +11,9 @@ class AnimatedSplashScreen extends StatefulWidget {
 
 class SplashScreenState extends State<AnimatedSplashScreen>
     with SingleTickerProviderStateMixin {
-  int notificationCounter = -1;
-
   late AnimationController animationController;
   late Animation<double> animation;
+
   Future<Timer> startTime() async {
     var duration = const Duration(seconds: 4);
     return Timer(duration, navigationPage);
@@ -22,11 +21,19 @@ class SplashScreenState extends State<AnimatedSplashScreen>
 
   void navigationPage() async {
     final user = FirebaseAuth.instance.currentUser;
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenPersonalization = prefs.getBool('HAS_SEEN_PERSONALIZATION') ?? false;
+
+    if (!mounted) return;
 
     if (user != null) {
       context.pushOff(const MainScreen());
     } else {
-      context.pushOff(const LoginScreen());
+      if (!hasSeenPersonalization) {
+        context.pushOff(const PersonalizationScreen());
+      } else {
+        context.pushOff(const LoginScreen());
+      }
     }
   }
 
@@ -46,9 +53,7 @@ class SplashScreenState extends State<AnimatedSplashScreen>
     animation.addListener(() => setState(() {}));
     animationController.forward();
     
-    // Trace device token for PN testing
     NotificationService().logDeviceToken();
-
     startTime();
   }
 
@@ -96,8 +101,12 @@ class SplashScreenState extends State<AnimatedSplashScreen>
                   height: animation.value * 200,
                   child: Image.asset(R.png.mindpilotApp.png, fit: BoxFit.contain),
                 ),
-                16.verticalSpace,
-                SecondaryText(text: R.S.comFinanceMadeSimple, fontSize: 13, color: theme.accentTxt.withOpacity(0.8)),
+                4.verticalSpace,
+                SecondaryText(
+                  text: 'Think clearly. Live intentionally.', 
+                  fontSize: 13, 
+                  color: theme.accentTxt.withOpacity(0.8)
+                ),
               ],
             ),
           ),

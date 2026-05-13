@@ -4,3 +4,7 @@ export 'gemini_service.dart';
 export 'notification_service.dart';
 export 'chat_processor.dart';
 export 'database_helper.dart';
+export 'quote_service.dart';
+export 'config_service.dart';
+
+

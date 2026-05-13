@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
+
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -20,10 +22,11 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'mindpilot_journal.db');
     return await openDatabase(
       path,
-      version: 5,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -62,7 +65,23 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 6) {
+      await db.execute('ALTER TABLE tasks ADD COLUMN completionTime TEXT');
+    }
+    if (oldVersion < 7) {
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN startTime TEXT');
+      } catch (e) {
+        debugPrint('Migration Error (startTime): $e');
+      }
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN durationMinutes INTEGER');
+      } catch (e) {
+        debugPrint('Migration Error (durationMinutes): $e');
+      }
+    }
   }
+
 
   Future _onCreate(Database db, int version) async {
     await db.execute('''
@@ -88,7 +107,10 @@ class DatabaseHelper {
         title TEXT,
         description TEXT,
         date TEXT,
-        isDone INTEGER DEFAULT 0
+        isDone INTEGER DEFAULT 0,
+        completionTime TEXT,
+        startTime TEXT,
+        durationMinutes INTEGER
       )
     ''');
     await db.execute('''
@@ -113,6 +135,15 @@ class DatabaseHelper {
     return await db.query('journal_entries', orderBy: 'id DESC');
   }
 
+  Future<int> getJournalCountSince(String dateIso) async {
+    Database db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM journal_entries WHERE date >= ?',
+      [dateIso]
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
   Future<int> deleteEntry(int id) async {
     Database db = await database;
     return await db.delete('journal_entries', where: 'id = ?', whereArgs: [id]);
@@ -131,6 +162,15 @@ class DatabaseHelper {
     Database db = await database;
     final List<Map<String, dynamic>> result = await db.rawQuery(
       'SELECT SUM(duration_minutes) as total FROM focus_sessions'
+    );
+    return (result.first['total'] as int?) ?? 0;
+  }
+
+  Future<int> getFocusMinutesSince(String dateIso) async {
+    Database db = await database;
+    final result = await db.rawQuery(
+      'SELECT SUM(duration_minutes) as total FROM focus_sessions WHERE date >= ?',
+      [dateIso]
     );
     return (result.first['total'] as int?) ?? 0;
   }
@@ -155,6 +195,16 @@ class DatabaseHelper {
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<int> getTotalTasksCount() async {
+    Database db = await database;
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM tasks WHERE date = ?',
+      [today]
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
   Future<int> getCompletedTasksCount() async {
     Database db = await database;
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -165,12 +215,11 @@ class DatabaseHelper {
     return (result.first['count'] as int?) ?? 0;
   }
 
-  Future<int> getTotalTasksCount() async {
+  Future<int> getTasksCompletedSince(String dateIso) async {
     Database db = await database;
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM tasks WHERE date = ?',
-      [today]
+      'SELECT COUNT(*) as count FROM tasks WHERE isDone = 1 AND date >= ?',
+      [dateIso]
     );
     return (result.first['count'] as int?) ?? 0;
   }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
 
@@ -230,7 +228,11 @@ extension SizedContext on BuildContext {
                 ],
               ),
             ),
-            Icon(Icons.close, color: textColor.withOpacity(0.5), size: 18).rippleClick(() {
+            Icon(
+              Icons.close,
+              color: textColor.withOpacity(0.5),
+              size: 18,
+            ).rippleClick(() {
               R.N.notifyKey.currentState?.dismiss();
             }),
           ],

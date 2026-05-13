@@ -1,41 +1,71 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:mindpilot/export.dart';
+import 'package:mindpilot/firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 1. Initializations that MUST happen before runApp
   try {
-    await Firebase.initializeApp();
     await dotenv.load(fileName: ".env");
-    await GoogleSignIn.instance.initialize(
-      clientId: '802202587833-dhe5c6sbcpvbtj020dr9bmin2ovqhipk.apps.googleusercontent.com',
-      serverClientId: '802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com',
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
     );
-    
-    // Register background handler globally
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    
-    await NotificationService().initialize();
   } catch (e) {
-    debugPrint('Initialization failed: $e');
+    debugPrint('Critical Initialization failed: $e');
   }
 
+  // 2. Initialize App Settings provider
+  final appProvider = AppProvider();
+  try {
+    await appProvider.init();
+  } catch (e) {
+    debugPrint('AppProvider init failed: $e');
+  }
+
+  // 3. Start the app immediately to avoid black screen
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AppProvider()),
+        ChangeNotifierProvider.value(value: appProvider),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
-        ChangeNotifierProvider(create: (_) => JournalProvider()..loadInitialData()),
+        ChangeNotifierProvider(
+          create: (_) => JournalProvider()..loadInitialData(),
+        ),
         ChangeNotifierProvider(create: (_) => TaskProvider()..loadTasks()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()..loadNotifications()),
+        ChangeNotifierProvider(
+          create: (_) => NotificationProvider()..loadNotifications(),
+        ),
         Provider<BuildContext>(create: (c) => c),
       ],
       child: const MyApp(),
     ),
   );
+
+  // 4. Background initializations (don't block the UI)
+  _initializeBackgroundServices();
+}
+
+Future<void> _initializeBackgroundServices() async {
+  try {
+    await GoogleSignIn.instance.initialize(
+      clientId: dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID'],
+      serverClientId: dotenv.env['GOOGLE_SIGN_IN_SERVER_CLIENT_ID'],
+    );
+
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    await NotificationService().initialize();
+
+    final isAllowed = await NotificationService().isNotificationsEnabled();
+    if (!isAllowed) {
+      await NotificationService().requestPermissions();
+    }
+  } catch (e) {
+    debugPrint('Background service initialization failed: $e');
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -48,9 +78,8 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    // var themeType = context.select<AppProvider, ThemeType>((val) => val.theme);
-    // AppTheme theme = AppTheme.fromType(themeType);
-    AppTheme theme = AppTheme.fromType(ThemeType.light);
+    final appProvider = context.watch<AppProvider>();
+    AppTheme theme = AppTheme.fromType(appProvider.theme);
     return GestureDetector(
       onTap: () {
         AppHelper.unFocus();

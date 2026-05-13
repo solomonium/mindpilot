@@ -11,4 +11,26 @@ class HomeProvider extends BaseProvider {
     safePrint(val);
     notifyListeners();
   }
+
+  // Weekly Stats
+  int weeklyTasks = 0;
+  int weeklyFocusMinutes = 0;
+  int weeklyJournalEntries = 0;
+  bool isLoadingStats = false;
+
+  Future<void> loadWeeklyStats() async {
+    isLoadingStats = true;
+    notifyListeners();
+
+    final db = DatabaseHelper();
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final dateIso = sevenDaysAgo.toIso8601String();
+
+    weeklyTasks = await db.getTasksCompletedSince(dateIso);
+    weeklyFocusMinutes = await db.getFocusMinutesSince(dateIso);
+    weeklyJournalEntries = await db.getJournalCountSince(dateIso);
+
+    isLoadingStats = false;
+    notifyListeners();
+  }
 }

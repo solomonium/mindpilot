@@ -11,6 +11,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  final Map<int, Color> _bubbleColors = {};
+
 
   @override
   void initState() {
@@ -34,8 +36,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Future<void> _sendMessage() async {
     final chatStore = context.read<ChatProvider>();
+    final isPro = context.read<AuthProvider>().isPro;
+
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
+
+    if (!chatStore.canSendMessage(isPro)) {
+      AppHelper.showPaywall(context, feature: 'Unlimited AI Chat');
+      return;
+    }
 
     chatStore.addMessage(text, true);
     _messageController.clear();
@@ -43,25 +52,39 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
     setState(() => _isLoading = true);
 
-    // Simple chat prompt without ChatProcessor logic
-    final prompt =
-        """
-You are a helpful and supportive AI assistant for the MindPilot app. 
-Respond to the user's message in a clear and friendly manner.
-Use markdown for formatting.
+    final prompt = """
+You are a helpful and supportive AI assistant for the **MindPilot** app.
+Your goal is to assist users with their questions, provide guidance on productivity, and offer mental clarity.
+
+While you are aware of our tools like the **Decision Analyzer** and **Focus Sessions**, you should respond naturally to the user's messages and only suggest those tools when they are truly relevant to the conversation.
+Keep your responses friendly, supportive, and clear.
 
 User: $text
 """;
 
-    final response = await chatStore.geminiService.sendMessage(prompt);
+    try {
+      final response = await chatStore.geminiService.sendMessage(prompt);
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-      chatStore.addMessage(
-        response ?? "I'm sorry, I couldn't process that.",
-        false,
-      );
-      _scrollToBottom();
+      if (mounted) {
+        chatStore.incrementMessageCount();
+        chatStore.addMessage(
+          response ?? "I'm sorry, I couldn't process that.",
+          false,
+        );
+        _scrollToBottom();
+      }
+    } catch (e) {
+      safePrint('AI Error: $e');
+      if (mounted) {
+        context.showInAppNotification(
+          "I'm sorry, I am unable to connect right now, please try after sometine. Thank you ", // 'AI Error: $e',
+          type: InAppNotificationType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -69,17 +92,30 @@ User: $text
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
     final chatStore = context.watch<ChatProvider>();
+    final isPro = context.watch<AuthProvider>().isPro;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: PrimaryText(
-          text: 'My Personal Assistant',
-          color: theme.accentTxt,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            PrimaryText(
+              text: 'My Personal Assistant',
+              color: theme.accentTxt,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+            if (!isPro)
+              SecondaryText(
+                text:
+                    '${chatStore.freemiumLimit - chatStore.dailyMessageCount} messages left today',
+                color: theme.accentTxt.withOpacity(0.5),
+                fontSize: 10,
+              ),
+          ],
         ),
         centerTitle: false,
         leading: Icon(
@@ -96,10 +132,11 @@ User: $text
                 return DropdownMenuItem<String>(
                   value: model,
                   child: SecondaryText(
-                    text: model.replaceAll('gemini-', '').toUpperCase(),
+                    text: model.split('/').last.replaceAll(':free', '').toUpperCase(),
                     color: theme.accentTxt,
                     fontSize: 12,
                   ),
+
                 );
               }).toList(),
               onChanged: (val) {
@@ -124,6 +161,19 @@ User: $text
           SelectionArea(
             child: Column(
               children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  color: theme.primaryBase.withOpacity(0.05),
+                  child: Center(
+                    child: SecondaryText(
+                      text:
+                          '💡 Tip: Tap the dropdown above to switch between models manually.',
+                      fontSize: 10,
+                      color: theme.accentTxt.withOpacity(0.6),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
@@ -138,7 +188,9 @@ User: $text
                         context,
                         message['text'],
                         message['isMe'],
+                        index,
                       );
+
                     },
                   ),
                 ),
@@ -167,61 +219,116 @@ User: $text
     );
   }
 
-  Widget _chatBubble(BuildContext context, String text, bool isMe) {
+  Widget _chatBubble(BuildContext context, String text, bool isMe, int index) {
     AppTheme theme = context.watch();
+    final textColor = isMe ? Colors.white : (_bubbleColors[index] ?? theme.accentTxt);
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          if (!isMe)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _colorPicker(index, const Color(0xFFC0FF00)), // Lemon Green
+                  8.horizontalSpace,
+                  _colorPicker(index, const Color(0xFFFF914D)), // Orange
+                  8.horizontalSpace,
+                  _colorPicker(index, theme.accentTxt, isReset: true), // Reset
+                ],
+              ),
+            ),
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
+
+            decoration: BoxDecoration(
+              color: isMe ? theme.primaryBase : theme.accentTxt.withOpacity(0.1),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: Radius.circular(isMe ? 16 : 0),
+                bottomRight: Radius.circular(isMe ? 0 : 16),
+              ),
+              border: isMe ? null : Border.all(color: theme.accentTxt.withOpacity(0.1)),
+            ),
+            child: MarkdownBody(
+              data: text,
+              styleSheet: MarkdownStyleSheet(
+                p: TextStyle(color: textColor, fontSize: 16),
+                strong: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+                h1: TextStyle(
+                  color: textColor,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+                h2: TextStyle(
+                  color: textColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                h3: TextStyle(
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                listBullet: TextStyle(color: textColor, fontSize: 16),
+                tableBody: TextStyle(color: textColor, fontSize: 14),
+                tableHead: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                tableBorder: TableBorder.all(color: textColor.withOpacity(0.2)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _colorPicker(int index, Color color, {bool isReset = false}) {
+    final isPro = context.read<AuthProvider>().isPro;
+    return GestureDetector(
+      onTap: () {
+        if (!isPro) {
+          AppHelper.showPaywall(context, feature: 'Chat Customization');
+          return;
+        }
+        setState(() {
+          _bubbleColors[index] = color;
+        });
+      },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
+        width: 16,
+        height: 16,
         decoration: BoxDecoration(
-          color: isMe ? theme.primaryBase : theme.accentTxt.withOpacity(0.1),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMe ? 16 : 0),
-            bottomRight: Radius.circular(isMe ? 0 : 16),
-          ),
-          border: isMe
-              ? null
-              : Border.all(color: theme.accentTxt.withOpacity(0.1)),
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 0.5),
         ),
-        child: MarkdownBody(
-          data: text,
-          styleSheet: MarkdownStyleSheet(
-            p: TextStyle(color: theme.accentTxt, fontSize: 16),
-            strong: TextStyle(
-              color: theme.accentTxt,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-            h1: TextStyle(
-              color: theme.accentTxt,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-            h2: TextStyle(
-              color: theme.accentTxt,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-            h3: TextStyle(
-              color: theme.accentTxt,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-            listBullet: TextStyle(color: theme.accentTxt, fontSize: 16),
-          ),
-        ),
+        child: isReset
+            ? const Icon(Icons.refresh, size: 10, color: Colors.black)
+            : null,
       ),
     );
   }
 
   Widget _messageInput(BuildContext context) {
+
     AppTheme theme = context.watch();
+    final isPro = context.read<AuthProvider>().isPro;
+    final chatStore = context.read<ChatProvider>();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
@@ -247,7 +354,9 @@ User: $text
                 textCapitalization: TextCapitalization.sentences,
                 style: TextStyle(color: theme.accentTxt, fontSize: 16),
                 decoration: InputDecoration(
-                  hintText: 'Type your message...',
+                  hintText: isPro || chatStore.canSendMessage(false)
+                      ? 'Type your message...'
+                      : 'Upgrade to send more messages',
                   border: InputBorder.none,
                   hintStyle: TextStyle(
                     color: theme.accentTxt.withOpacity(0.5),
