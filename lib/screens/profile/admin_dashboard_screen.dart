@@ -390,7 +390,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _adminList(BuildContext context) {
-    AppTheme theme = context.watch();
+    context.watch();
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('admins').snapshots(),
       builder: (context, snapshot) {

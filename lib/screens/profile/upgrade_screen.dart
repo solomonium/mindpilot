@@ -290,23 +290,25 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
   Future<void> _launchWhatsApp() async {
     final phoneNumber = "2349043230179";
-    final userEmail = context.read<AuthProvider>().user?.email ?? "Unknown Email";
+    final userEmail =
+        context.read<AuthProvider>().user?.email ?? "Unknown Email";
     final message = Uri.encodeComponent(
-        "Hello MindPilot Team, I would like to upgrade my account to MindPilot Pro. Here is my email: $userEmail");
+      "Hello MindPilot Team, I would like to upgrade my account to MindPilot Pro. Here is my email: $userEmail",
+    );
     final url = "https://wa.me/$phoneNumber?text=$message";
-
 
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else {
       if (mounted) {
         context.showInAppNotification(
-            'Could not launch WhatsApp. Please contact 09043230179.');
+          'Could not launch WhatsApp. Please contact 09043230179.',
+        );
       }
     }
   }
 
-  Future<void> _processPurchase() async {
+  Future<void> processPurchase() async {
     // Legacy method - no longer used but kept for reference or future use
     context.showInAppNotification(
       'In-app purchases are coming soon!',

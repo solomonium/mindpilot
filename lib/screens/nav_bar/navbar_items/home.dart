@@ -1,5 +1,4 @@
 import 'package:mindpilot/export.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,18 +15,18 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<HomeProvider>().loadWeeklyStats();
-      
+
       // 1. Fetch Remote Config
       await ConfigService().fetchRemoteConfig();
-      
+
       // 2. Check for App Update
       final currentVersion = '1.0.0'; // Should match pubspec.yaml
       final config = ConfigService();
-      
+
       if (config.isUpdateRequired(currentVersion)) {
         if (mounted) {
           AppHelper.showUpdatePrompt(
-            context, 
+            context,
             version: config.latestVersion,
             force: config.forceUpdate,
           );
@@ -35,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -47,8 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-
-
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24),
           child: Column(
@@ -667,7 +663,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return RichText(text: TextSpan(children: spans));
   }
 
-  Widget _reportItem(
+  Widget reportItem(
     BuildContext context,
     String label,
     String value,
