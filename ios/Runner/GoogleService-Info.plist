@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>802202587833-6u4ljq0ulaqpu4gr8rf77ltopvp6ujem.apps.googleusercontent.com</string>
+	<string>802202587833-0q9f69adk4i65rrvnarvuafl46vjj46g.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.802202587833-6u4ljq0ulaqpu4gr8rf77ltopvp6ujem</string>
+	<string>com.googleusercontent.apps.802202587833-0q9f69adk4i65rrvnarvuafl46vjj46g</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>802202587833-3k9a4lgg1u0ufqsb40n6l5pmfmasu56e.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyDGHTisrJ5CJXYedrChuJIAyevi1yPfsXM</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.archonitDevTest</string>
+	<string>com.solteq.mindpilot</string>
 	<key>PROJECT_ID</key>
 	<string>mindpilot-131f1</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +31,8 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:802202587833:ios:9e48c83870ff102f580168</string>
+	<string>1:802202587833:ios:83b66e87afb1088a580168</string>
+	<key>DATABASE_URL</key>
+	<string>https://mindpilot-131f1-default-rtdb.firebaseio.com</string>
 </dict>
 </plist>

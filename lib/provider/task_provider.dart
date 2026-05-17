@@ -8,6 +8,7 @@ class TaskItem {
   final String? completionTime;
   final String? startTime;
   final int? durationMinutes;
+  final String? remoteId;
   final bool isDone;
 
   TaskItem({
@@ -18,6 +19,7 @@ class TaskItem {
     this.completionTime,
     this.startTime,
     this.durationMinutes,
+    this.remoteId,
     this.isDone = false,
   });
 
@@ -30,6 +32,7 @@ class TaskItem {
       'completionTime': completionTime,
       'startTime': startTime,
       'durationMinutes': durationMinutes,
+      'remoteId': remoteId,
       'isDone': isDone ? 1 : 0,
     };
   }
@@ -46,6 +49,7 @@ class TaskProvider extends ChangeNotifier {
   int get totalCount => _totalCount;
 
   Future<void> loadTasks() async {
+    await SyncService().syncTasksFromFirestore();
     final data = await _dbHelper.getTasks();
     _tasks.clear();
     for (var item in data) {
@@ -57,6 +61,7 @@ class TaskProvider extends ChangeNotifier {
         completionTime: item['completionTime'],
         startTime: item['startTime'],
         durationMinutes: item['durationMinutes'],
+        remoteId: item['remoteId'],
         isDone: item['isDone'] == 1,
       ));
     }
@@ -70,7 +75,7 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addTask(
+  Future<bool> addTask(
     String title, 
     String description, {
     String? completionTime,
@@ -78,34 +83,107 @@ class TaskProvider extends ChangeNotifier {
     int? durationMinutes,
   }) async {
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final task = TaskItem(
-      title: title, 
-      description: description, 
-      date: today,
-      completionTime: completionTime,
-      startTime: startTime,
-      durationMinutes: durationMinutes,
-    );
-    await _dbHelper.insertTask(task.toMap());
-    await loadTasks();
+    
+    if (!await AppHelper.isOnline()) {
+      final context = R.N.navKey.currentContext;
+      if (context != null) context.showInAppNotification(R.S.checkInternet);
+      return false;
+    }
+
+    try {
+      final task = TaskItem(
+        title: title, 
+        description: description, 
+        date: today,
+        completionTime: completionTime,
+        startTime: startTime,
+        durationMinutes: durationMinutes,
+      );
+      final id = await _dbHelper.insertTask(task.toMap());
+      
+      final taskMap = task.toMap();
+      taskMap['id'] = id;
+      await SyncService().pushTaskToFirestore(taskMap);
+      
+      await loadTasks();
+      return true;
+    } catch (e) {
+      safePrint('Error adding task: $e');
+      return false;
+    }
+  }
+
+  Future<void> updateTaskDescription(int id, String newDescription) async {
+    final index = _tasks.indexWhere((t) => t.id == id);
+    if (index != -1) {
+      final task = _tasks[index];
+      final updatedTask = TaskItem(
+        id: task.id,
+        title: task.title,
+        description: newDescription,
+        date: task.date,
+        completionTime: task.completionTime,
+        startTime: task.startTime,
+        durationMinutes: task.durationMinutes,
+        remoteId: task.remoteId,
+        isDone: task.isDone,
+      );
+      
+      await _dbHelper.updateTask(id, updatedTask.toMap());
+      SyncService().pushTaskToFirestore(updatedTask.toMap());
+      _tasks[index] = updatedTask;
+      notifyListeners();
+    }
   }
 
 
   Future<void> toggleTaskDone(TaskItem task) async {
+    if (!await AppHelper.isOnline()) {
+      final context = R.N.navKey.currentContext;
+      if (context != null) context.showInAppNotification('Network required to update tasks.');
+      return;
+    }
+
     final updatedTask = TaskItem(
       id: task.id,
       title: task.title,
       description: task.description,
       date: task.date,
       completionTime: task.completionTime,
+      startTime: task.startTime,
+      durationMinutes: task.durationMinutes,
+      remoteId: task.remoteId,
       isDone: !task.isDone,
     );
     await _dbHelper.updateTask(task.id!, updatedTask.toMap());
+    
+    SyncService().pushTaskToFirestore(updatedTask.toMap());
+    
     await loadTasks();
   }
 
   Future<void> deleteTask(int id) async {
+    final task = _tasks.firstWhere((t) => t.id == id);
+    if (task.remoteId != null) {
+      SyncService().deleteTaskFromFirestore(task.remoteId!);
+    }
     await _dbHelper.deleteTask(id);
+    await loadTasks();
+  }
+
+  Future<void> clearAllTasks() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('tasks')
+          .get();
+      for (var doc in snapshot.docs) {
+        await doc.reference.delete();
+      }
+    }
+    await _dbHelper.clearTasks();
     await loadTasks();
   }
 }

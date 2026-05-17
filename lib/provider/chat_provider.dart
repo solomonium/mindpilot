@@ -1,11 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mindpilot/export.dart';
 
 class ChatProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _messages = [];
   final GeminiService _geminiService = GeminiService();
-  final List<String> _availableModels = [];
+  final List<String> _availableModels = [
+    'google/gemini-flash-1.5-8b:free',
+    'mistralai/mistral-7b-instruct:free',
+  ];
 
-  String _selectedModel = 'gemini-1.5-flash';
+  String _selectedModel = 'google/gemini-flash-1.5-8b:free';
   int _modelIndex = 0;
 
   bool _isInitialized = false;
@@ -44,8 +48,11 @@ class ChatProvider extends ChangeNotifier {
     _geminiService.init(apiKey, modelName: _selectedModel);
     
     if (_messages.isEmpty) {
+      final user = FirebaseAuth.instance.currentUser;
+      final name = user?.displayName?.getFirstName();
+      final greeting = name != null ? "Hello $name! I'm your MindPilot assistant. How can I help you today?" : "Hello! I'm your MindPilot assistant. How can I help you today?";
       _messages.add({
-        "text": "Hello! I'm your MindPilot assistant. How can I help you today?",
+        "text": greeting,
         "isMe": false,
       });
     }
@@ -83,7 +90,7 @@ class ChatProvider extends ChangeNotifier {
     _messages.add({"text": text, "isMe": isMe});
     
     // Automatically alternate model for the next request
-    if (isMe) {
+    if (isMe && _availableModels.isNotEmpty) {
       _modelIndex = (_modelIndex + 1) % _availableModels.length;
       _selectedModel = _availableModels[_modelIndex];
       final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';

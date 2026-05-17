@@ -43,11 +43,12 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
   }
 
   Future<void> _saveTask() async {
+    if (_isLoading) return;
     final title = _titleController.text.trim();
     final desc = _descController.text.trim();
 
     if (title.isEmpty) {
-      context.showInAppNotification('Please enter a task title');
+      context.showInAppNotification(R.S.enterTaskTitle);
       return;
     }
 
@@ -64,13 +65,18 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
       completionTimeStr = DateFormat('hh:mm a').format(endDt);
     }
 
-    await context.read<TaskProvider>().addTask(
+    final success = await context.read<TaskProvider>().addTask(
       title, 
       desc, 
       startTime: startTimeStr,
       durationMinutes: _durationMinutes,
       completionTime: completionTimeStr,
     );
+    
+    if (!success) {
+      setState(() => _isLoading = false);
+      return;
+    }
 
     if (_startTime != null) {
       final now = DateTime.now();
@@ -90,7 +96,7 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
 
     if (mounted) {
       context.showInAppNotification(
-        'Task created successfully!',
+        R.S.taskCreated,
         type: InAppNotificationType.success,
       );
       context.pop();
@@ -108,15 +114,18 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: PrimaryText(
-            text: 'Create New Task',
+            text: R.S.createTaskTitle,
             color: theme.accentTxt,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
           centerTitle: true,
-          leading: Icon(
-            Icons.chevron_left,
-            color: theme.accentTxt,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Icon(
+              Icons.chevron_left,
+              color: theme.accentTxt,
+            ),
           ).rippleClick(() => context.pop()),
         ),
         body: Stack(
@@ -148,34 +157,34 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   PrimaryText(
-                    text: 'What do you want to accomplish?',
+                    text: R.S.taskAccomplish,
                     color: theme.accentTxt,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                   12.verticalSpace,
                   SecondaryText(
-                    text: 'Setting clear tasks helps you stay focused and productive.',
+                    text: R.S.taskDescHint,
                     color: theme.accentTxt.withOpacity(0.7),
                   ),
                   24.verticalSpace,
                   _buildInputField(
                     theme,
-                    label: 'Task Title',
-                    hint: 'e.g., Morning Meditation',
+                    label: R.S.taskTitleLabel,
+                    hint: R.S.taskTitleHint,
                     controller: _titleController,
                   ),
                   24.verticalSpace,
                   _buildInputField(
                     theme,
-                    label: 'Description (Optional)',
-                    hint: 'Details about your task...',
+                    label: R.S.taskDescriptionLabel,
+                    hint: R.S.taskDescriptionHint,
                     controller: _descController,
                     maxLines: 4,
                   ),
                   24.verticalSpace,
                   SecondaryText(
-                    text: 'Starting Time',
+                    text: R.S.startTimeLabel,
                     color: theme.accentTxt.withOpacity(0.9),
                     fontWeight: FontWeight.bold,
                   ),
@@ -191,7 +200,7 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         PrimaryText(
-                          text: _startTime == null ? 'Set Start Time' : _startTime!.format(context),
+                          text: _startTime == null ? R.S.setStartTime : _startTime!.format(context),
                           color: theme.accentTxt.withOpacity(_startTime == null ? 0.4 : 1),
                           fontSize: 16,
                         ),
@@ -204,7 +213,7 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       SecondaryText(
-                        text: 'Duration',
+                        text: R.S.durationLabel,
                         color: theme.accentTxt.withOpacity(0.9),
                         fontWeight: FontWeight.bold,
                       ),
@@ -246,7 +255,7 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
                   ],
                   40.verticalSpace,
                   CustomButton(
-                    label: 'Create Task',
+                    label: R.S.createTask,
                     onPressed: _saveTask,
                     backgroundColor: theme.primaryBase,
                   ),

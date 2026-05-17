@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mindpilot/export.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -18,15 +17,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool _isLoading = false;
   bool _isBroadcasting = false;
   bool _isUpdatingMembership = false;
-  bool _isRefreshing = false;
 
   String? _foundUserUid;
   String _foundUserType = 'Freemium';
   bool _isSearchingUser = false;
 
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _versionController = TextEditingController();
+  final TextEditingController _intervalController = TextEditingController();
+  final TextEditingController _updateUrlController = TextEditingController();
+  bool _forceUpdateValue = false;
+  bool _isEditMode = false;
+  bool _isUpdatingConfig = false;
+
+  int _totalUsers = 0;
+  bool _isLoadingUsersCount = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final config = ConfigService();
+    _phoneController.text = config.supportPhone;
+    _versionController.text = config.latestVersion;
+    _intervalController.text = config.quoteIntervalMs.toString();
+    _updateUrlController.text = config.updateUrl;
+    _forceUpdateValue = config.forceUpdate;
+    _fetchTotalUsers();
+  }
+
+  Future<void> _fetchTotalUsers() async {
+    try {
+      final countSnapshot = await FirebaseFirestore.instance.collection('users').count().get();
+      setState(() {
+        _totalUsers = countSnapshot.count ?? 0;
+        _isLoadingUsersCount = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching user count: $e');
+      setState(() => _isLoadingUsersCount = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -97,23 +131,95 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  String _selectedBroadcastType = 'update';
+  final TextEditingController _broadcastTitleController = TextEditingController(
+    text: 'Daily Reflection',
+  );
+  final TextEditingController _broadcastBodyController = TextEditingController(
+    text:
+        'Take a moment to reflect on your achievements today. You are making great progress!',
+  );
+
   Widget _broadcastCard(BuildContext context) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       gradient: theme.glassGradient,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SecondaryText(
-            text:
-                'Send a reminder to all users to reflect on their daily achievements.',
+            text: 'Send a broadcast message to all users instantly.',
             color: theme.accentTxt.withOpacity(0.7),
             fontSize: 13,
-            textAlign: TextAlign.center,
           ),
           20.verticalSpace,
+          _configEditField(theme, 'Broadcast Title', _broadcastTitleController),
+          16.verticalSpace,
+          _configEditField(
+            theme,
+            'Broadcast Message',
+            _broadcastBodyController,
+            maxLines: 5,
+          ),
+          16.verticalSpace,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SecondaryText(
+                text: 'Broadcast Type:',
+                color: theme.accentTxt.withOpacity(0.7),
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+              8.verticalSpace,
+              Row(
+                children: [
+                  Expanded(child: _typeOption('Regular Alert', 'update')),
+                  12.horizontalSpace,
+                  Expanded(child: _typeOption('Daily Insight', 'insight')),
+                ],
+              ),
+            ],
+          ),
+          16.verticalSpace,
+          SecondaryText(
+            text: 'Quick Templates:',
+            color: theme.accentTxt.withOpacity(0.5),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+          8.verticalSpace,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _templateChip(
+                  'Task Reminder',
+                  'Have you completed your tasks today?',
+                ),
+                8.horizontalSpace,
+                _templateChip(
+                  'Learning Check',
+                  'What have you learned today that made you better?',
+                ),
+                8.horizontalSpace,
+                _templateChip(
+                  'Focus Mode',
+                  'Time to dive into a focus session and get things done!',
+                ),
+                8.horizontalSpace,
+                _templateChip(
+                  'Insight of the Day',
+                  'Growth begins where your comfort zone ends. Push yourself today!',
+                  isInsight: true,
+                ),
+              ],
+            ),
+          ),
+          24.verticalSpace,
           CustomButton(
-            label: 'Send Achievement Reminder',
+            label: 'Deploy Broadcast',
             loading: _isBroadcasting,
             onPressed: _sendBroadcastReminder,
           ),
@@ -123,14 +229,63 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _sendBroadcastReminder() async {
+    final title = _broadcastTitleController.text.trim();
+    final body = _broadcastBodyController.text.trim();
+
+    if (title.isEmpty || body.isEmpty) {
+      context.showInAppNotification('Title and message are required');
+      return;
+    }
+
     setState(() => _isBroadcasting = true);
     try {
-      // In a real app, this would trigger a Cloud Function or send via FCM topics
-      // For now, we'll simulate the broadcast successfully
-      await Future.delayed(const Duration(seconds: 2));
+      // Find if an identical broadcast already exists in Firestore
+      final existingQuery = await FirebaseFirestore.instance
+          .collection('broadcasts')
+          .where('title', isEqualTo: title)
+          .where('body', isEqualTo: body)
+          .limit(1)
+          .get();
+
+      if (existingQuery.docs.isNotEmpty) {
+        final doc = existingQuery.docs.first;
+        final lastCreated = doc.data()['createdAt'] as Timestamp?;
+        
+        // Prevent rapid double-sends within a 1-minute window
+        if (lastCreated != null) {
+          final difference = DateTime.now().difference(lastCreated.toDate());
+          if (difference.inSeconds < 60) {
+            if (mounted) {
+              context.showInAppNotification(
+                '⚠️ Duplicate broadcast blocked to prevent spamming users.',
+                type: InAppNotificationType.error,
+              );
+            }
+            setState(() => _isBroadcasting = false);
+            return;
+          }
+        }
+
+        // Reuse the document and update its timestamp to trigger all listeners
+        await FirebaseFirestore.instance
+            .collection('broadcasts')
+            .doc(doc.id)
+            .update({
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+      } else {
+        // Create a new document if it does not exist
+        await FirebaseFirestore.instance.collection('broadcasts').add({
+          'title': title,
+          'body': body,
+          'type': _selectedBroadcastType,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
       if (mounted) {
         context.showInAppNotification(
-          '🚀 Broadcast Sent to all users!',
+          '🚀 Broadcast Sent Successfully!',
           type: InAppNotificationType.success,
         );
       }
@@ -140,8 +295,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() => _isBroadcasting = false);
   }
 
+
   Widget _userManagementCard(BuildContext context) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       gradient: theme.glassGradient,
@@ -269,7 +425,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _sectionTitle(BuildContext context, String title) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
     return PrimaryText(
       text: title,
       color: theme.accentTxt,
@@ -279,41 +435,198 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _configCard(BuildContext context) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
     final config = ConfigService();
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       gradient: theme.glassGradient,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _configItem('Registered Users', _isLoadingUsersCount ? 'Loading...' : '$_totalUsers'),
           _configItem('Version', config.latestVersion),
-          _configItem('Interval (ms)', config.quoteIntervalMs.toString()),
-          _configItem('Force Update', config.forceUpdate ? 'YES' : 'NO'),
-          16.verticalSpace,
-          CustomButton(
-            label: 'Refresh System Settings',
-            loading: _isRefreshing,
-            onPressed: () async {
-              setState(() => _isRefreshing = true);
-              await config.fetchRemoteConfig();
-              setState(() {
-                _isRefreshing = false;
-              });
-              if (mounted) {
-                context.showInAppNotification(
-                  'System settings refreshed!',
-                  type: InAppNotificationType.success,
-                );
-              }
-            },
+          _configItem(
+            'Interval (mins)',
+            (config.quoteIntervalMs / 60000).round().toString(),
           ),
+          _configItem('Force Update', config.forceUpdate ? 'YES' : 'NO'),
+          _configItem('Support Phone', config.supportPhone),
+          16.verticalSpace,
+          Row(
+            children: [
+              Checkbox(
+                value: _isEditMode,
+                activeColor: theme.primaryBase,
+                onChanged: (val) => setState(() => _isEditMode = val ?? false),
+              ),
+              SecondaryText(
+                text: 'Enable Configuration Edit Mode',
+                color: theme.accentTxt,
+                fontSize: 13,
+              ),
+            ],
+          ),
+          if (_isEditMode) ...[
+            20.verticalSpace,
+            const Divider(color: Colors.white24),
+            20.verticalSpace,
+            _configEditField(theme, 'Latest Version', _versionController),
+            16.verticalSpace,
+            _configEditField(
+              theme,
+              'Quote Interval (Minutes)',
+              _intervalController,
+              isNumber: true,
+            ),
+            16.verticalSpace,
+            _configEditField(theme, 'Update URL', _updateUrlController),
+            16.verticalSpace,
+            _configEditField(theme, 'Support Phone', _phoneController),
+            16.verticalSpace,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                SecondaryText(
+                  text: 'Force Update Required',
+                  color: theme.accentTxt.withOpacity(0.7),
+                ),
+                Switch(
+                  value: _forceUpdateValue,
+                  activeColor: theme.primaryBase,
+                  onChanged: (val) => setState(() => _forceUpdateValue = val),
+                ),
+              ],
+            ),
+            24.verticalSpace,
+            CustomButton(
+              label: 'Save & Deploy Configuration',
+              loading: _isUpdatingConfig,
+              onPressed: _updateRemoteConfig,
+            ),
+          ],
+          if (!_isEditMode) ...[
+            16.verticalSpace,
+            Center(
+              child:
+                  SecondaryText(
+                    text: 'Refresh Current Settings',
+                    color: theme.primaryBase.withOpacity(0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ).rippleClick(() async {
+                    await config.fetchRemoteConfig();
+                    setState(() {
+                      _phoneController.text = config.supportPhone;
+                      _versionController.text = config.latestVersion;
+                      _intervalController.text = config.quoteIntervalMs
+                          .toString();
+                      _updateUrlController.text = config.updateUrl;
+                      _forceUpdateValue = config.forceUpdate;
+                    });
+                    if (mounted) {
+                      context.showInAppNotification(
+                        'System settings refreshed!',
+                        type: InAppNotificationType.success,
+                      );
+                    }
+                  }),
+            ),
+          ],
         ],
       ),
     );
   }
 
+  Widget _configEditField(
+    AppTheme theme,
+    String label,
+    TextEditingController controller, {
+    bool isNumber = false,
+    int? maxLines,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SecondaryText(
+          text: label,
+          color: theme.accentTxt.withOpacity(0.7),
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+        4.verticalSpace,
+        CustomTextField(
+          textController: controller,
+          hintText: 'Enter $label',
+          textInputType: isNumber
+              ? TextInputType.number
+              : (maxLines != null
+                    ? TextInputType.multiline
+                    : TextInputType.text),
+          autoFocus: false,
+          maxLines: maxLines,
+          textInputAction: maxLines != null
+              ? TextInputAction.newline
+              : TextInputAction.next,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _updateRemoteConfig() async {
+    final phone = _phoneController.text.trim();
+    final version = _versionController.text.trim();
+    final intervalStr = _intervalController.text.trim();
+    final updateUrl = _updateUrlController.text.trim();
+
+    if (phone.isEmpty ||
+        version.isEmpty ||
+        intervalStr.isEmpty ||
+        updateUrl.isEmpty) {
+      context.showInAppNotification('All fields are required');
+      return;
+    }
+
+    final intervalMinutes = int.tryParse(intervalStr);
+    if (intervalMinutes == null) {
+      context.showInAppNotification('Interval must be a number');
+      return;
+    }
+
+    final intervalMs = intervalMinutes * 60000;
+
+    setState(() => _isUpdatingConfig = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('app_config')
+          .doc('settings')
+          .update({
+            'support_phone': phone,
+            'latest_version': version,
+            'quote_interval_ms': intervalMs,
+            'update_url': updateUrl,
+            'force_update': _forceUpdateValue,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      // Refresh local config
+      await ConfigService().fetchRemoteConfig();
+
+      if (mounted) {
+        context.showInAppNotification(
+          'Remote Configuration Deployed Successfully!',
+          type: InAppNotificationType.success,
+        );
+        setState(() => _isEditMode = false);
+      }
+    } catch (e) {
+      if (mounted) context.showInAppNotification('Error: $e');
+    } finally {
+      setState(() => _isUpdatingConfig = false);
+    }
+  }
+
   Widget _configItem(String label, String value) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -331,7 +644,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _addAdminRow(BuildContext context) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
     return Row(
       children: [
         Expanded(
@@ -390,7 +703,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _adminList(BuildContext context) {
-    context.watch();
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('admins').snapshots(),
       builder: (context, snapshot) {
@@ -422,7 +734,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     String email, {
     bool isSuper = false,
   }) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
     return GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -456,6 +768,60 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               fontWeight: FontWeight.bold,
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _templateChip(String label, String message, {bool isInsight = false}) {
+    AppTheme theme = context.watch<AppTheme>();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isInsight ? theme.primaryBase.withOpacity(0.2) : theme.accentTxt.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isInsight ? theme.primaryBase.withOpacity(0.3) : theme.accentTxt.withOpacity(0.1)),
+      ),
+      child: SecondaryText(
+        text: label,
+        color: isInsight ? theme.primaryBase : theme.accentTxt.withOpacity(0.8),
+        fontSize: 11,
+      ),
+    ).rippleClick(() {
+      _broadcastTitleController.text = label;
+      _broadcastBodyController.text = message;
+      if (isInsight) _selectedBroadcastType = 'insight';
+      setState(() {});
+    });
+  }
+
+  Widget _typeOption(String label, String value) {
+    AppTheme theme = context.watch<AppTheme>();
+    bool isSelected = _selectedBroadcastType == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedBroadcastType = value);
+        if (value == 'insight') {
+          _broadcastTitleController.text = 'Daily Reflection';
+          _broadcastBodyController.text = 'Growth begins where your comfort zone ends. Push yourself today!';
+        } else {
+          _broadcastTitleController.text = 'Daily Reflection';
+          _broadcastBodyController.text = 'Take a moment to reflect on your achievements today. You are making great progress!';
+        }
+      },
+      child: Container(
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? theme.primaryBase : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isSelected ? theme.primaryBase : theme.accentTxt.withOpacity(0.2)),
+        ),
+        child: SecondaryText(
+          text: label,
+          color: isSelected ? Colors.white : theme.accentTxt.withOpacity(0.6),
+          fontSize: 12,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
       ),
     );
   }

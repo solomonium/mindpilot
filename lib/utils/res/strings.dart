@@ -29,70 +29,102 @@ class Strings {
   String get enterPwd => 'Enter Password';
   String get login => 'Log in';
 
+  /// Signup
+  String get firstName => 'First Name';
+  String get lastName => 'Last Name';
+  String get confirmPassword => 'Confirm Password';
+  String get termsAndPrivacy => 'By signing up, you agree to our Terms of Service and Privacy Policy.';
+
   /// Home Screen
-  String get goodMorningDavid => 'Good Morning, David 👋';
   String get readyToMake => 'Ready to make today productive?';
   String get dailyInsight => 'Daily Insight';
   String get quickActions => 'Quick Actions';
-  String get decisionAnalyzer => 'Decision Analyzer';
   String get focusSession => 'Focus Session';
   String get todaysProgress => "Today's Progress";
-  String get takeAction => 'Take Action';
-  String get myGroups => 'My Groups';
-  String get recentActivity => 'Recent Activity';
   String get viewAll => 'View All';
-  String get seeAll => 'See All';
-  String get balanceText => 'Balance: ';
+  String get createTask => 'Create Task';
+  String get todaysTasks => "Today's Tasks";
+  String get noTasks => 'No tasks for today. Start by creating one!';
 
-  // Legacy/Reference Strings (needed for compilation)
-  String get helloBeatrice => 'Hello, Beatrice!';
-  String get pendingActions => 'You have 2 actions pending today';
-  String get totalWalletBalance => 'Total Wallet Balance';
-  String get ugxBalance => 'UGX 520,000';
-  String get deposit => 'Deposit';
-  String get withdraw => 'Withdraw';
-  String get contribute => 'Contribute';
-  String get sendMoney => 'Send money';
-  String get fileClaim => 'File a claim';
-  String get startFundraiser => 'Start a fundraiser';
-  String get urgentActions => 'Urgent Actions';
+  /// Decision Analyzer
+  String get decisionAnalyzer => 'Decision Analyzer';
+  String get analyzeDecision => 'Analyze My Decision';
+  String get decisionQuestion => 'What decision are you\nthinking about?';
+  String get decisionDesc => 'Describe your situation in detail. The Mind Pilot will analyze and guide you.';
+  String get importanceTitle => 'How important is this decision?';
+  String get feelingTitle => 'How do you feel about this?';
+  String get low => 'Low';
+  String get high => 'High';
 
-  /// Wallet Screen
-  String get walletOverview => 'Wallet Overview';
-  String get manageWallets => 'Manage your wallets and view balances';
-  String get mainUgxWalletBalance => 'Main UGX Wallet Balance';
-  String get walletId => 'Wallet ID: 7234560';
-  String get thisIsMainWallet => 'This is your main wallet balance';
-  String get addMoney => 'Add Money';
-  String get transact => 'Transact';
-  String get yourSubWallets => 'Your Sub-Wallets';
-  String get transactions => 'Transactions';
+  /// Analysis Result
+  String get analysisResult => 'Analysis Result';
+  String get overallRecommendation => 'Overall Recommendation';
+  String get analysisBreakdown => 'Analysis Breakdown';
+  String get breakdownDesc => 'Based on your input, here is the structured clarity you need.';
+  String get textColor => 'Text Color';
+  String get continueAnalysis => 'Continue';
+  String get done => 'Done';
 
-  /// Direct Screen
-  String get directMessages => 'Direct messages';
-  String get unreads => 'Unreads';
-  String get findDM => 'Find a DM';
+  /// Journal
+  String get myJournal => 'My Journal';
+  String get noEntries => 'No journal entries yet.';
+  String get deleteEntry => 'Delete Entry?';
+  String get deleteConfirm => 'Are you sure you want to delete this journal entry? This action cannot be undone.';
+  String get delete => 'Delete';
+  String get cancel => 'Cancel';
+  String get journalTip => 'Tip: Swipe left on any entry to delete it from your journal.';
+  String get notificationTip => 'Swipe left on any alert or update to delete it.';
 
-  /// Signup Screen
-  String get firstName => 'First Name';
-  String get enterFirstName => 'Enter first name';
-  String get lastName => 'Last Name';
-  String get enterLastName => 'Enter last name';
-  String get phoneNumber => 'Phone Number';
-  String get enterPhoneNumber => 'Enter phone number';
-  String get createPasswordLbl => 'Create Password';
-  String get enterCreatePassword => 'Create password';
-  String get confirmPassword => 'Confirm Password';
-  String get enterConfirmPassword => 'Confirm password';
-  String get termsAndPrivacy =>
-      'By clicking the create account button below, you agree to the Terms of MindPilot and acknowledge the privacy policy,';
+  /// AI Preferences
+  String get aiPreferences => 'AI Preferences';
+  String get responseStyle => 'Response Style';
+  String get responseTone => 'AI Response Tone';
+  String get toneDesc => 'Choose how detailed you want the AI responses to be.';
+  String get personality => 'Personality';
+  String get aiPersona => 'AI Persona';
+  String get personaDesc => 'Select the primary personality trait of your AI assistant.';
+  String get chatManagement => 'Chat Management';
+  String get resetContext => 'Reset AI Context';
+  String get resetContextDesc => 'Clear the current conversation memory for a fresh start.';
+  String get savePreferences => 'Save Preferences';
 
-  /// Groups Screen
-  String get groups => 'Groups';
-  String get exploreCrowdfunds => 'Explore crowdfunds';
-  String get recommended => 'Recommended';
+  /// Personalization
+  String get personalizeTitle => 'Personalize MindPilot';
+  String get personalizeDesc => 'Select your main focus areas.\nYou can choose as many as you like.';
+  String get skip => 'Skip';
+  String get continueBtn => 'Continue';
 
-  /// Explore Groups Screen
-  String get exploreGroups => 'Explore Groups';
-  String get join => 'Join';
+  /// App Preferences
+  String get appPreferences => 'App Preferences';
+  String get appearance => 'Appearance';
+  String get notifications => 'Notifications';
+  String get pushNotifications => 'Push Notifications';
+  String get taskReminder => '9 PM Task Reminder';
+  String get emailNotifications => 'Email Notifications';
+  String get lightMode => 'Light Mode';
+  String get darkMode => 'Dark Mode';
+  String get systemDefault => 'System Default';
+
+  /// Status & Notifications
+  String get aiContextReset => 'AI context reset successfully.';
+  String get preferencesSaved => 'AI preferences saved!';
+  String get entryDeleted => 'Entry removed from journal';
+  String get entryAdded => 'Entry added successfully';
+  String get errorSaving => 'Error saving preferences';
+  String get pleaseDescribe => 'Please describe your situation first.';
+
+  /// Task Creation
+  String get createTaskTitle => 'Create New Task';
+  String get taskAccomplish => 'What do you want to accomplish?';
+  String get taskDescHint => 'Setting clear tasks helps you stay focused and productive.';
+  String get taskTitleLabel => 'Task Title';
+  String get taskTitleHint => 'e.g., Morning Meditation';
+  String get taskDescriptionLabel => 'Description (Optional)';
+  String get taskDescriptionHint => 'Details about your task...';
+  String get startTimeLabel => 'Starting Time';
+  String get setStartTime => 'Set Start Time';
+  String get durationLabel => 'Duration';
+  String get taskCreated => 'Task created successfully!';
+  String get enterTaskTitle => 'Please enter a task title';
+  String get checkInternet => 'Please check your internet connection and try again.';
 }

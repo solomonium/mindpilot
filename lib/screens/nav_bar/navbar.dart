@@ -58,7 +58,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    final user = context.watch<AuthProvider>().user;
+    final user = context.watch<AppAuthProvider>().user;
     return Consumer<HomeProvider>(
       builder: (context, home, _) {
         return InkWell(

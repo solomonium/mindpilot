@@ -1,12 +1,35 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:mindpilot/export.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
+import 'package:screen_protector/screen_protector.dart';
 
 class AppHelper {
   static void unFocus() {
     WidgetsBinding.instance.focusManager.primaryFocus?.unfocus();
+  }
+
+  static Future<bool> isOnline() async {
+    try {
+      final result = await InternetAddress.lookup('google.com').timeout(const Duration(seconds: 5));
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> setScreenshotProtection(bool enable) async {
+    try {
+      if (enable) {
+        await ScreenProtector.preventScreenshotOn();
+      } else {
+        await ScreenProtector.preventScreenshotOff();
+      }
+    } catch (e) {
+      safePrint('Error setting screenshot protection: $e');
+    }
   }
 
   static void showPaywall(BuildContext context, {String? feature}) {
@@ -221,6 +244,107 @@ class AppHelper {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static void showFeedbackPrompt(BuildContext context) {
+    AppTheme theme = context.read();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.brandDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: EdgeInsets.zero,
+        content: SizedBox(
+          width: 340,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    child: Image.asset(
+                      R.png.loginBg.png,
+                      height: 160,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, theme.brandDark],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 20,
+                    right: 20,
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                    ).clickable(() => Navigator.pop(context)),
+                  ),
+                  Positioned(
+                    bottom: 10,
+                    left: 20,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.rate_review_rounded,
+                          color: Color(0xFF8B5CF6),
+                          size: 32,
+                        ),
+                        8.verticalSpace,
+                        PrimaryText(
+                          text: 'Your Opinion Matters',
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    SecondaryText(
+                      text: 'How is your experience with MindPilot so far? We would love to hear your thoughts and ideas on how we can improve for you!',
+                      color: Colors.white70,
+                      textAlign: TextAlign.center,
+                    ),
+                    32.verticalSpace,
+                    CustomButton(
+                      label: 'Share Feedback',
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.push(const FeedbackScreen());
+                      },
+                    ),
+                    16.verticalSpace,
+                    SecondaryText(
+                      text: 'Remind me later',
+                      fontSize: 13,
+                      color: Colors.white38,
+                    ).clickable(() => Navigator.pop(context)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

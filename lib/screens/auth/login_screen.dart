@@ -11,12 +11,11 @@ class _LoginScreenState extends State<LoginScreen> with FormMixin {
   final email = TextEditingController();
   final password = TextEditingController();
   bool rememberMe = false;
-  bool _showEmailLogin = false;
 
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    bool isLoading = context.watch<AuthProvider>().isLoading;
+    bool isLoading = context.watch<AppAuthProvider>().isLoading;
 
     return LoadingOverlay(
       isLoading: isLoading,
@@ -97,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> with FormMixin {
                         label: 'Google',
                         icon: R.png.google.imgPng,
                         onPressed: () => context
-                            .read<AuthProvider>()
+                            .read<AppAuthProvider>()
                             .loginWithGoogle(context),
                       ),
                       16.verticalSpace,
@@ -106,9 +105,27 @@ class _LoginScreenState extends State<LoginScreen> with FormMixin {
                         label: 'Facebook',
                         icon: R.png.facebook.svg,
                         isSvg: true,
-                        onPressed: () {},
+                        onPressed: () {
+                          context.showInAppNotification(
+                            'Facebook login is coming soon!',
+                            type: InAppNotificationType.info,
+                          );
+                        },
+                      ),
+                      16.verticalSpace,
+                      _socialButton(
+                        context,
+                        label: 'Apple',
+                        icon: Icons.apple,
+                        onPressed: () {
+                          context.showInAppNotification(
+                            'Apple login is coming soon!',
+                            type: InAppNotificationType.info,
+                          );
+                        },
                       ),
                       32.verticalSpace,
+                      /*
                       Row(
                         children: [
                           SizedBox(
@@ -184,13 +201,13 @@ class _LoginScreenState extends State<LoginScreen> with FormMixin {
                         CustomButton(
                           label: 'Sign In',
                           onPressed: () =>
-                              context.read<AuthProvider>().loginWithEmail(
+                              context.read<AppAuthProvider>().loginWithEmail(
                                 context,
                                 email.text,
                                 password.text,
                               ),
                           backgroundColor: theme.primaryBase,
-                          loading: context.watch<AuthProvider>().isLoading,
+                          loading: context.watch<AppAuthProvider>().isLoading,
                         ),
                       ],
                       40.verticalSpace,
@@ -211,6 +228,7 @@ class _LoginScreenState extends State<LoginScreen> with FormMixin {
                           }),
                         ],
                       ),
+                      */
                       100.verticalSpace, // Extra space to prevent overlap with fixed footer
                     ],
                   ),
@@ -231,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> with FormMixin {
                     ),
                     4.verticalSpace,
                     SecondaryText(
-                      text: 'Version 1.0.0+1',
+                      text: 'Version ${ConfigService().currentAppVersion}',
                       color: theme.accentTxt.withOpacity(0.3),
                       fontSize: 10,
                     ),
@@ -245,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen> with FormMixin {
     );
   }
 
-  Widget _buildTextField(
+  Widget buildTextField(
     BuildContext context,
     String label,
     TextEditingController controller,

@@ -8,7 +8,7 @@ class ProgressReportScreen extends StatelessWidget {
     AppTheme theme = context.watch();
     return Consumer2<JournalProvider, TaskProvider>(
       builder: (context, journal, taskStore, _) {
-        final isPro = context.watch<AuthProvider>().isPro;
+        final isPro = context.watch<AppAuthProvider>().isPro;
 
         // Calculate dynamic values
         final taskRate =
@@ -36,11 +36,36 @@ class ProgressReportScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
             centerTitle: true,
-            leading: Icon(
-              Icons.arrow_back_ios,
-              color: theme.accentTxt,
-              size: 20,
-            ).rippleClick(() => context.pop()),
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: Icon(
+                Icons.arrow_back_ios,
+                color: theme.accentTxt,
+                size: 20,
+              ).rippleClick(() => context.pop()),
+            ),
+            actions: [
+              Icon(
+                Icons.share_outlined,
+                color: theme.accentTxt,
+              ).rippleClick(() {
+                final user = context.read<AppAuthProvider>().user;
+                final homeStore = context.read<HomeProvider>();
+                final downloadUrl = ConfigService().updateUrl;
+                ShareService.captureAndShare(
+                  context,
+                  text: "Reflecting on a week of growth! 🌱 My MindPilot weekly report shows exactly where I've focused and how far I've come. Ready to start your clarity journey?\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Growth #WeeklyReport",
+                  widget: ShareableCard(
+                    mode: ShareableCardMode.progress,
+                    userName: user?.displayName,
+                    focusTime: '${homeStore.weeklyFocusMinutes}m',
+                    tasksDone: homeStore.weeklyTasks.toString(),
+                    achievement: 'Weekly Growth',
+                  ),
+                );
+              }),
+              20.horizontalSpace,
+            ],
           ),
           body: Stack(
             children: [

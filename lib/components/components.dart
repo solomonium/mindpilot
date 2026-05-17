@@ -10,3 +10,4 @@ export 'primary_text.dart';
 export 'quick_amount_chip.dart';
 export 'secondary_text.dart';
 export 'glass_container.dart';
+export 'shareable_card.dart';

@@ -13,34 +13,4 @@ class Mock {
     {"icon": Icons.book_outlined, "label": "Journal", 'setIndex': 3},
     {"icon": Icons.person_outline, "label": "Profile", 'setIndex': 4},
   ];
-
-  static List<Map<String, dynamic>> quickActions(BuildContext context) {
-    AppTheme theme = context.watch();
-    return [
-      {
-        "icon": R.png.plus.svg,
-        "label": R.S.contribute,
-        "bgColor": theme.primaryBase.withOpacity(0.1),
-        "iconColor": theme.primaryBase,
-      },
-      {
-        "icon": R.png.send.svg,
-        "label": R.S.sendMoney,
-        "bgColor": theme.purplePrimary.withOpacity(0.1),
-        "iconColor": theme.purplePrimary,
-      },
-      {
-        "icon": R.png.claim.svg,
-        "label": R.S.fileClaim,
-        "bgColor": theme.successPrimary.withOpacity(0.1),
-        "iconColor": theme.successPrimary,
-      },
-      {
-        "icon": R.png.heart.svg,
-        "label": R.S.startFundraiser,
-        "bgColor": theme.warningPrimary.withOpacity(0.1),
-        "iconColor": theme.warningPrimary,
-      },
-    ];
-  }
 }

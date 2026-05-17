@@ -8,8 +8,13 @@ class HomeProvider extends BaseProvider {
   int get navIndex => _navIndex;
   set navIndex(int val) {
     _navIndex = val;
-    safePrint(val);
     notifyListeners();
+    
+    // Log screen view to Analytics
+    final screenNames = ['Home', 'Focus', 'Decision', 'Journal', 'Profile'];
+    if (val >= 0 && val < screenNames.length) {
+      AnalyticsService.logScreenView(screenNames[val]);
+    }
   }
 
   // Weekly Stats

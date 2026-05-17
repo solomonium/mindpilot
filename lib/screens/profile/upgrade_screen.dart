@@ -85,9 +85,69 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                           color: theme.accentTxt.withOpacity(0.7),
                         ),
                         40.verticalSpace,
+                        40.verticalSpace,
                         ...List.generate(
                           _plans.length,
-                          (index) => _planCard(index),
+                          (index) => Column(
+                            children: [
+                              _planCard(index),
+                              if (index == 1) ...[
+                                // Under Yearly Plan
+                                8.verticalSpace,
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    GlassContainer(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 16,
+                                      ),
+                                      width: double.infinity,
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          const Color(
+                                            0xFF25D366,
+                                          ).withOpacity(0.1),
+                                          const Color(
+                                            0xFF25D366,
+                                          ).withOpacity(0.05),
+                                        ],
+                                      ),
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFF25D366,
+                                        ).withOpacity(0.3),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.chat_bubble,
+                                            color: Color(0xFF25D366),
+                                            size: 20,
+                                          ),
+                                          12.horizontalSpace,
+                                          const PrimaryText(
+                                            text: 'Request Pro via WhatsApp',
+                                            color: Color(0xFF25D366),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ],
+                                      ),
+                                    ).rippleClick(() => _launchWhatsApp()),
+                                    Positioned(
+                                      top: -10,
+                                      right: -5,
+                                      child: const _PromoTag(),
+                                    ),
+                                  ],
+                                ),
+                                16.verticalSpace,
+                              ],
+                            ],
+                          ),
                         ),
                         40.verticalSpace,
                         _featuresList(theme),
@@ -122,14 +182,6 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                             type: InAppNotificationType.info,
                           );
                         }),
-                        16.verticalSpace,
-                        SecondaryText(
-                          text: 'Request Pro Access via WhatsApp',
-                          color: theme.primaryBase,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.underline,
-                        ).rippleClick(() => _launchWhatsApp()),
                         40.verticalSpace,
                       ],
                     ),
@@ -260,6 +312,11 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           Icons.notifications_active,
           'Early Access to Pro Insights',
         ),
+        16.verticalSpace,
+        _featureItem(
+          Icons.auto_awesome,
+          'Share AI Chat Highlights with Branded Cards',
+        ),
       ],
     );
   }
@@ -288,24 +345,79 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     );
   }
 
-  Future<void> _launchWhatsApp() async {
-    final phoneNumber = "2349043230179";
-    final userEmail =
-        context.read<AuthProvider>().user?.email ?? "Unknown Email";
-    final message = Uri.encodeComponent(
-      "Hello MindPilot Team, I would like to upgrade my account to MindPilot Pro. Here is my email: $userEmail",
+  Future<void> _showExitDialog(String appName, VoidCallback onConfirm) async {
+    AppTheme theme = context.read();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.brandDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: PrimaryText(
+          text: 'Leave MindPilot?',
+          color: theme.accentTxt,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+        content: SecondaryText(
+          text:
+              'You are about to be redirected to $appName to continue your Pro upgrade.',
+          color: theme.accentTxt.withOpacity(0.7),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: SecondaryText(
+              text: 'Cancel',
+              color: theme.accentTxt.withOpacity(0.5),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            child: PrimaryText(
+              text: 'Continue',
+              color: theme.primaryBase,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
-    final url = "https://wa.me/$phoneNumber?text=$message";
+  }
 
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        context.showInAppNotification(
-          'Could not launch WhatsApp. Please contact 09043230179.',
-        );
+  Future<void> _launchWhatsApp() async {
+    _showExitDialog('WhatsApp', () async {
+      String rawPhone = ConfigService().supportPhone;
+      // Remove all non-numeric characters
+      String cleanPhone = rawPhone.replaceAll(RegExp(r'\D'), '');
+
+      // If it starts with 0 (e.g. 090...), replace with 234
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '234${cleanPhone.substring(1)}';
+      } else if (!cleanPhone.startsWith('234') && cleanPhone.length <= 11) {
+        // Fallback for Nigerian numbers without 234 or leading 0
+        cleanPhone = '234$cleanPhone';
       }
-    }
+
+      final userEmail =
+          context.read<AppAuthProvider>().user?.email ?? "Unknown Email";
+      final message = Uri.encodeComponent(
+        "Hello MindPilot Team, I would like to upgrade my account to MindPilot Pro. Here is my email: $userEmail",
+      );
+      final url = "https://wa.me/$cleanPhone?text=$message";
+
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          context.showInAppNotification(
+            'Could not launch WhatsApp. Please contact ${ConfigService().supportPhone}.',
+          );
+        }
+      }
+    });
   }
 
   Future<void> processPurchase() async {
@@ -313,6 +425,65 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     context.showInAppNotification(
       'In-app purchases are coming soon!',
       type: InAppNotificationType.info,
+    );
+  }
+}
+
+class _PromoTag extends StatefulWidget {
+  const _PromoTag();
+
+  @override
+  State<_PromoTag> createState() => _PromoTagState();
+}
+
+class _PromoTagState extends State<_PromoTag>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(
+      begin: 0.9,
+      end: 1.1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _animation,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF3131), // Vibrant Red
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF3131).withOpacity(0.6),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: const PrimaryText(
+          text: 'LIMITED OFFER',
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }

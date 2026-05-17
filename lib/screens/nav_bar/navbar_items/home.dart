@@ -9,6 +9,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isInsightExpanded = false;
+  String? _lastAutoExpandedContent;
 
   @override
   void initState() {
@@ -16,11 +17,9 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<HomeProvider>().loadWeeklyStats();
 
-      // 1. Fetch Remote Config
       await ConfigService().fetchRemoteConfig();
 
-      // 2. Check for App Update
-      final currentVersion = '1.0.0'; // Should match pubspec.yaml
+      final currentVersion = ConfigService().currentAppVersion;
       final config = ConfigService();
 
       if (config.isUpdateRequired(currentVersion)) {
@@ -38,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    final authStore = context.watch<AuthProvider>();
+    final authStore = context.watch<AppAuthProvider>();
     final user = authStore.user;
     final isPro = authStore.isPro;
 
@@ -118,6 +117,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                       fontWeight: FontWeight.bold,
                                       color: Colors.orange,
                                     ),
+                                    8.horizontalSpace,
+                                    Icon(
+                                      Icons.share_outlined,
+                                      color: Colors.orange.withOpacity(0.6),
+                                      size: 12,
+                                    ).rippleClick(() {
+                                      final downloadUrl = ConfigService().updateUrl;
+                                      ShareService.captureAndShare(
+                                        context,
+                                        text: "Keeping the momentum alive! 🔥 Day ${appStore.streak} of staying focused with MindPilot. Consistency is the key to mastery.\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Streak #Discipline",
+                                        widget: ShareableCard(
+                                          mode: ShareableCardMode.streak,
+                                          streak: appStore.streak,
+                                          userName: user?.displayName,
+                                        ),
+                                      );
+                                    }),
                                   ],
                                 );
                               },
@@ -223,14 +239,81 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      SecondaryText(
-                        text: R.S.dailyInsight,
-                        color: theme.accentTxt.withOpacity(0.7),
-                        fontSize: 12,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          SecondaryText(
+                            text: R.S.dailyInsight,
+                            color: theme.accentTxt.withOpacity(0.7),
+                            fontSize: 12,
+                          ),
+                          const Spacer(),
+                          Consumer<NotificationProvider>(
+                            builder: (context, notifStore, _) {
+                              if (notifStore.dailyInsight.isEmpty || notifStore.dailyInsight == '...') return const SizedBox();
+                              return Icon(
+                                Icons.share_outlined,
+                                color: theme.accentTxt.withOpacity(0.5),
+                                size: 16,
+                              ).rippleClick(() {
+                                String? explanation = notifStore.insightExplanation;
+                                if (explanation != null) {
+                                  final match = RegExp(r'\*?\*?Quick [Tt]ip\b').firstMatch(explanation);
+                                  if (match != null) {
+                                    explanation = explanation.substring(0, match.start).trim();
+                                  }
+                                }
+                                
+                                
+                                final downloadUrl = ConfigService().updateUrl;
+                                final caption = notifStore.getInsightShareCaption();
+                                ShareService.captureAndShare(
+                                  context,
+                                  text: "$caption\n\nDownload MindPilot: $downloadUrl\n#MindPilot #DailyInsight #Mindset",
+                                  widget: ShareableCard(
+                                    mode: ShareableCardMode.insight,
+                                    insightTitle: 'Daily Insight',
+                                    insightContent: notifStore.dailyInsight,
+                                    author: notifStore.dailyInsightAuthor,
+                                    insightExplanation: explanation,
+                                    userName: user?.displayName,
+                                  ),
+                                );
+                              });
+                            },
+                          ),
+                          12.horizontalSpace,
+                          Consumer<NotificationProvider>(
+                            builder: (context, notifStore, _) {
+                              if (notifStore.lastInsightDate == null) return const SizedBox();
+                              
+                              try {
+                                final date = DateTime.parse(notifStore.lastInsightDate!);
+                                final timeStr = DateFormat('hh:mm a').format(date);
+                                return SecondaryText(
+                                  text: 'Updated: $timeStr',
+                                  color: theme.accentTxt.withOpacity(0.4),
+                                  fontSize: 10,
+                                );
+                              } catch (e) {
+                                return const SizedBox();
+                              }
+                            },
+                          ),
+                        ],
                       ),
                       12.verticalSpace,
                       Consumer<NotificationProvider>(
                         builder: (context, notifStore, _) {
+                          // Auto-expand only ONCE when a new explanation arrives
+                          final expansionKey = "${notifStore.dailyInsight}${notifStore.insightExplanation}";
+                          if (notifStore.insightExplanation != null && 
+                              !notifStore.isFetchingExplanation &&
+                              _lastAutoExpandedContent != expansionKey) {
+                            _lastAutoExpandedContent = expansionKey;
+                            _isInsightExpanded = true; // Set directly to avoid frame-skip
+                          }
+
                           // Reset expansion if insight changed and no explanation exists
                           if (notifStore.insightExplanation == null &&
                               _isInsightExpanded) {
@@ -239,14 +322,38 @@ class _HomeScreenState extends State<HomeScreen> {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              PrimaryText(
-                                text: '"${notifStore.dailyInsight}"',
-                                color: theme.accentTxt,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                fontStyle: FontStyle.italic,
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '"${notifStore.dailyInsight}" ',
+                                      style: GoogleFonts.inter(
+                                        color: theme.accentTxt,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                      TextSpan(
+                                        text: "- ${notifStore.dailyInsightAuthor ?? "Unknown"}",
+                                        style: GoogleFonts.inter(
+                                          color: Colors.orangeAccent,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (['laleyesolomon2@gmail.com', 'solteqinnovationsltd@gmail.com'].contains(authStore.user?.email?.toLowerCase())) // Show source to super admins
+                                        TextSpan(
+                                          text: "\n[Source: ${notifStore.lastInsightSource ?? 'N/A'}]",
+                                          style: GoogleFonts.inter(
+                                            color: theme.accentTxt.withOpacity(0.3),
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                  ],
+                                ),
                               ),
-                              if (_isInsightExpanded && isPro) ...[
+                              if (_isInsightExpanded) ...[
                                 16.verticalSpace,
                                 if (notifStore.insightExplanation != null)
                                   Container(
@@ -270,12 +377,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         },
                       ),
-                      20.verticalSpace,
+                      8.verticalSpace,
                       Center(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
-                          child: Consumer<NotificationProvider>(
-                            builder: (context, notifStore, _) {
+                          child: Consumer2<NotificationProvider, AppAuthProvider>(
+                            builder: (context, notifStore, authStore, _) {
                               if (notifStore.isFetchingExplanation) {
                                 return SizedBox(
                                   key: const ValueKey('spinner'),
@@ -291,7 +398,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               }
 
                               if (_isInsightExpanded &&
-                                  isPro &&
+                                  (isPro || (authStore.explanationCount < 3)) &&
                                   notifStore.fetchError == null) {
                                 return Icon(
                                   Icons.keyboard_arrow_up,
@@ -306,43 +413,64 @@ class _HomeScreenState extends State<HomeScreen> {
                               }
 
                               final hasError = notifStore.fetchError != null;
+                              final remaining = 3 - authStore.explanationCount;
+                              final buttonText = isPro 
+                                ? (hasError ? notifStore.fetchError! : 'Explain')
+                                : (hasError ? notifStore.fetchError! : 'Explain ($remaining left)');
 
-                              return Row(
+                              return Container(
                                 key: const ValueKey('explain_button'),
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    hasError
-                                        ? Icons.refresh
-                                        : Icons.psychology_outlined,
-                                    color: hasError
-                                        ? theme.errorPrimary
-                                        : theme.accentTxt.withOpacity(0.6),
-                                    size: 20,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: theme.primaryBase.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: theme.primaryBase.withOpacity(0.3),
                                   ),
-                                  8.horizontalSpace,
-                                  SecondaryText(
-                                    text: hasError
-                                        ? notifStore.fetchError!
-                                        : 'Explain',
-                                    color: hasError
-                                        ? theme.errorPrimary
-                                        : theme.accentTxt.withOpacity(0.6),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      hasError
+                                          ? Icons.refresh
+                                          : Icons.psychology_outlined,
+                                      color: hasError
+                                          ? theme.errorPrimary
+                                          : theme.primaryBase,
+                                      size: 18,
+                                    ),
+                                    8.horizontalSpace,
+                                    SecondaryText(
+                                      text: buttonText,
+                                      color: hasError
+                                          ? theme.errorPrimary
+                                          : theme.accentTxt,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ],
+                                ),
                               ).rippleClick(() async {
-                                if (!isPro) {
+                                if (!isPro && authStore.explanationCount >= 3) {
                                   AppHelper.showPaywall(
                                     context,
                                     feature: 'Daily Explanation',
                                   );
                                 } else {
                                   // Start fetching
-                                  await context
+                                  final wasFetched = await context
                                       .read<NotificationProvider>()
                                       .fetchInsightExplanation();
+                                  
+                                  // Only increment count if a NEW explanation was actually fetched
+                                  if (mounted && 
+                                      wasFetched &&
+                                      context.read<NotificationProvider>().fetchError == null &&
+                                      !isPro) {
+                                    await authStore.incrementExplanationCount();
+                                  }
+
                                   // Expand once done if no error
                                   if (mounted &&
                                       context
@@ -371,25 +499,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.bold,
                     color: theme.accentTxt,
                   ),
-                  Row(
-                    children: [
-                      PrimaryText(
-                        text: 'Weekly report clarity',
-                        color: theme.accentTxt.withOpacity(0.8),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                      ),
-                      4.horizontalSpace,
-                      Icon(
-                        Icons.chevron_right,
-                        color: theme.accentTxt.withOpacity(0.5),
-                        size: 16,
-                      ),
-                    ],
-                  ).rippleClick(() {
-                    context.push(const ProgressReportScreen());
-                  }),
                 ],
               ),
               16.verticalSpace,
@@ -400,7 +509,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _actionCard(
                         context,
-                        'Decision Analyzer',
+                        R.S.decisionAnalyzer,
                         'Make better choices',
                         Icons.psychology,
                         theme.primaryBase,
@@ -410,7 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _actionCard(
                         context,
-                        'Focus Session',
+                        R.S.focusSession,
                         'Improve focus',
                         Icons.timer_outlined,
                         theme.successPrimary,
@@ -420,7 +529,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _actionCard(
                         context,
-                        'Create Task',
+                        R.S.createTask,
                         'Set new goals',
                         Icons.add_task,
                         theme.errorPrimary,
@@ -441,11 +550,45 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   Row(
                     children: [
+                      Icon(
+                        Icons.share_outlined,
+                        color: theme.accentTxt.withOpacity(0.5),
+                        size: 18,
+                      ).rippleClick(() {
+                        final journal = context.read<JournalProvider>();
+                        final taskStore = context.read<TaskProvider>();
+
+                        final totalMinutes = journal.totalFocusMinutes;
+                        final hours = totalMinutes ~/ 60;
+                        final minutes = totalMinutes % 60;
+                        String focusTimeText =
+                            hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+                        String tasksText =
+                            '${taskStore.completedCount}/${taskStore.totalCount}';
+                        int points =
+                            (taskStore.completedCount * 10) + (totalMinutes ~/ 5);
+                        String achievement = 'Level ${1 + (points ~/ 50)}';
+
+                        final downloadUrl = ConfigService().updateUrl;
+                        ShareService.captureAndShare(
+                          context,
+                          text: "Today's wins are in! 🏆 Seeing my progress clearly makes every session count. Ready to level up your focus? Join me on MindPilot!\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Progress #Achievement",
+                          widget: ShareableCard(
+                            mode: ShareableCardMode.progress,
+                            focusTime: focusTimeText,
+                            tasksDone: tasksText,
+                            achievement: achievement,
+                            userName: user?.displayName,
+                          ),
+                        );
+                      }),
+                      16.horizontalSpace,
                       PrimaryText(
-                        text: 'View all',
+                        text: 'Weekly report clarity',
                         color: theme.accentTxt.withOpacity(0.8),
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
                       ),
                       4.horizontalSpace,
                       Icon(
@@ -510,19 +653,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   PrimaryText(
-                    text: "Today's Tasks",
+                    text: R.S.todaysTasks,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: theme.accentTxt,
                   ),
-                  PrimaryText(
-                    text: R.S.viewAll,
-                    color: theme.accentTxt.withOpacity(0.8),
-                    fontSize: 14,
+                  SecondaryText(
+                    text: 'View All',
+                    color: theme.accentTxt.withOpacity(0.5),
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                  ).rippleClick(() {
-                    context.push(const TasksListScreen());
-                  }),
+                    decoration: TextDecoration.underline,
+                  ).rippleClick(() => context.push(const TasksListScreen())),
                 ],
               ),
               16.verticalSpace,
@@ -537,7 +679,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: Center(
                         child: SecondaryText(
-                          text: 'No tasks for today. Start by creating one!',
+                          text: R.S.noTasks,
                           color: theme.accentTxt.withOpacity(0.5),
                         ),
                       ),
@@ -596,7 +738,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                      );
+                      ).rippleClick(() {
+                        context.push(TasksListScreen(highlightTaskId: task.id));
+                      });
                     }).toList(),
                   );
                 },
@@ -709,6 +853,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return GlassContainer(
       padding: const EdgeInsets.all(12),
       gradient: theme.glassGradient,
+      border: Border.all(
+        color: theme.primaryBase.withOpacity(0.3),
+        width: 1,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -737,11 +885,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     ).rippleClick(() {
-      if (title == 'Decision Analyzer') {
+      if (title == R.S.decisionAnalyzer) {
         context.push(const DecisionAnalyzerScreen());
-      } else if (title == 'Focus Session') {
+      } else if (title == R.S.focusSession) {
         context.push(const FocusSessionScreen());
-      } else if (title == 'Create Task') {
+      } else if (title == R.S.createTask) {
         context.push(const TaskCreationScreen());
       }
     });
@@ -751,22 +899,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return Builder(
       builder: (context) {
         AppTheme theme = context.watch();
-        return GlassContainer(
+        return Container(
           padding: const EdgeInsets.all(12),
-          gradient: theme.glassGradient,
+          decoration: BoxDecoration(
+            color: theme.accentTxt.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Column(
             children: [
               SecondaryText(
                 text: label,
                 fontSize: 10,
-                color: theme.accentTxt.withOpacity(0.7),
+                color: theme.accentTxt.withOpacity(0.5),
               ),
               8.verticalSpace,
               PrimaryText(
                 text: value,
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: theme.accentTxt,
+                color: theme.accentTxt.withOpacity(0.8),
               ),
             ],
           ),

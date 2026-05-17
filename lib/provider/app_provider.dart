@@ -92,6 +92,7 @@ class AppProvider extends BaseProvider {
   }
 
   Future<void> init() async {
+    await ConfigService().init();
     final themeStr = await SharedPrefs.getString('THEME_VALUE');
     if (themeStr.isNotEmpty) {
       _theme = ThemeType.values.firstWhere(

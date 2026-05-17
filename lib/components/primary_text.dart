@@ -31,7 +31,7 @@ class PrimaryText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppTheme theme = context.watch();
+    AppTheme theme = context.watch<AppTheme>();
 
     return Text(
       text,

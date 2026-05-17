@@ -22,11 +22,10 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'mindpilot_journal.db');
     return await openDatabase(
       path,
-      version: 7,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
-
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -72,12 +71,42 @@ class DatabaseHelper {
       try {
         await db.execute('ALTER TABLE tasks ADD COLUMN startTime TEXT');
       } catch (e) {
-        debugPrint('Migration Error (startTime): $e');
+        debugPrint('Migration Error: $e');
       }
       try {
         await db.execute('ALTER TABLE tasks ADD COLUMN durationMinutes INTEGER');
       } catch (e) {
-        debugPrint('Migration Error (durationMinutes): $e');
+        debugPrint('Migration Error: $e');
+      }
+    }
+    if (oldVersion < 8) {
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN remoteId TEXT');
+        await db.execute('ALTER TABLE notifications ADD COLUMN remoteId TEXT');
+        await db.execute('ALTER TABLE journal_entries ADD COLUMN remoteId TEXT');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
+      }
+    }
+    if (oldVersion < 9) {
+      try {
+        await db.execute('ALTER TABLE notifications ADD COLUMN author TEXT');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
+      }
+    }
+    if (oldVersion < 10) {
+      try {
+        await db.execute('ALTER TABLE notifications ADD COLUMN source TEXT');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
+      }
+    }
+    if (oldVersion < 11) {
+      try {
+        await db.execute('ALTER TABLE notifications ADD COLUMN source TEXT');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
       }
     }
   }
@@ -91,7 +120,8 @@ class DatabaseHelper {
         time TEXT,
         text TEXT,
         mood TEXT,
-        title TEXT
+        title TEXT,
+        remoteId TEXT
       )
     ''');
     await db.execute('''
@@ -110,7 +140,8 @@ class DatabaseHelper {
         isDone INTEGER DEFAULT 0,
         completionTime TEXT,
         startTime TEXT,
-        durationMinutes INTEGER
+        durationMinutes INTEGER,
+        remoteId TEXT
       )
     ''');
     await db.execute('''
@@ -120,7 +151,10 @@ class DatabaseHelper {
         body TEXT,
         date TEXT,
         type TEXT,
-        isRead INTEGER DEFAULT 0
+        isRead INTEGER DEFAULT 0,
+        remoteId TEXT,
+        author TEXT,
+        source TEXT
       )
     ''');
   }
@@ -147,6 +181,11 @@ class DatabaseHelper {
   Future<int> deleteEntry(int id) async {
     Database db = await database;
     return await db.delete('journal_entries', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> updateJournalRemoteId(int id, String remoteId) async {
+    Database db = await database;
+    return await db.update('journal_entries', {'remoteId': remoteId}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> insertFocusSession(int minutes) async {
@@ -250,6 +289,11 @@ class DatabaseHelper {
   Future<int> deleteNotification(int id) async {
     Database db = await database;
     return await db.delete('notifications', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearTasks() async {
+    Database db = await database;
+    await db.delete('tasks');
   }
 
   Future<void> clearAll() async {

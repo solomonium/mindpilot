@@ -15,6 +15,7 @@ enum EmotionType {
   sad,
   angry,
   anxious,
+  frustrated,
   motivated,
   neutral,
 }
@@ -86,6 +87,10 @@ class ChatProcessor {
 
     if (input.contains("sad") || input.contains("depressed")) {
       return EmotionType.sad;
+    }
+
+    if (input.contains("frustrated")) {
+      return EmotionType.frustrated;
     }
 
     if (input.contains("angry") || input.contains("annoyed")) {

@@ -1,5 +1,8 @@
+// ignore_for_file: unused_local_variable
+
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mindpilot/export.dart';
 
 class AnimatedSplashScreen extends StatefulWidget {
@@ -22,18 +25,37 @@ class SplashScreenState extends State<AnimatedSplashScreen>
   void navigationPage() async {
     final user = FirebaseAuth.instance.currentUser;
     final prefs = await SharedPreferences.getInstance();
-    final hasSeenPersonalization = prefs.getBool('HAS_SEEN_PERSONALIZATION') ?? false;
+    final hasSeenPersonalization =
+        prefs.getBool('HAS_SEEN_PERSONALIZATION') ?? false;
 
     if (!mounted) return;
 
     if (user != null) {
-      context.pushOff(const MainScreen());
-    } else {
-      if (!hasSeenPersonalization) {
-        context.pushOff(const PersonalizationScreen());
-      } else {
-        context.pushOff(const LoginScreen());
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get()
+            .timeout(const Duration(seconds: 5), onTimeout: () {
+              throw TimeoutException('Network timeout');
+            });
+            
+        final hasPersonalized = doc.data()?['hasCompletedSetup'] ?? false;
+
+        if (mounted) {
+          if (!hasPersonalized) {
+            context.pushOff(const PersonalizationScreen());
+          } else {
+            context.pushOff(const MainScreen());
+          }
+        }
+      } catch (e) {
+        // If network fails or timeouts, proceed to MainScreen for offline access
+        debugPrint('Splash Navigation Error: $e');
+        if (mounted) context.pushOff(const MainScreen());
       }
+    } else {
+      context.pushOff(const LoginScreen());
     }
   }
 
@@ -52,7 +74,7 @@ class SplashScreenState extends State<AnimatedSplashScreen>
 
     animation.addListener(() => setState(() {}));
     animationController.forward();
-    
+
     NotificationService().logDeviceToken();
     startTime();
   }
@@ -99,13 +121,16 @@ class SplashScreenState extends State<AnimatedSplashScreen>
                 SizedBox(
                   width: animation.value * 200,
                   height: animation.value * 200,
-                  child: Image.asset(R.png.mindpilotApp.png, fit: BoxFit.contain),
+                  child: Image.asset(
+                    R.png.mindpilotApp.png,
+                    fit: BoxFit.contain,
+                  ),
                 ),
                 4.verticalSpace,
                 SecondaryText(
-                  text: 'Think clearly. Live intentionally.', 
-                  fontSize: 13, 
-                  color: theme.accentTxt.withOpacity(0.8)
+                  text: 'Think clearly. Live intentionally.',
+                  fontSize: 13,
+                  color: theme.accentTxt.withOpacity(0.8),
                 ),
               ],
             ),

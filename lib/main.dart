@@ -1,35 +1,41 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:mindpilot/export.dart';
 import 'package:mindpilot/firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Initializations that MUST happen before runApp
   try {
     await dotenv.load(fileName: ".env");
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Pass all uncaught "fatal" errors from the framework to Crashlytics
+    FlutterError.onError = (errorDetails) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    };
+
+    // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
   } catch (e) {
-    debugPrint('Critical Initialization failed: $e');
+    debugPrint('Initialization failed: $e');
   }
 
-  // 2. Initialize App Settings provider
   final appProvider = AppProvider();
   try {
     await appProvider.init();
   } catch (e) {
-    debugPrint('AppProvider init failed: $e');
+    debugPrint('Init failed: $e');
   }
 
-  // 3. Start the app immediately to avoid black screen
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: appProvider),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => AppAuthProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(
@@ -45,7 +51,6 @@ void main() async {
     ),
   );
 
-  // 4. Background initializations (don't block the UI)
   _initializeBackgroundServices();
 }
 
@@ -59,7 +64,11 @@ Future<void> _initializeBackgroundServices() async {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     await NotificationService().initialize();
 
+    await AnalyticsService.logAppOpen();
+    PaymentService.initialize();
+
     final isAllowed = await NotificationService().isNotificationsEnabled();
+
     if (!isAllowed) {
       await NotificationService().requestPermissions();
     }
@@ -96,6 +105,11 @@ class _MyAppState extends State<MyApp> {
               navigatorKey: R.N.navKey,
               title: "Mind Pilot",
               debugShowCheckedModeBanner: false,
+              navigatorObservers: [
+                FirebaseAnalyticsObserver(
+                  analytics: FirebaseAnalytics.instance,
+                ),
+              ],
               home: const AnimatedSplashScreen(),
               builder: (context, child) => MediaQuery(
                 data: context.widthPx < 600

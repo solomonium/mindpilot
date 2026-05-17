@@ -67,32 +67,24 @@ extension AssetsExtension on String {
 
   String thousandSeparator() {
     if (isEmpty) return this;
-
-    // Remove any previous thousand separators
-    String text = replaceAll(',', '');
-
-    // Check if the text contains a decimal part
-    bool hasDecimalPart = text.contains('.');
-
-    // Split the text into integer and decimal parts
-    List<String> parts = text.split('.');
-    String integerPart = parts[0];
-    String decimalPart = hasDecimalPart ? '.${parts[1]}' : '';
-
-    // Add thousand separators to the integer part
-    String formattedInteger = '';
-    int count = 0;
-    for (int i = integerPart.length - 1; i >= 0; i--) {
-      count++;
-      formattedInteger = integerPart[i] + formattedInteger;
-      if (count == 3 && i > 0) {
-        formattedInteger = ',$formattedInteger';
-        count = 0;
-      }
+    try {
+      double value = double.parse(replaceAll(',', '').replaceAll('₦', ''));
+      return NumberFormat.simpleCurrency(name: '').format(value);
+    } catch (e) {
+      return this;
     }
-
-    return '₦$formattedInteger${decimalPart.isEmpty ? '.00' : decimalPart}';
   }
+
+  String formatToLocalCurrency() {
+    if (isEmpty) return this;
+    try {
+      double value = double.parse(replaceAll(',', '').replaceAll('₦', ''));
+      return NumberFormat.simpleCurrency().format(value);
+    } catch (e) {
+      return this;
+    }
+  }
+
 
   String capitalize() {
     if (isEmpty) return this;

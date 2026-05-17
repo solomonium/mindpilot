@@ -7,6 +7,7 @@ class JournalEntry {
   final String text;
   final String mood;
   final String? title;
+  final String? remoteId;
 
   JournalEntry({
     this.id,
@@ -15,6 +16,7 @@ class JournalEntry {
     required this.text,
     required this.mood,
     this.title,
+    this.remoteId,
   });
 }
 
@@ -37,6 +39,7 @@ class JournalProvider extends ChangeNotifier {
         text: item['text'],
         mood: item['mood'],
         title: item['title'],
+        remoteId: item['remoteId'],
       ));
     }
     notifyListeners();
@@ -48,6 +51,10 @@ class JournalProvider extends ChangeNotifier {
   }
 
   Future<void> deleteJournalEntry(int id) async {
+    final entry = _entries.firstWhere((e) => e.id == id);
+    if (entry.remoteId != null) {
+      SyncService().deleteJournalFromFirestore(entry.remoteId!);
+    }
     await _dbHelper.deleteEntry(id);
     _entries.removeWhere((element) => element.id == id);
     notifyListeners();
@@ -58,7 +65,13 @@ class JournalProvider extends ChangeNotifier {
     final date = DateFormat('MMM dd, yyyy').format(now);
     final time = DateFormat('hh:mm a').format(now);
     
-    final entryMap = {
+    if (!await AppHelper.isOnline()) {
+      final context = R.N.navKey.currentContext;
+      if (context != null) context.showInAppNotification('Network required to save entries.');
+      return;
+    }
+
+    final Map<String, dynamic> entryMap = {
       'date': date,
       'time': time,
       'text': text,
@@ -68,7 +81,9 @@ class JournalProvider extends ChangeNotifier {
     
     final id = await _dbHelper.insertEntry(entryMap);
     
-    // Add to local list for immediate UI update
+    entryMap['id'] = id;
+    await SyncService().pushJournalToFirestore(entryMap);
+    
     _entries.insert(0, JournalEntry(
       id: id,
       date: date,
@@ -86,8 +101,9 @@ class JournalProvider extends ChangeNotifier {
     await loadFocusTime();
   }
 
-  void loadInitialData() {
-    loadEntries();
-    loadFocusTime();
+  Future<void> loadInitialData() async {
+    await SyncService().syncJournalsFromFirestore();
+    await loadEntries();
+    await loadFocusTime();
   }
 }

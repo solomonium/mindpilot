@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
-
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -15,18 +13,21 @@ import 'package:mindpilot/export.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   
-  // Check if push notifications are enabled in settings
   final isEnabled = await SharedPrefs.getBool('PUSH_NOTIFICATIONS_ENABLED') ?? false;
   final type = message.data['type'] ?? 'update';
 
   if (!isEnabled && type != 'insight') {
-    debugPrint('Background notification ignored: Push notifications are disabled and type is not insight.');
     return;
   }
 
   final dbHelper = DatabaseHelper();
   final title = message.notification?.title ?? message.data['title'] ?? 'MindPilot';
   final body = message.notification?.body ?? message.data['body'] ?? '';
+  
+  // Debug log for Admin
+  print('--- [FCM BACKGROUND PAYLOAD] ---');
+  print('Data: ${message.data}');
+  print('-------------------------------');
 
   await dbHelper.insertNotification({
     'title': title,
@@ -34,7 +35,15 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     'type': type,
     'date': DateTime.now().toIso8601String(),
     'isRead': 0,
+    'author': message.data['author'],
+    'source': message.data['source'],
   });
+
+  final broadcastId = message.data['broadcastId'];
+  if (broadcastId != null) {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('LAST_BROADCAST_ID', broadcastId);
+  }
 }
 
 class NotificationService {
@@ -46,14 +55,11 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isAlarmPlaying = false;
+  StreamSubscription? _playerCompleteSubscription;
 
 
   Future<void> initialize() async {
-    safePrint('--- NOTIFICATION SERVICE INITIALIZING ---');
-    
-    // 2. Initialize Local Notifications Plugin FIRST
     const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
-
     const iosInit = DarwinInitializationSettings();
     const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
     
@@ -63,25 +69,18 @@ class NotificationService {
         _handleNotificationClick(details.payload);
       },
     );
-    safePrint('Local Notifications Initialized');
 
     tz.initializeTimeZones();
     try {
       final String timeZoneName = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(timeZoneName));
-      safePrint('Timezone set to: $timeZoneName');
     } catch (e) {
-      debugPrint('Timezone initialization error: $e');
-      // Fallback to UTC
       try {
         tz.setLocalLocation(tz.getLocation('UTC'));
       } catch (_) {}
     }
 
-    // 3. Request permissions & Create Channel (now that plugin is ready)
     if (Platform.isAndroid) {
-      safePrint('Creating Notification Channels & Requesting Permission...');
-      
       const AndroidNotificationChannel generalChannel = AndroidNotificationChannel(
         'mindpilot_notifications',
         'General Notifications',
@@ -113,32 +112,47 @@ class NotificationService {
       badge: true,
       sound: true,
     );
-    safePrint('FCM Permissions Requested');
 
-    // Listen to foreground messages
+    try {
+      await _fcm.subscribeToTopic('all_users');
+    } catch (_) {}
+
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      safePrint('onMessage triggered');
       _processMessage(message, isForeground: true);
     });
 
-    // Handle background click (tray tap)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      safePrint('onMessageOpenedApp triggered');
       _processMessage(message, isForeground: false, wasTapped: true);
     });
 
-    // Check if app was opened from a terminated state via notification
     RemoteMessage? initialMessage = await _fcm.getInitialMessage();
     if (initialMessage != null) {
-      safePrint('getInitialMessage triggered');
       _processMessage(initialMessage, isForeground: false, wasTapped: true);
     }
-    safePrint('--- NOTIFICATION SERVICE INITIALIZED ---');
+    
     _startForegroundAlarmChecker();
+    
+    _fcm.getToken().then((token) {
+      if (token != null) {
+        _syncTokenToProvider(token);
+      }
+    });
+
+    _fcm.onTokenRefresh.listen((token) {
+      _syncTokenToProvider(token);
+    });
+  }
+
+  void _syncTokenToProvider(String token) {
+    final context = R.N.navKey.currentContext;
+    if (context != null) {
+      try {
+        context.read<AppAuthProvider>().updateFcmToken(token);
+      } catch (_) {}
+    }
   }
 
   void _startForegroundAlarmChecker() {
-    // Check every 10 seconds for upcoming alarms
     Timer.periodic(const Duration(seconds: 10), (timer) async {
       try {
         final now = DateTime.now();
@@ -163,30 +177,27 @@ class NotificationService {
               final alarmTime = startDt.subtract(const Duration(minutes: 2));
               final diff = now.difference(alarmTime).inSeconds;
 
-              if (diff.abs() < 60) {
-                safePrint('DEBUG: Checker watching task "${task['title']}" | Alarm in: ${-diff}s');
-              }
-              
-              if (diff >= 0 && diff < 15) {
+              if (diff >= 0 && diff < 120) {
                 if (!_playedAlarms.contains(taskId)) {
                   _playedAlarms.add(taskId);
                   playAlarmSound();
-                  safePrint('ALARM TRIGGERED for task: ${task['title']}');
+                  
                   final payload = 'focus_session:${task['id']}:${startDt.toIso8601String()}';
-                  showForegroundNotification('Task Starting Soon', 'Your task "${task['title']}" starts in 2 minutes.', payload);
+                  showForegroundNotification(
+                    'Task Starting Soon', 
+                    'Your task "${task['title']}" starts in 2 minutes.', 
+                    payload
+                  );
                 }
               }
 
-              // --- AUTO-LAUNCH AT EXACT START TIME ---
               final startDiff = now.difference(startDt).inSeconds;
               if (startDiff >= 0 && startDiff < 15) {
                 if (!_launchedTasks.contains(taskId)) {
                   _launchedTasks.add(taskId);
-                  safePrint('AUTO-LAUNCHING Focus Session for: ${task['title']}');
                   
                   final duration = (task['durationMinutes'] as int?) ?? 25;
                   
-                  // Use the global navigator key to push the focus screen
                   R.N.navKey.currentState?.push(
                     MaterialPageRoute(
                       builder: (_) => FocusSessionScreen(
@@ -199,14 +210,10 @@ class NotificationService {
                 }
               }
 
-            } catch (e) {
-              safePrint('DEBUG: Error parsing time for task "${task['title']}": $e');
-            }
+            } catch (_) {}
           }
         }
-      } catch (e) {
-        safePrint('DEBUG: Checker outer loop error: $e');
-      }
+      } catch (_) {}
     });
   }
 
@@ -214,62 +221,58 @@ class NotificationService {
   final Set<int> _launchedTasks = {};
 
 
-
   Future<void> logDeviceToken() async {
     try {
-      safePrint('--- STARTING TOKEN TRACE ---');
-      String? token = await _fcm.getToken().timeout(const Duration(seconds: 15));
-      safePrint('--- DEVICE TOKEN RECOVERY ---');
-      safePrint('TOKEN: ${token ?? "NULL"}');
-      safePrint('--- END OF TOKEN TRACE ---');
-    } catch (e) {
-      safePrint('--- TOKEN TRACE FAILED ---');
-      safePrint('REASON: $e');
-    }
+      if (Platform.isIOS) {
+        final apnsToken = await _fcm.getAPNSToken();
+        if (apnsToken == null) return;
+      }
+      await _fcm.getToken().timeout(const Duration(seconds: 15));
+    } catch (_) {}
   }
 
   void _processMessage(RemoteMessage message, {bool isForeground = false, bool wasTapped = false}) {
-    safePrint('--- INCOMING MESSAGE ---');
-    safePrint('Is Foreground: $isForeground');
-    safePrint('Was Tapped: $wasTapped');
-    safePrint('Data: ${message.data}');
-    safePrint('Notification Title: ${message.notification?.title}');
-    safePrint('Notification Body: ${message.notification?.body}');
     final context = R.N.navKey.currentContext;
-    if (context == null) {
-      safePrint('Warning: Navigation context is NULL');
-      return;
-    }
+    if (context == null) return;
 
     final isEnabled = context.read<AppProvider>().pushNotificationsEnabled;
     final type = message.data['type'] ?? 'update';
 
-    if (!isEnabled && type != 'insight') {
-      safePrint('Foreground notification ignored: Push notifications are disabled and type is not insight.');
+    if (!isEnabled && type != 'insight' && type != 'feedback') {
       return;
     }
+
+    // Debug log for Admin
+    safePrint('--- [FCM FOREGROUND PAYLOAD] ---');
+    safePrint('Data: ${message.data}');
+    safePrint('-------------------------------');
 
     final title = message.notification?.title ?? message.data['title'] ?? 'MindPilot';
     final body = message.notification?.body ?? message.data['body'] ?? '';
 
-    // Save to provider/database
     context.read<NotificationProvider>().addNotification({
       'title': title,
       'body': body,
       'type': type,
-    });
+      'author': message.data['author'],
+      'source': message.data['source'],
+    }, broadcastId: message.data['broadcastId']);
+
+    if (isForeground && type == 'feedback') {
+      AppHelper.showFeedbackPrompt(context);
+      return;
+    }
 
     if (isForeground && isEnabled) {
       showForegroundNotification(title, body, type);
     }
 
-    if (wasTapped && type == 'update') {
+    if (wasTapped) {
       _handleNotificationClick(type);
     }
   }
 
   Future<void> showForegroundNotification(String title, String body, String type) async {
-    safePrint('Displaying foreground notification popup: $title');
     const androidDetails = AndroidNotificationDetails(
       'mindpilot_notifications',
       'General Notifications',
@@ -291,26 +294,51 @@ class NotificationService {
   Future<void> playAlarmSound() async {
     if (_isAlarmPlaying) return;
     try {
+      await _audioPlayer.setAudioContext(AudioContext(
+        android: AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: true,
+          contentType: AndroidContentType.music,
+          usageType: AndroidUsageType.alarm,
+          audioFocus: AndroidAudioFocus.gainTransient,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback,
+          options: {
+            AVAudioSessionOptions.defaultToSpeaker,
+            AVAudioSessionOptions.mixWithOthers,
+          },
+        ),
+      ));
+
       _isAlarmPlaying = true;
-      // Using a standard alert sound URL similar to FocusSession
-      await _audioPlayer.setSource(UrlSource('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'));
+      int playCount = 0;
+      
+      _playerCompleteSubscription?.cancel();
+      _playerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((_) async {
+        playCount++;
+        if (playCount < 5) {
+          await _audioPlayer.seek(Duration.zero);
+          await _audioPlayer.resume();
+        } else {
+          await _audioPlayer.stop();
+          _isAlarmPlaying = false;
+          _playerCompleteSubscription?.cancel();
+        }
+      });
+
+      await _audioPlayer.setSource(AssetSource('audio/alarm.mp3'));
       await _audioPlayer.resume();
       
-      // Stop after 5 seconds
-      Future.delayed(const Duration(seconds: 5), () async {
-        await _audioPlayer.stop();
-        _isAlarmPlaying = false;
-      });
-    } catch (e) {
-      safePrint('Error playing in-app alarm: $e');
+    } catch (_) {
       _isAlarmPlaying = false;
+      _playerCompleteSubscription?.cancel();
     }
   }
 
   void _handleNotificationClick(String? payload) {
     if (payload == null) return;
     
-    // Play sound for all task-related notifications if in foreground
     if (payload.startsWith('focus_session:')) {
       playAlarmSound();
     }
@@ -318,8 +346,12 @@ class NotificationService {
     if (payload == 'update') {
       final context = R.N.navKey.currentContext;
       if (context != null) {
-        // Navigate to notification page
         context.push(const NotificationScreen());
+      }
+    } else if (payload == 'feedback') {
+      final context = R.N.navKey.currentContext;
+      if (context != null) {
+        AppHelper.showFeedbackPrompt(context);
       }
     } else if (payload.startsWith('focus_session:')) {
       final context = R.N.navKey.currentContext;
@@ -335,8 +367,6 @@ class NotificationService {
         ));
       }
     }
-
-
   }
 
   Future<void> scheduleDailyReminder() async {
@@ -350,7 +380,6 @@ class NotificationService {
     const iosDetails = DarwinNotificationDetails();
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
-    // Schedule for 9:00 PM every day
     await _localNotifications.zonedSchedule(
       id: 0,
       title: 'Task Completion Reminder',
@@ -360,16 +389,13 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
     );
-    safePrint('Daily reminder scheduled for 9 PM');
   }
 
   tz.TZDateTime _nextInstanceOfNinePM() {
     try {
       tz.local;
     } catch (_) {
-      // If uninitialized, we can't reliably get the local time yet.
-      // This will be caught and initialized in scheduleTaskAlarm or initialize()
-      return tz.TZDateTime.now(tz.UTC).add(const Duration(hours: 21)); // Fallback
+      return tz.TZDateTime.now(tz.UTC).add(const Duration(hours: 21));
     }
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
 
@@ -382,7 +408,6 @@ class NotificationService {
 
 
   Future<void> scheduleTaskAlarm(String title, DateTime startTime, int duration) async {
-    // Ensure timezone is initialized
     try {
       tz.local;
     } catch (_) {
@@ -391,28 +416,20 @@ class NotificationService {
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     }
 
-    // Check permissions
     if (Platform.isAndroid) {
       final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
-      // Try to request it directly if needed, or just rely on the init call
       await androidPlugin?.requestExactAlarmsPermission();
     }
 
 
     final alarmTime = startTime.subtract(const Duration(minutes: 2));
 
-
     if (alarmTime.isBefore(DateTime.now())) {
-      safePrint('Alarm skipped: Start time is less than 2 minutes from now ($alarmTime)');
       return;
     }
 
-
     final tzAlarmTime = tz.TZDateTime.from(alarmTime, tz.local);
-    safePrint('DEBUG: CURRENT TIME (TZ): ${tz.TZDateTime.now(tz.local)}');
-    safePrint('DEBUG: SCHEDULED TIME (TZ): $tzAlarmTime');
-    safePrint('DEBUG: ALARM TIME (DT): $alarmTime');
 
     const androidDetails = AndroidNotificationDetails(
       'task_alarm_channel',
@@ -440,39 +457,29 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: 'focus_session:$duration:${startTime.toIso8601String()}',
     );
-
-
-    safePrint('Task alarm scheduled for $alarmTime');
   }
 
   Future<void> cancelDailyReminder() async {
     await _localNotifications.cancel(id: 0);
-    safePrint('Daily reminder cancelled');
   }
 
   Future<bool> isNotificationsEnabled() async {
-    // Check FCM settings
     final settings = await _fcm.getNotificationSettings();
     final fcmAllowed = settings.authorizationStatus == AuthorizationStatus.authorized || 
                        settings.authorizationStatus == AuthorizationStatus.provisional;
     
     if (!fcmAllowed) return false;
 
-    // Also check local notification status
     if (Platform.isAndroid) {
       final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       return await androidPlugin?.areNotificationsEnabled() ?? false;
-    } else if (Platform.isIOS) {
-      // For iOS, FCM settings already cover the main notification permission
-      return fcmAllowed;
     }
     
     return fcmAllowed;
   }
 
   Future<bool> requestPermissions() async {
-    // 1. Request FCM Permission
     NotificationSettings settings = await _fcm.requestPermission(
       alert: true,
       badge: true,
@@ -482,7 +489,6 @@ class NotificationService {
     bool isAuthorized = settings.authorizationStatus == AuthorizationStatus.authorized || 
                        settings.authorizationStatus == AuthorizationStatus.provisional;
 
-    // 2. Also request via Local Notifications (important for Android 13+)
     if (Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
           _localNotifications.resolvePlatformSpecificImplementation<

@@ -34,7 +34,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: PrimaryText(
-          text: 'App Preferences',
+          text: R.S.appPreferences,
           fontSize: 18,
           fontWeight: FontWeight.bold,
           color: theme.accentTxt,
@@ -71,24 +71,24 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
               children: [
                 if (!widget.onlyNotifications) ...[
                   PrimaryText(
-                    text: 'Appearance',
+                    text: R.S.appearance,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: theme.accentTxt,
                   ),
                   16.verticalSpace,
-                  _themeOption(context, 'Light Mode', ThemeType.light, Icons.light_mode_outlined),
-                  _themeOption(context, 'Dark Mode', ThemeType.dark, Icons.dark_mode_outlined),
+                  _themeOption(context, R.S.lightMode, ThemeType.light, Icons.light_mode_outlined),
+                  _themeOption(context, R.S.darkMode, ThemeType.dark, Icons.dark_mode_outlined),
                   _themeOption(
                     context,
-                    'System Default',
+                    R.S.systemDefault,
                     ThemeType.system,
                     Icons.settings_brightness_outlined,
                   ),
                   32.verticalSpace,
                 ],
                 PrimaryText(
-                  text: 'Notifications',
+                  text: R.S.notifications,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: theme.accentTxt,
@@ -96,7 +96,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                 16.verticalSpace,
                 _switchTile(
                   context,
-                  'Push Notifications',
+                  R.S.pushNotifications,
                   appProvider.pushNotificationsEnabled,
                   (v) async {
                     if (v) {
@@ -116,18 +116,68 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                 ),
                 _switchTile(
                   context,
-                  '9 PM Task Reminder',
+                  R.S.taskReminder,
                   appProvider.dailyReminderEnabled,
                   (v) {
                     appProvider.dailyReminderEnabled = v;
                   },
                 ),
-                _switchTile(context, 'Email Notifications', false, (v) {}),
+                _switchTile(context, R.S.emailNotifications, false, (v) {}),
+                24.verticalSpace,
+                PrimaryText(
+                  text: 'Daily Insight Frequency',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: theme.accentTxt,
+                ),
+                8.verticalSpace,
+                SecondaryText(
+                  text: 'How often should we send you a mental boost?',
+                  color: theme.accentTxt.withOpacity(0.5),
+                  fontSize: 13,
+                ),
+                16.verticalSpace,
+                _insightFrequencySelector(context),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _insightFrequencySelector(BuildContext context) {
+    AppTheme theme = context.watch();
+    final authProvider = context.watch<AppAuthProvider>();
+    final intervals = [0, 1, 2, 3, 6, 12];
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: intervals.map((hours) {
+        bool isSelected = authProvider.insightIntervalHours == hours;
+        return GlassContainer(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          gradient: isSelected ? theme.glassGradient : null,
+          border: isSelected
+              ? Border.all(color: theme.primaryBase, width: 2)
+              : Border.all(color: theme.accentTxt.withOpacity(0.1), width: 1.5),
+          child: PrimaryText(
+            text: hours == 0 ? 'Off' : (hours == 1 ? '1 Hour' : '$hours Hours'),
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: theme.accentTxt,
+          ),
+        ).rippleClick(() {
+          authProvider.updateInsightInterval(hours);
+          context.showInAppNotification(
+            hours == 0
+                ? 'Daily insights disabled.'
+                : 'Insight frequency updated to ${hours == 1 ? '1 hour' : '$hours hours'}.',
+            type: InAppNotificationType.success,
+          );
+        });
+      }).toList(),
     );
   }
 

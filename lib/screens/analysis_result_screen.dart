@@ -1,66 +1,132 @@
 import 'package:mindpilot/export.dart';
-import 'package:share_plus/share_plus.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final String analysis;
   final String? title;
-  const AnalysisResultScreen({super.key, required this.analysis, this.title});
+  final String? situation;
+  final String? mood;
+  final String? framework;
+
+  const AnalysisResultScreen({
+    super.key,
+    required this.analysis,
+    this.title,
+    this.situation,
+    this.mood,
+    this.framework,
+  });
 
   @override
   State<AnalysisResultScreen> createState() => _AnalysisResultScreenState();
 }
 
 class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
+  Color? _selectedTextColor;
   late String _currentAnalysis;
   bool _isContinuing = false;
-  Color? _textColor;
-
+  final GeminiService _geminiService = GeminiService();
 
   @override
   void initState() {
     super.initState();
     _currentAnalysis = widget.analysis;
+    _initializeGemini();
+  }
+
+  void _initializeGemini() async {
+    final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    _geminiService.init(apiKey);
   }
 
   Future<void> _continueAnalysis() async {
     setState(() => _isContinuing = true);
+
+    final prompt =
+        """
+The previous analysis was cut off. Please continue from where you stopped. 
+Context: ${widget.situation}
+Current incomplete analysis: $_currentAnalysis
+
+Continue the analysis naturally.
+""";
+
     try {
-      final response = await GeminiService().sendMessage("Please continue the previous analysis since it was not complete. Provide the remaining parts.");
+      final response = await _geminiService.sendMessage(prompt);
       if (response != null) {
         setState(() {
-          _currentAnalysis = "$_currentAnalysis\n\n$response";
+          _currentAnalysis += "\n\n$response";
         });
       }
     } catch (e) {
-      safePrint("Continue Error: $e");
-      context.showInAppNotification("Failed to fetch more analysis. Please try again.");
+      if (mounted)
+        context.showInAppNotification("Error continuing analysis: $e");
     } finally {
-      setState(() => _isContinuing = false);
+      if (mounted) setState(() => _isContinuing = false);
     }
   }
 
-  Widget _colorPicker(BuildContext context, Color color, {bool isReset = false}) {
-    final isPro = context.read<AuthProvider>().isPro;
+  Future<void> _saveToJournal() async {
+    try {
+      await context.read<JournalProvider>().addEntry(
+        text: _currentAnalysis,
+        title: widget.title ?? "Decision Analysis",
+        mood: widget.mood,
+      );
+      if (mounted) {
+        context.showInAppNotification(
+          'Decision analysis saved to your journal!',
+          type: InAppNotificationType.success,
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) context.showInAppNotification("Failed to save: $e");
+    }
+  }
+
+  Widget _colorPickerItem(
+    BuildContext context,
+    Color color, {
+    bool isReset = false,
+  }) {
+    AppTheme theme = context.watch();
+    final isPro = context.read<AppAuthProvider>().isPro;
     return GestureDetector(
       onTap: () {
         if (!isPro) {
-          AppHelper.showPaywall(context, feature: 'Analysis Customization');
+          AppHelper.showPaywall(context, feature: 'Personalization');
           return;
         }
         setState(() {
-          _textColor = color;
+          _selectedTextColor = isReset ? null : color;
         });
       },
       child: Container(
-        width: 20,
-        height: 20,
+        width: 24,
+        height: 24,
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 1),
+          border: Border.all(
+            color:
+                _selectedTextColor == color ||
+                    (isReset && _selectedTextColor == null)
+                ? Colors.white
+                : Colors.white24,
+            width: 2,
+          ),
+          boxShadow: [
+            if (_selectedTextColor == color ||
+                (isReset && _selectedTextColor == null))
+              BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+          ],
         ),
         child: isReset
-            ? const Icon(Icons.refresh, size: 12, color: Colors.black)
+            ? Icon(Icons.refresh, size: 14, color: theme.brandDark)
             : null,
       ),
     );
@@ -75,34 +141,36 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: PrimaryText(
-          text: 'Analysis Result',
+          text: widget.title ?? R.S.analysisResult,
           color: theme.accentTxt,
           fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
         centerTitle: true,
-        leading: Icon(
-          Icons.chevron_left,
-          color: theme.accentTxt,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Icon(
+            Icons.chevron_left,
+            color: theme.accentTxt,
+          ),
         ).rippleClick(() => context.pop()),
         actions: [
-          Icon(Icons.ios_share, color: theme.accentTxt).rippleClick(() {
-            final isPro = context.read<AuthProvider>().isPro;
-            if (!isPro) {
-              AppHelper.showPaywall(context, feature: 'Sharing Insights');
-              return;
-            }
-            
-            final shareText = """
-🧠 MindPilot Analysis: ${widget.title ?? 'My Clarity Moment'}
-
-${_currentAnalysis.replaceAll('**', '').replaceAll('*', '')}
-
----
-Generated by MindPilot - Think clearly. Live intentionally.
-Download MindPilot now for your own AI clarity!
-""";
-            Share.share(shareText);
+          Icon(
+            Icons.share_outlined,
+            color: theme.accentTxt,
+          ).rippleClick(() {
+            final user = context.read<AppAuthProvider>().user;
+            final downloadUrl = ConfigService().updateUrl;
+            ShareService.captureAndShare(
+              context,
+              text: "Making tough choices with clarity! 🧠 Just analyzed a major decision with MindPilot and the path forward is clear. Stop overthinking and start acting.\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Decisions #Clarity",
+              widget: ShareableCard(
+                mode: ShareableCardMode.insight,
+                insightTitle: widget.title ?? 'Decision Analysis',
+                insightContent: widget.analysis,
+                userName: user?.displayName,
+              ),
+            );
           }),
           20.horizontalSpace,
         ],
@@ -132,160 +200,126 @@ Download MindPilot now for your own AI clarity!
           ),
           SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: SelectionArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GlassContainer(
-                    padding: const EdgeInsets.all(20),
-                    gradient: theme.glassGradient,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SecondaryText(
-                                text: 'Overall Recommendation',
-                                color: theme.accentTxt.withOpacity(0.7),
-                                fontSize: 12,
-                              ),
-                              8.verticalSpace,
-                              PrimaryText(
-                                text: widget.title ?? 'MindPilot Analysis',
-                                color: theme.accentTxt,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              12.verticalSpace,
-                              SecondaryText(
-                                text:
-                                    'Based on your input, here is the structured clarity you need.',
-                                color: theme.accentTxt.withOpacity(0.8),
-                                fontSize: 13,
-                              ),
-                            ],
-                          ),
-                        ),
-                        16.horizontalSpace,
-                        Icon(
-                          Icons.track_changes,
-                          color: theme.accentTxt,
-                          size: 40,
-                        ),
-                      ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PrimaryText(
+                  text: R.S.analysisBreakdown,
+                  color: theme.accentTxt,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                12.verticalSpace,
+                SecondaryText(
+                  text: R.S.breakdownDesc,
+                  color: theme.accentTxt.withOpacity(0.7),
+                ),
+                24.verticalSpace,
+                Row(
+                  children: [
+                    SecondaryText(
+                      text: '${R.S.textColor}:',
+                      color: theme.accentTxt.withOpacity(0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                  32.verticalSpace,
-                  PrimaryText(
-                    text: 'Analysis Breakdown',
-                    color: theme.accentTxt,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  12.verticalSpace,
-                  Row(
-                    children: [
-                      _colorPicker(context, const Color(0xFFC0FF00)), // Lemon Green
-                      12.horizontalSpace,
-                      _colorPicker(context, const Color(0xFFFF914D)), // Orange
-                      12.horizontalSpace,
-                      _colorPicker(context, theme.accentTxt, isReset: true), // Reset
-                    ],
-                  ),
-                  20.verticalSpace,
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: theme.accentTxt.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
-                    ),
+                    16.horizontalSpace,
+                    _colorPickerItem(
+                      context,
+                      const Color(0xFFC0FF00),
+                    ), // Lemon Green
+                    12.horizontalSpace,
+                    _colorPickerItem(
+                      context,
+                      const Color(0xFFFF914D),
+                    ), // Orange
+                    12.horizontalSpace,
+                    _colorPickerItem(
+                      context,
+                      theme.accentTxt,
+                      isReset: true,
+                    ), // Reset
+                  ],
+                ),
+                16.verticalSpace,
+                GlassContainer(
+                  padding: const EdgeInsets.all(20),
+                  gradient: theme.glassGradient,
+                  child: SelectionArea(
                     child: MarkdownBody(
-                      data: _currentAnalysis,
+                      data: widget.analysis,
                       styleSheet: MarkdownStyleSheet(
                         p: TextStyle(
-                          color: _textColor ?? theme.accentTxt,
-                          fontSize: 16,
+                          color: _selectedTextColor ?? theme.accentTxt,
+                          fontSize: 15,
                           height: 1.6,
                         ),
                         strong: TextStyle(
-                          color: _textColor ?? theme.accentTxt,
+                          color: _selectedTextColor ?? theme.accentTxt,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
                         ),
                         h1: TextStyle(
-                          color: _textColor ?? theme.accentTxt,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        h2: TextStyle(
-                          color: _textColor ?? theme.accentTxt,
+                          color: _selectedTextColor ?? theme.accentTxt,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
-                        h3: TextStyle(
-                          color: _textColor ?? theme.accentTxt,
+                        h2: TextStyle(
+                          color: _selectedTextColor ?? theme.accentTxt,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
-                        listBullet: TextStyle(color: _textColor ?? theme.accentTxt, fontSize: 16),
-                        tableBody: TextStyle(color: _textColor ?? theme.accentTxt, fontSize: 14),
-                        tableHead: TextStyle(color: _textColor ?? theme.accentTxt, fontWeight: FontWeight.bold),
-                        tableBorder: TableBorder.all(color: (_textColor ?? theme.accentTxt).withOpacity(0.2)),
+                        h3: TextStyle(
+                          color: _selectedTextColor ?? theme.accentTxt,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        listBullet: TextStyle(
+                          color: _selectedTextColor ?? theme.accentTxt,
+                        ),
+                        tableBody: TextStyle(
+                          color: _selectedTextColor ?? theme.accentTxt,
+                          fontSize: 14,
+                        ),
+                        tableHead: TextStyle(
+                          color: _selectedTextColor ?? theme.accentTxt,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        blockquote: TextStyle(
+                          color: _selectedTextColor ?? theme.accentTxt,
+                        ),
+                        code: TextStyle(
+                          color: _selectedTextColor ?? theme.accentTxt,
+                          backgroundColor: Colors.transparent,
+                        ),
                       ),
                     ),
                   ),
-
-                  if (_isContinuing) ...[
-                    20.verticalSpace,
-                    const Center(child: CircularProgressIndicator()),
-                  ],
-                  40.verticalSpace,
+                ),
+                40.verticalSpace,
+                if (_isContinuing)
+                  const Center(child: CircularProgressIndicator())
+                else
                   Row(
                     children: [
                       Expanded(
                         child: CustomButton(
                           label: 'Continue',
-                          loading: _isContinuing,
-                          onPressed: _isContinuing ? null : _continueAnalysis,
+                          onPressed: _continueAnalysis,
+                          isGlass: true,
                           backgroundColor: theme.accentTxt.withOpacity(0.1),
-                          textColor: theme.accentTxt,
                         ),
                       ),
-                      16.horizontalSpace,
+                      12.horizontalSpace,
                       Expanded(
                         child: CustomButton(
-                          label: 'Done',
-                          onPressed: () async {
-                            try {
-                              await context.read<JournalProvider>().addEntry(
-                                text: _currentAnalysis,
-                                mood: "Analyzed 🧠",
-                                title: widget.title,
-                              );
-                              context.showInAppNotification(
-                                'Decision saved to Journal!',
-                                type: InAppNotificationType.success,
-                              );
-                              context.pop();
-                              context.pop(); // Go back to Home/Journal tab
-                            } catch (e) {
-                              safePrint("Save Error: $e");
-                              context.showInAppNotification(
-                                'Failed to save decision. Please try again.',
-                              );
-                            }
-                          },
-                          backgroundColor: theme.primaryBase,
+                          label: R.S.done,
+                          onPressed: _saveToJournal,
+                          isGlass: true,
                         ),
                       ),
                     ],
                   ),
-                  20.verticalSpace,
-                ],
-              ),
+              ],
             ),
           ),
         ],

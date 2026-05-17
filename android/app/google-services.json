@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "802202587833",
+    "firebase_url": "https://mindpilot-131f1-default-rtdb.firebaseio.com",
     "project_id": "mindpilot-131f1",
     "storage_bucket": "mindpilot-131f1.firebasestorage.app"
   },
@@ -13,6 +14,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "802202587833-3k9a4lgg1u0ufqsb40n6l5pmfmasu56e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mindpilot.app",
+            "certificate_hash": "4a3cc33412e3609a6ed2f0ad82aea4b3738e7627"
+          }
+        },
         {
           "client_id": "802202587833-dhe5c6sbcpvbtj020dr9bmin2ovqhipk.apps.googleusercontent.com",
           "client_type": 1,
@@ -42,7 +51,7 @@
               "client_id": "802202587833-6u4ljq0ulaqpu4gr8rf77ltopvp6ujem.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.mindpilot.app"
+                "bundle_id": "com.example.archonitDevTest"
               }
             }
           ]

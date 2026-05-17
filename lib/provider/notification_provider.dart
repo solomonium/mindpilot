@@ -8,6 +8,8 @@ class AppNotification {
   final String date;
   final String type; // 'insight' or 'update'
   final bool isRead;
+  final String? author;
+  final String? source;
 
   AppNotification({
     this.id,
@@ -16,6 +18,8 @@ class AppNotification {
     required this.date,
     required this.type,
     this.isRead = false,
+    this.author,
+    this.source,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +30,8 @@ class AppNotification {
       'date': date,
       'type': type,
       'isRead': isRead ? 1 : 0,
+      'author': author,
+      'source': source,
     };
   }
 }
@@ -33,17 +39,22 @@ class AppNotification {
 class NotificationProvider extends ChangeNotifier {
   final List<AppNotification> _notifications = [];
   int _unreadCount = 0;
-  String _dailyInsight = "Clarity comes when you stop seeking answers outside and start listening within.";
+  String _dailyInsight = "Nothing in the world is ever completely wrong. Even a stopped clock is right twice a day.";
+  String? _dailyInsightAuthor = "Paulo Coelho";
+  String? _lastInsightSource;
+  String? _lastInsightDate;
   String? _insightExplanation;
   bool _isFetchingExplanation = false;
   String? _fetchError;
   final DatabaseHelper _dbHelper = DatabaseHelper();
-  Timer? _backgroundQuoteTimer;
 
 
   List<AppNotification> get notifications => _notifications;
   int get unreadCount => _unreadCount;
   String get dailyInsight => _dailyInsight;
+  String? get dailyInsightAuthor => _dailyInsightAuthor;
+  String? get lastInsightSource => _lastInsightSource;
+  String? get lastInsightDate => _lastInsightDate;
   String? get insightExplanation => _insightExplanation;
   bool get isFetchingExplanation => _isFetchingExplanation;
   String? get fetchError => _fetchError;
@@ -59,6 +70,8 @@ class NotificationProvider extends ChangeNotifier {
         date: item['date'],
         type: item['type'],
         isRead: item['isRead'] == 1,
+        author: item['author'],
+        source: item['source'],
       );
       _notifications.add(notif);
     }
@@ -67,6 +80,9 @@ class NotificationProvider extends ChangeNotifier {
     for (var n in _notifications) {
       if (n.type == 'insight') {
         _dailyInsight = n.body;
+        _dailyInsightAuthor = n.author;
+        _lastInsightSource = n.source;
+        _lastInsightDate = n.date;
         break;
       }
     }
@@ -74,63 +90,75 @@ class NotificationProvider extends ChangeNotifier {
     _unreadCount = await _dbHelper.getUnreadNotificationsCount();
     notifyListeners();
 
-    // Start the background timer if it's not already running
-    startBackgroundQuoteTimer();
+    // Listen to broadcasts from admin
+    listenToBroadcasts();
   }
 
-  void startBackgroundQuoteTimer() {
-    if (_backgroundQuoteTimer != null) return;
-    
-    _backgroundQuoteTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      checkAndFetchNewQuote();
+  void listenToBroadcasts() {
+    FirebaseFirestore.instance
+        .collection('broadcasts')
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .snapshots()
+        .listen((snapshot) async {
+      if (snapshot.docs.isNotEmpty) {
+        final data = snapshot.docs.first.data();
+        final id = snapshot.docs.first.id;
+        
+        final prefs = await SharedPreferences.getInstance();
+        final lastBroadcastId = prefs.getString('LAST_BROADCAST_ID');
+        final lastBroadcastTime = prefs.getString('LAST_BROADCAST_TIME');
+        
+        final createdAt = data['createdAt'] as Timestamp?;
+        final timeStr = createdAt?.toDate().toIso8601String() ?? '';
+        
+        if (lastBroadcastId != id || (timeStr.isNotEmpty && lastBroadcastTime != timeStr)) {
+          await prefs.setString('LAST_BROADCAST_ID', id);
+          if (timeStr.isNotEmpty) {
+            await prefs.setString('LAST_BROADCAST_TIME', timeStr);
+          }
+          
+          final title = data['title'] ?? 'MindPilot Update';
+          final body = data['body'] ?? '';
+          final type = data['type'] ?? 'update';
+          final author = data['author'];
+          final source = data['source'];
+
+          // Deduplication: Check if we recently received a notification with the same content (last 5 minutes)
+          final fiveMinutesAgo = DateTime.now().subtract(const Duration(minutes: 5));
+          final isRecentDuplicate = _notifications.any((n) {
+            final notifDate = DateTime.tryParse(n.date);
+            if (notifDate == null) return false;
+            return n.body.trim() == body.trim() &&
+                   n.title.trim() == title.trim() &&
+                   notifDate.isAfter(fiveMinutesAgo);
+          });
+
+          if (isRecentDuplicate) {
+            safePrint("Ignoring duplicate broadcast by content received recently: $body");
+            return;
+          }
+          
+          await addNotification({
+            'title': title,
+            'body': body,
+            'type': type,
+            'author': author,
+            'source': source,
+          }, broadcastId: id);
+          
+          NotificationService().showForegroundNotification(title, body, type);
+        }
+      }
     });
   }
 
-  Future<void> checkAndFetchNewQuote() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final lastFetch = prefs.getInt('LAST_QUOTE_FETCH') ?? 0;
-      final now = DateTime.now().millisecondsSinceEpoch;
-
-      final int fetchInterval = ConfigService().quoteIntervalMs; 
-
-      final timeSinceLastFetch = now - lastFetch;
-
-      if (timeSinceLastFetch > fetchInterval) {
-        // Update the timestamp immediately to prevent double-fetching
-        await prefs.setInt('LAST_QUOTE_FETCH', now);
-        
-        final quoteData = await QuoteService().fetchRandomQuote();
-        
-        if (quoteData != null) {
-          final body = "${quoteData['quote']} — ${quoteData['author']}";
-          
-          await addNotification({
-            'title': 'New Insight',
-            'body': body,
-            'type': 'insight',
-          });
-
-          NotificationService().showForegroundNotification(
-            'New Wisdom Available',
-            'A new insight has arrived to keep you focused.',
-            'update', 
-          );
-        } else {
-          // Reset timer so it retries on next check if it failed
-          await prefs.setInt('LAST_QUOTE_FETCH', lastFetch);
-        }
-      }
-    } catch (e) {
-      // Keep only critical error logs
-      safePrint('Error in background check: $e');
-    }
-  }
 
 
 
 
-  Future<void> addNotification(Map<String, dynamic> data) async {
+
+  Future<void> addNotification(Map<String, dynamic> data, {String? broadcastId}) async {
     final title = data['title'] ?? 'New Notification';
     final body = data['body'] ?? '';
     final type = data['type'] ?? 'update';
@@ -142,10 +170,28 @@ class NotificationProvider extends ChangeNotifier {
       'type': type,
       'date': date,
       'isRead': 0,
+      'author': data['author'],
+      'source': data['source'],
     });
+
+    if (broadcastId != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('LAST_BROADCAST_ID', broadcastId);
+    }
 
     if (type == 'insight') {
       _dailyInsight = body;
+      _lastInsightSource = data['source'];
+      
+      // Self-healing: if author is missing but body contains a dash, try to extract it
+      String? incomingAuthor = data['author'];
+      if ((incomingAuthor == null || incomingAuthor == "Unknown") && body.contains(" - ")) {
+        final parts = body.split(" - ");
+        _dailyInsight = parts[0].trim();
+        incomingAuthor = parts[1].trim();
+      }
+      
+      _dailyInsightAuthor = (incomingAuthor == null || incomingAuthor.isEmpty) ? "Unknown" : incomingAuthor;
       _insightExplanation = null; // Clear explanation for new insight
     }
 
@@ -162,8 +208,8 @@ class NotificationProvider extends ChangeNotifier {
     await loadNotifications();
   }
 
-  Future<void> fetchInsightExplanation() async {
-    if (_insightExplanation != null) return;
+  Future<bool> fetchInsightExplanation() async {
+    if (_insightExplanation != null) return false;
     _isFetchingExplanation = true;
     _fetchError = null;
     notifyListeners();
@@ -180,7 +226,14 @@ class NotificationProvider extends ChangeNotifier {
         gemini.init(apiKey, modelName: selectedModel);
       }
 
-      final prompt = "Give a very simple, 1-2 sentence explanation of this insight for a teenager: '$_dailyInsight'. Use basic words. Then, add a section starting with '**Quick Tip:**' followed by one practical action. In your tip, highly recommend using the **Decision Analyzer** or **Focus Session** in the MindPilot app, explaining that these tools will help them organize their thoughts and gain massive mental clarity. Use **bold markers** for these feature names and the 'Quick Tip' label.";
+      final author = _dailyInsightAuthor;
+      final shortName = (author != null && author != "Unknown") 
+          ? author.trim().split(' ').first 
+          : null;
+      final hasAuthor = shortName != null;
+      final authorRef = hasAuthor ? shortName : "the author";
+      
+      final prompt = "Explain what $authorRef means by this insight: '$_dailyInsight'. Use very simple, 1-2 sentence language suitable for a teenager. ${hasAuthor ? "Refer to the author by their first name only (e.g., '$shortName means...' or 'What $shortName is saying is...')." : "Refer to the insight (e.g., 'This means...' or 'What this is saying is...')."} Then, provide a dynamic section starting with '**Quick Tip:**' that links this specific insight to the most relevant feature in the MindPilot app. If the insight is about productivity or focus, highly recommend using the **Focus Session**. If it is about clarity, choices, or mental clutter, highly recommend using the **Decision Analyzer**. Explain exactly how using that specific tool will help them put the lesson into practice today. Use **bold markers** for the feature names and the 'Quick Tip' label.";
       
       safePrint("Explaining Insight: $_dailyInsight");
       final response = await gemini.sendMessage(prompt);
@@ -190,14 +243,47 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       _insightExplanation = response;
+      return true;
     } catch (e) {
       safePrint("Explanation Fetch Error: $e");
       _fetchError = "Trouble connecting. Please tap to retry.";
       GeminiService().resetChat(); // Reset session for fresh retry
+      return false;
     } finally {
       _isFetchingExplanation = false;
       notifyListeners();
     }
+  }
+
+  String getInsightShareCaption() {
+    final lowerInsight = _dailyInsight.toLowerCase();
+    
+    // Focus & Concentration
+    if (RegExp(r'focus|concentrate|distract|attention|deep|busy').hasMatch(lowerInsight)) {
+      return "Ready to sharpen your focus? 🎯 Today's wisdom is all about deep work. Have you stayed focused today?";
+    } 
+    // Decisions & Clarity
+    else if (RegExp(r'choice|decide|decision|clarity|clear|path|confuse').hasMatch(lowerInsight)) {
+      return "Decisions define our path. 🧭 Feeling clear about your choices today? MindPilot is here to help.";
+    } 
+    // Productivity & Action
+    else if (RegExp(r'productive|action|work|effort|discipline|do|task|goal').hasMatch(lowerInsight)) {
+      return "Time to turn intentions into actions! ⚡ How are you making progress on your goals today?";
+    } 
+    // Growth & Success
+    else if (RegExp(r'growth|success|better|improve|level|learn|win').hasMatch(lowerInsight)) {
+      return "Leveling up is a journey. 📈 Did you take a step toward your best self today?";
+    }
+    // Mindset & Courage
+    else if (RegExp(r'mind|fear|brave|courage|believe|spirit|peace').hasMatch(lowerInsight)) {
+      return "A clear mind is a superpower. 🧠 How are you protecting your mental space today?";
+    }
+    // Time & Consistency
+    else if (RegExp(r'time|day|consistency|habit|routine|moment').hasMatch(lowerInsight)) {
+      return "Consistency is the bridge to mastery. ⏳ What small win are you celebrating today?";
+    }
+
+    return "Wisdom meets focus on MindPilot! 💡 What's your biggest takeaway from today's insight?";
   }
 
 
@@ -205,5 +291,11 @@ class NotificationProvider extends ChangeNotifier {
     _insightExplanation = null;
     _fetchError = null;
     notifyListeners();
+  }
+
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 }

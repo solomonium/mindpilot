@@ -26,4 +26,5 @@ class IconRes {
   String get heart => 'heart';
   String get loginBg => 'login_bg';
   String get focus => 'focus';
+  String get apple => 'apple';
 }

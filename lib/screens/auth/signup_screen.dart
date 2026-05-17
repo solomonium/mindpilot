@@ -94,7 +94,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   40.verticalSpace,
                   PrimaryText(
-                    text: 'Create Account',
+                    text: R.S.createAccount,
                     color: theme.accentTxt,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -103,12 +103,12 @@ class _SignupScreenState extends State<SignupScreen> {
                   Row(
                     children: [
                       SecondaryText(
-                        text: 'Already have an account?',
+                        text: R.S.alreadyHaveAcct,
                         color: theme.accentTxt.withOpacity(0.7),
                       ),
                       8.horizontalSpace,
                       PrimaryText(
-                        text: 'Sign in',
+                        text: R.S.login,
                         color: theme.primaryBase,
                         fontWeight: FontWeight.bold,
                       ).rippleClick(() {
@@ -122,7 +122,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       Expanded(
                         child: _buildField(
                           context,
-                          'First Name',
+                          R.S.firstName,
                           firstName,
                           Icons.person_outline,
                         ),
@@ -131,7 +131,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       Expanded(
                         child: _buildField(
                           context,
-                          'Last Name',
+                          R.S.lastName,
                           lastName,
                           Icons.person_outline,
                         ),
@@ -141,14 +141,14 @@ class _SignupScreenState extends State<SignupScreen> {
                   20.verticalSpace,
                   _buildField(
                     context,
-                    'Email address',
+                    R.S.email,
                     email,
                     Icons.email_outlined,
                   ),
                   20.verticalSpace,
                   _buildField(
                     context,
-                    'Password',
+                    R.S.password,
                     password,
                     Icons.lock_outline,
                     isPassword: true,
@@ -156,24 +156,21 @@ class _SignupScreenState extends State<SignupScreen> {
                   20.verticalSpace,
                   _buildField(
                     context,
-                    'Confirm Password',
+                    R.S.confirmPassword,
                     confirmPassword,
                     Icons.lock_outline,
                     isPassword: true,
                   ),
                   32.verticalSpace,
                   SecondaryText(
-                    text:
-                        'By signing up, you agree to our Terms of Service and Privacy Policy.',
+                    text: R.S.termsAndPrivacy,
                     color: theme.accentTxt.withOpacity(0.54),
                     fontSize: 12,
                   ),
                   24.verticalSpace,
                   CustomButton(
-                    label: 'Create Account',
+                    label: R.S.createAccount,
                     onPressed: () {},
-                    // =>
-                    //     context.pushOff(const PersonalizationScreen()),
                     backgroundColor: theme.primaryBase,
                   ),
                   40.verticalSpace,

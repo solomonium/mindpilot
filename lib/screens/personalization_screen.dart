@@ -1,4 +1,6 @@
 import 'package:mindpilot/export.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PersonalizationScreen extends StatefulWidget {
   const PersonalizationScreen({super.key});
@@ -39,9 +41,40 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
       "icon": Icons.account_balance_wallet_outlined,
       "color": const Color(0xFFF59E0B),
     },
+    {
+      "title": "Leadership & Influence",
+      "subtitle": "Inspire others and lead effectively",
+      "icon": Icons.groups_outlined,
+      "color": const Color(0xFF8B5CF6),
+    },
   ];
 
-  int selectedGoal = -1;
+  final Set<int> selectedGoals = {};
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingPreferences();
+  }
+
+  void _loadExistingPreferences() async {
+    final auth = FirebaseAuth.instance.currentUser;
+    if (auth != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(auth.uid).get();
+      final existing = List<String>.from(doc.data()?['personalization'] ?? []);
+      if (existing.isNotEmpty) {
+        setState(() {
+          for (int i = 0; i < goals.length; i++) {
+            if (existing.contains(goals[i]['title'])) {
+              selectedGoals.add(i);
+            }
+          }
+        });
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -78,16 +111,9 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   20.verticalSpace,
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => _finishPersonalization(),
-                      child: SecondaryText(text: 'Skip', color: theme.accentTxt.withOpacity(0.6)),
-                    ),
-                  ),
                   20.verticalSpace,
                   PrimaryText(
-                    text: "Let's Personalize",
+                    text: R.S.personalizeTitle,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                     textAlign: TextAlign.center,
@@ -95,29 +121,44 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
                   ),
                   8.verticalSpace,
                   SecondaryText(
-                    text: "What are your main goals?\nYou can change these later.",
+                    text: 'Please select at least one area to help us tailor your experience.',
                     textAlign: TextAlign.center,
-                    color: theme.accentTxt.withOpacity(0.7),
+                    color: selectedGoals.isEmpty ? theme.errorPrimary.withOpacity(0.8) : theme.accentTxt.withOpacity(0.7),
+                    fontSize: 12,
+                    fontWeight: selectedGoals.isEmpty ? FontWeight.bold : FontWeight.normal,
                   ),
-                  40.verticalSpace,
+                  20.verticalSpace,
                   Expanded(
                     child: ListView.separated(
                       itemCount: goals.length,
                       separatorBuilder: (context, index) => 16.verticalSpace,
                       itemBuilder: (context, index) {
                         final goal = goals[index];
-                        final isSelected = selectedGoal == index;
+                        final isSelected = selectedGoals.contains(index);
                         return _goalTile(goal, isSelected, () {
-                          setState(() => selectedGoal = index);
+                          setState(() {
+                            if (isSelected) {
+                              selectedGoals.remove(index);
+                            } else {
+                              selectedGoals.add(index);
+                            }
+                          });
                         });
                       },
                     ),
                   ),
                   24.verticalSpace,
                   CustomButton(
-                    label: 'Continue',
-                    onPressed: selectedGoal != -1 ? () => _finishPersonalization() : null,
-                    backgroundColor: theme.primaryBase,
+                    label: R.S.continueBtn,
+                    loading: _isSaving,
+                    onPressed: () {
+                      if (selectedGoals.isNotEmpty) {
+                        _finishPersonalization();
+                      } else {
+                        context.showInAppNotification('Please select at least one focus area to continue.');
+                      }
+                    },
+                    backgroundColor: selectedGoals.isEmpty ? theme.primaryBase.withOpacity(0.3) : theme.primaryBase,
                   ),
                   40.verticalSpace,
                 ],
@@ -129,15 +170,31 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
     );
   }
 
-  void _finishPersonalization() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('HAS_SEEN_PERSONALIZATION', true);
-    if (mounted) {
-      context.pushOff(const LoginScreen());
+  void _finishPersonalization({bool isSkip = false}) async {
+    if (!isSkip) setState(() => _isSaving = true);
+    try {
+      final auth = FirebaseAuth.instance.currentUser;
+      if (auth != null && !isSkip) {
+        final selectedTitles = selectedGoals.map((index) => goals[index]['title'] as String).toList();
+        await FirebaseFirestore.instance.collection('users').doc(auth.uid).set({
+          'personalization': selectedTitles,
+          'hasCompletedSetup': true,
+        }, SetOptions(merge: true));
+      }
+      
+      if (mounted) {
+        context.pushOff(const MainScreen());
+      }
+    } catch (e) {
+      if (mounted && !isSkip) {
+        context.showInAppNotification('Error saving preferences: $e');
+      }
     }
+    if (mounted) setState(() => _isSaving = false);
   }
 
   Widget _goalTile(Map<String, dynamic> goal, bool isSelected, VoidCallback onTap) {
+
     AppTheme theme = context.watch();
     return GlassContainer(
       padding: const EdgeInsets.all(16),

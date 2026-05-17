@@ -16,6 +16,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    AppHelper.setScreenshotProtection(true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndPromptPermissions();
     });
@@ -76,8 +77,8 @@ class _MainScreenState extends State<MainScreen> {
                   children: const [
                     HomeScreen(),
                     FocusSessionScreen(),
-                    JournalScreen(),
-                    ProgressScreen(),
+                    DecisionAnalyzerScreen(),
+                    JournalEntriesScreen(),
                     ProfileScreen(),
                   ],
                 ),
