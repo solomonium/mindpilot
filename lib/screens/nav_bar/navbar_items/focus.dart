@@ -160,6 +160,20 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
     });
   }
 
+  void _onStartTimerTap() async {
+    final bool online = await AppHelper.isOnline();
+    if (!online) {
+      _startTimer();
+    } else {
+      if (mounted) {
+        AppHelper.showAirplaneModePrompt(
+          context,
+          onStartSession: _startTimer,
+        );
+      }
+    }
+  }
+
   void _stopTimer() {
     _timer?.cancel();
     setState(() => _isRunning = false);
@@ -375,7 +389,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ).rippleClick(_isRunning ? _stopTimer : _startTimer),
+                  ).rippleClick(_isRunning ? _stopTimer : _onStartTimerTap),
                 ),
                 12.verticalSpace,
                 _sessionTypes(theme),

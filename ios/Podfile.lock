@@ -1342,11 +1342,6 @@ PODS:
     - Flutter
   - flutter_timezone (0.0.1):
     - Flutter
-  - geocoding_ios (1.0.5):
-    - Flutter
-  - geolocator_apple (1.2.0):
-    - Flutter
-    - FlutterMacOS
   - google_sign_in_ios (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -1561,8 +1556,6 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_timezone (from `.symlinks/plugins/flutter_timezone/ios`)
-  - geocoding_ios (from `.symlinks/plugins/geocoding_ios/ios`)
-  - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - google_sign_in_ios (from `.symlinks/plugins/google_sign_in_ios/darwin`)
   - in_app_purchase_storekit (from `.symlinks/plugins/in_app_purchase_storekit/darwin`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
@@ -1635,10 +1628,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
   flutter_timezone:
     :path: ".symlinks/plugins/flutter_timezone/ios"
-  geocoding_ios:
-    :path: ".symlinks/plugins/geocoding_ios/ios"
-  geolocator_apple:
-    :path: ".symlinks/plugins/geolocator_apple/darwin"
   google_sign_in_ios:
     :path: ".symlinks/plugins/google_sign_in_ios/darwin"
   in_app_purchase_storekit:
@@ -1692,8 +1681,6 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: eda81afddbf18f8589f6ec069ce593c4c6378769
   flutter_timezone: ffb07bdad3c6276af8dada0f11978d8a1f8a20bb
-  geocoding_ios: eafacae6ad11a1eb56681f7d11df602a5fd49416
-  geolocator_apple: 66b711889fd333205763b83c9dcf0a57a28c7afd
   google_sign_in_ios: 7336a3372ea93ea56a21e126a0055ffca3723601
   GoogleAdsOnDeviceConversion: 914d95386d0dd6815e8b1d70c465fe1d13312a1e
   GoogleAppMeasurement: 01e991b4c0c025dd66558dbc5133b5d70ccdf88e
@@ -1720,6 +1707,6 @@ SPEC CHECKSUMS:
   sqflite_darwin: 5a7236e3b501866c1c9befc6771dfd73ffb8702d
   url_launcher_ios: bb13df5870e8c4234ca12609d04010a21be43dfa
 
-PODFILE CHECKSUM: 10b76175f5ebc5411f5bb8381c0e5b2fad55728b
+PODFILE CHECKSUM: 67e8273af33623126a7ee2241eee456005f51dc3
 
 COCOAPODS: 1.16.2

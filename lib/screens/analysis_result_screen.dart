@@ -247,7 +247,7 @@ Continue the analysis naturally.
                   gradient: theme.glassGradient,
                   child: SelectionArea(
                     child: MarkdownBody(
-                      data: widget.analysis,
+                      data: _currentAnalysis,
                       styleSheet: MarkdownStyleSheet(
                         p: TextStyle(
                           color: _selectedTextColor ?? theme.accentTxt,

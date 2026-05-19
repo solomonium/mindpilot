@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service - MindPilot</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Terms of Service for MindPilot - Learn about the guidelines, user account responsibilities, offline services, and usage rules.">
+  <meta property="og:title" content="Terms of Service - MindPilot">
+  <meta property="og:description" content="Read the terms of service that govern your use of the MindPilot application, insights engine, and messaging services.">
+  <meta property="og:image" content="https://mindpilot-131f1.web.app/preview.png">
+  <meta property="og:url" content="https://mindpilot-131f1.web.app/terms">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Terms of Service - MindPilot">
+  <meta name="twitter:description" content="Read the terms of service that govern your use of the MindPilot application, insights engine, and messaging services.">
+  <meta name="twitter:image" content="https://mindpilot-131f1.web.app/preview.png">
+  
+  <!-- Favicon & App Icons -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 0%, #111827 0%, #030712 100%);
+      --card-bg: rgba(17, 24, 39, 0.6);
+      --border-color: rgba(255, 255, 255, 0.06);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent-color: #3b82f6;
+      --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #10b981 100%);
+      --accent-glow: rgba(59, 130, 246, 0.15);
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Ambient Background Glows */
+    .glow-blob {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0) 70%);
+      top: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .glow-blob-secondary {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0) 70%);
+      bottom: 10%;
+      left: -10%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Header / Navbar */
+    header {
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 30px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      transition: transform 0.2s ease;
+    }
+
+    .brand:hover {
+      transform: scale(1.02);
+    }
+
+    .brand img {
+      width: 80px;
+      height: 80px;
+      border-radius: 18px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand span {
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .back-btn {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 100px;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.2s ease;
+    }
+
+    .back-btn:hover {
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    /* Main Container */
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 80px 24px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 50px;
+      margin-top: 20px;
+    }
+
+    .hero h1 {
+      font-family: var(--font-heading);
+      font-size: 2.8rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      letter-spacing: -1px;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Terms Card (Glassmorphism) */
+    .terms-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 40px 48px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .meta-info {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meta-info::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #3b82f6;
+    }
+
+    /* Content styling */
+    h2 {
+      font-family: var(--font-heading);
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-top: 36px;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    h2::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%);
+    }
+
+    p {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      margin-bottom: 20px;
+      line-height: 1.7;
+    }
+
+    ul, ol {
+      margin-bottom: 24px;
+      padding-left: 24px;
+      color: var(--text-secondary);
+    }
+
+    li {
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+
+    strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .highlight-box {
+      background: rgba(59, 130, 246, 0.05);
+      border-left: 4px solid var(--accent-color);
+      padding: 20px;
+      border-radius: 0 12px 12px 0;
+      margin: 24px 0;
+    }
+
+    .highlight-box p {
+      margin-bottom: 0;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* Footer styling */
+    footer {
+      width: 100%;
+      border-top: 1px solid var(--border-color);
+      padding: 40px 24px;
+      text-align: center;
+      background: rgba(3, 7, 18, 0.8);
+      position: relative;
+      z-index: 10;
+      margin-top: 80px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    .footer-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .copyright {
+      font-size: 0.85rem;
+      color: rgba(156, 163, 175, 0.6);
+    }
+
+    /* Responsiveness */
+    @media (max-width: 768px) {
+      header {
+        padding: 20px;
+      }
+      
+      .hero h1 {
+        font-size: 2.2rem;
+      }
+      
+      .terms-card {
+        padding: 30px 24px;
+        border-radius: 16px;
+      }
+      
+      h2 {
+        font-size: 1.4rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow Background Blobs -->
+  <div class="glow-blob"></div>
+  <div class="glow-blob-secondary"></div>
+
+  <!-- Header -->
+  <header>
+    <a href="/" class="brand">
+      <img src="favicon.png" alt="MindPilot Logo">
+      Mind<span>Pilot</span>
+    </a>
+    <a href="/" class="back-btn">Back to Home</a>
+  </header>
+
+  <!-- Main Terms Section -->
+  <main>
+    <div class="hero">
+      <h1>Terms of Service</h1>
+      <p>Agreement governing the use of the MindPilot software application and platform.</p>
+    </div>
+
+    <div class="terms-card">
+      <div class="meta-info">Last Updated: May 18, 2026</div>
+
+      <p>Welcome to <strong>MindPilot</strong>. These Terms of Service ("Terms") govern your access to and use of the MindPilot mobile application and website (collectively, the "Service"). Please read these Terms carefully before using the Service.</p>
+
+      <p>By downloading, installing, accessing, or using the MindPilot application, you agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, you must immediately uninstall and discontinue all use of the Service.</p>
+
+      <h2>1. Description of Service</h2>
+      <p>MindPilot is an advanced productivity and wellness assistant providing dynamic text and journal entries, local caching configurations, real-time secure chat messaging, structured streak completions, customizable alarms, and personalized AI-driven cognitive insights. The Service is provided "as is" and "as available."</p>
+
+      <h2>2. User Accounts and Registration</h2>
+      <p>To access all synchronized features of the Service, you must create a secure user account via our supported authentication gateways (Google Firebase Authentication). You agree to:</p>
+      <ul>
+        <li>Provide accurate and complete registration information during account creation.</li>
+        <li>Maintain the absolute confidentiality of your login credentials and security tokens.</li>
+        <li>Notify us immediately of any unauthorized access, breach, or compromise of your profile.</li>
+      </ul>
+      <p>You are solely responsible for all activities and transactions that occur under your user account.</p>
+
+      <div class="highlight-box">
+        <p>🔐 Session Protection: For your security, manual logouts completely revoke your current session tokens on our databases. Any subsequent access requires complete re-authentication to protect your journaling history from physical intruders.</p>
+      </div>
+
+      <h2>3. Acceptable Use and Restrictions</h2>
+      <p>You agree to use MindPilot only for lawful purposes and in accordance with these Terms. You shall not:</p>
+      <ul>
+        <li>Engage in any conduct that restricts, inhibits, or compromises anyone's use or enjoyment of the Service.</li>
+        <li>Upload, post, transmit, or share content that is abusive, defamatory, harassing, or violates any third-party intellectual property or privacy rights.</li>
+        <li>Attempt to bypass, decompile, reverse-engineer, or interfere with security filters, network connection monitors, or background alarm subsystems.</li>
+        <li>Attempt to exploit the offline database sync routines or manipulate Firestore metrics (such as streaks, alarms, or messaging logs).</li>
+      </ul>
+
+      <h2>4. Connectivity and Offline Constraints</h2>
+      <p>MindPilot provides robust local caching features that allow you to read existing journals and navigate your tasks offline. However, certain actions (including journal creation, streak sync, chat communication, and screenshot sharing) are blocked when the device is disconnected from the internet. This is a design constraint implemented to preserve data integrity and prevent cloud database synchronization conflicts.</p>
+      <p>We are not liable for any delay, loss of data, or synchronization issues arising from network disruptions, carrier service failures, or device-side offline states.</p>
+
+      <h2>5. AI-Driven Insights</h2>
+      <p>Our daily cognitive insights are processed and delivered by secure server-side Firebase Cloud Functions. These insights are intended solely for productivity advice, self-reflection, and overall wellness. They do not constitute professional psychiatric, medical, or life advice. If you are experiencing serious emotional or psychological distress, please seek professional support from a certified medical specialist.</p>
+
+      <h2>6. Intellectual Property</h2>
+      <p>The Service, including the design system, animations, source code, visual components, logos, and server mechanisms, is the exclusive property of MindPilot and its licensors, protected by global copyright, trademark, and intellectual property laws.</p>
+      <p>You are granted a limited, non-exclusive, non-transferable, revocable license to download and run the MindPilot application on your personal devices for personal, non-commercial use only.</p>
+
+      <h2>7. Termination of Service</h2>
+      <p>We reserve the right, without liability or prior notice, to terminate, suspend, or restrict your access to the Service at our sole discretion, for any reason, including if we believe you have breached these Terms. You may delete your account and stop using the Service at any time.</p>
+
+      <h2>8. Disclaimer of Warranties</h2>
+      <p>THE SERVICE IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. TO THE FULLEST EXTENT PERMISSIBLE BY LAW, MINDPILOT DISCLAIMS ALL WARRANTIES, INCLUDING IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, SECURE, OR ERROR-FREE.</p>
+
+      <h2>9. Limitation of Liability</h2>
+      <p>TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL MINDPILOT, ITS DEVELOPERS, OR ITS PARTNERS BE LIABLE FOR ANY INDIRECT, SPECIAL, INCIDENTAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOSS OF PROFITS, DATA, USE, OR GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OR INABILITY TO USE THE SERVICE.</p>
+
+      <h2>10. Governing Law</h2>
+      <p>These Terms and any dispute arising from your use of the Service shall be governed by, construed, and enforced in accordance with the laws of the jurisdiction in which MindPilot operates, without regard to conflict of law principles.</p>
+
+      <h2>11. Contact Support</h2>
+      <p>If you have any questions or require clarification regarding these Terms of Service, please contact our support team:</p>
+      <p style="margin-top: 10px;">
+        <strong>Email:</strong> solteqinnovationsltd@gmail.com<br>
+        <strong>Website:</strong> <a href="https://mindpilot-131f1.web.app/" style="color: var(--accent-color); text-decoration: none;">mindpilot-131f1.web.app</a>
+      </p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-links">
+      <a href="/">Home</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="mailto:solteqinnovationsltd@gmail.com">Support</a>
+    </div>
+    <div class="copyright">
+      &copy; 2026 MindPilot. All rights reserved.
+    </div>
+  </footer>
+
+</body>
+</html>

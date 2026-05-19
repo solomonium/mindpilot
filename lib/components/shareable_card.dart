@@ -130,7 +130,7 @@ class ShareableCard extends StatelessWidget {
                   ),
                   20.verticalSpace,
                   SecondaryText(
-                    text: 'mindpilot.app',
+                    text: 'Focus • Reflect • Grow',
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.4),
                     fontWeight: FontWeight.bold,
@@ -205,6 +205,16 @@ class ShareableCard extends StatelessWidget {
   }
 
   Widget _buildInsightView(AppTheme theme) {
+    // Truncate quote content to a maximum of 2000 characters for perfect card fitting
+    final String content = insightContent != null && insightContent!.length > 2000
+        ? "${insightContent!.substring(0, 2000).trim()}..."
+        : (insightContent ?? '');
+
+    // Truncate AI explanation to a maximum of 1500 characters to prevent vertical overflows
+    final String? explanation = insightExplanation != null && insightExplanation!.length > 1500
+        ? "${insightExplanation!.substring(0, 1500).trim()}..."
+        : insightExplanation;
+
     return Column(
       children: [
         PrimaryText(
@@ -225,7 +235,7 @@ class ShareableCard extends StatelessWidget {
           child: Column(
             children: [
               SecondaryText(
-                text: insightContent ?? '',
+                text: content,
                 fontSize: 16,
                 color: Colors.white.withOpacity(0.9),
                 textAlign: TextAlign.center,
@@ -242,10 +252,10 @@ class ShareableCard extends StatelessWidget {
                   color: Colors.white70,
                 ),
               ),
-              if (insightExplanation != null) ...[
+              if (explanation != null) ...[
                 16.verticalSpace,
                 _buildHighlightedText(
-                  insightExplanation!,
+                  explanation,
                   const Color(0xFFADFF2F),
                 ),
               ],
@@ -349,6 +359,16 @@ class ShareableCard extends StatelessWidget {
   }
 
   Widget _buildChatView(AppTheme theme) {
+    // Truncate user message to 120 chars for share card cleanliness
+    final String? userMsg = chatUserMessage != null && chatUserMessage!.length > 120
+        ? "${chatUserMessage!.substring(0, 120).trim()}..."
+        : chatUserMessage;
+
+    // Truncate AI response to 220 chars for perfect share card fit
+    final String? aiMsg = chatAiResponse != null && chatAiResponse!.length > 220
+        ? "${chatAiResponse!.substring(0, 220).trim()}..."
+        : chatAiResponse;
+
     return Column(
       children: [
         PrimaryText(
@@ -358,7 +378,7 @@ class ShareableCard extends StatelessWidget {
           color: const Color(0xFFADFF2F),
         ),
         32.verticalSpace,
-        if (chatUserMessage != null) ...[
+        if (userMsg != null) ...[
           Align(
             alignment: Alignment.centerRight,
             child: Container(
@@ -373,7 +393,7 @@ class ShareableCard extends StatelessWidget {
                 ),
               ),
               child: SecondaryText(
-                text: chatUserMessage!,
+                text: userMsg,
                 fontSize: 14,
                 color: Colors.white,
                 height: 1.4,
@@ -382,7 +402,7 @@ class ShareableCard extends StatelessWidget {
           ),
           16.verticalSpace,
         ],
-        if (chatAiResponse != null)
+        if (aiMsg != null)
           Align(
             alignment: Alignment.centerLeft,
             child: Container(
@@ -398,7 +418,7 @@ class ShareableCard extends StatelessWidget {
                 border: Border.all(color: Colors.white.withOpacity(0.1)),
               ),
               child: MarkdownBody(
-                data: chatAiResponse!,
+                data: aiMsg,
                 styleSheet: MarkdownStyleSheet(
                   p: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
                   strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),

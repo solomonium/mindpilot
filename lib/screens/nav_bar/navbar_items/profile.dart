@@ -75,9 +75,22 @@ class ProfileScreen extends StatelessWidget {
                     }),
                     _menuItem(context, Icons.share_outlined, 'Share App', onTap: () async {
                       final downloadUrl = ConfigService().updateUrl;
+                      final shareText = "Hey! I've been using MindPilot to sharpen my focus, organize my thoughts, and clear my mind. 🧠✨\n\nWhat is MindPilot?\nIt's a premium, secure productivity and wellness assistant designed to:\n• Clear mental clutter with secure cognitive journaling\n• Improve concentration and stay on track with custom looping alarms\n• Work through complex life decisions with the Decision Analyzer\n• Provide daily, personalized AI-driven cognitive insights\n\nI really think it will help you boost your focus, reduce distractions, and achieve your goals. Check it out here:\n👉 $downloadUrl";
+
+                      try {
+                        await Clipboard.setData(ClipboardData(text: shareText));
+                        if (context.mounted) {
+                          context.showInAppNotification(
+                            'App invite copied to clipboard! You can paste it into your post.',
+                            type: InAppNotificationType.info,
+                          );
+                        }
+                      } catch (_) {}
+
                       await Share.share(
-                        "Download MindPilot to organize your thoughts, stay focused, and achieve your goals. Follow the link to download the app: $downloadUrl",
-                        subject: 'MindPilot App',
+                        shareText,
+                        subject: 'Level up your focus with MindPilot 🧠',
+                        sharePositionOrigin: AppHelper.getSharePositionOrigin(context),
                       );
                     }),
                     _menuItem(context, Icons.logout, 'Log Out', onTap: () {

@@ -39,7 +39,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final config = ConfigService();
     _phoneController.text = config.supportPhone;
     _versionController.text = config.latestVersion;
-    _intervalController.text = config.quoteIntervalMs.toString();
+    _intervalController.text = (config.quoteIntervalMs / 60000).round().toString();
     _updateUrlController.text = config.updateUrl;
     _forceUpdateValue = config.forceUpdate;
     _fetchTotalUsers();

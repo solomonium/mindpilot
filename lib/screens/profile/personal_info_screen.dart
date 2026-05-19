@@ -1,5 +1,7 @@
 import 'package:mindpilot/export.dart';
 import 'package:flutter/services.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:intl_phone_field/country_picker_dialog.dart';
 
 class PersonalInformationScreen extends StatefulWidget {
   const PersonalInformationScreen({super.key});
@@ -10,48 +12,85 @@ class PersonalInformationScreen extends StatefulWidget {
 
 class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   late TextEditingController _phoneController;
-  late TextEditingController _locationController;
   bool _isEditingPhone = false;
-  bool _isFetchingLocation = false;
   bool _isSaving = false;
+
+  String _selectedCountryName = 'Nigeria';
+  String _selectedDialCode = '+234';
+  String _initialCountryCode = 'NG';
 
   @override
   void initState() {
     super.initState();
     final auth = context.read<AppAuthProvider>();
-    _phoneController = TextEditingController(text: auth.phoneNumber ?? '');
-    _locationController = TextEditingController(text: auth.location ?? '');
+    String rawPhone = auth.phoneNumber ?? '';
+    _phoneController = TextEditingController();
+    
+    // Attempt to extract country code and dial code if they exist
+    if (rawPhone.isNotEmpty) {
+      if (rawPhone.startsWith('+234')) {
+        _selectedDialCode = '+234';
+        _initialCountryCode = 'NG';
+        _selectedCountryName = 'Nigeria';
+        _phoneController.text = rawPhone.substring(4);
+      } else if (rawPhone.startsWith('+256')) {
+        _selectedDialCode = '+256';
+        _initialCountryCode = 'UG';
+        _selectedCountryName = 'Uganda';
+        _phoneController.text = rawPhone.substring(4);
+      } else if (rawPhone.startsWith('+254')) {
+        _selectedDialCode = '+254';
+        _initialCountryCode = 'KE';
+        _selectedCountryName = 'Kenya';
+        _phoneController.text = rawPhone.substring(4);
+      } else if (rawPhone.startsWith('+233')) {
+        _selectedDialCode = '+233';
+        _initialCountryCode = 'GH';
+        _selectedCountryName = 'Ghana';
+        _phoneController.text = rawPhone.substring(4);
+      } else if (rawPhone.startsWith('+27')) {
+        _selectedDialCode = '+27';
+        _initialCountryCode = 'ZA';
+        _selectedCountryName = 'South Africa';
+        _phoneController.text = rawPhone.substring(3);
+      } else if (rawPhone.startsWith('+1')) {
+        _selectedDialCode = '+1';
+        _initialCountryCode = 'US';
+        _selectedCountryName = 'United States';
+        _phoneController.text = rawPhone.substring(2);
+      } else if (rawPhone.startsWith('+44')) {
+        _selectedDialCode = '+44';
+        _initialCountryCode = 'GB';
+        _selectedCountryName = 'United Kingdom';
+        _phoneController.text = rawPhone.substring(3);
+      } else {
+        _phoneController.text = rawPhone;
+      }
+    }
   }
 
   @override
   void dispose() {
     _phoneController.dispose();
-    _locationController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchLocation() async {
-    setState(() => _isFetchingLocation = true);
-    try {
-      final location = await LocationService.getCurrentLocation();
-      if (location != null) {
-        setState(() => _locationController.text = location);
-        context.showInAppNotification('Location updated!', type: InAppNotificationType.success);
-      }
-    } catch (e) {
-      context.showInAppNotification(e.toString());
-    } finally {
-      setState(() => _isFetchingLocation = false);
-    }
-  }
+
 
   Future<void> _saveChanges() async {
     FocusScope.of(context).unfocus();
     setState(() => _isSaving = true);
     try {
+      String cleanPhone = _phoneController.text.trim();
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = cleanPhone.substring(1);
+      }
+      
+      String completePhone = cleanPhone.isEmpty ? '' : '$_selectedDialCode$cleanPhone';
+
       await context.read<AppAuthProvider>().updateUserProfile(
-            phoneNumber: _phoneController.text.trim(),
-            location: _locationController.text.trim(),
+            phoneNumber: completePhone,
+            country: _selectedCountryName,
           );
       if (mounted) {
         context.showInAppNotification('Profile updated successfully!',
@@ -151,13 +190,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                   isEditing: _isEditingPhone,
                   onEditTap: () => setState(() => _isEditingPhone = !_isEditingPhone),
                 ),
-                _locationTile(
-                  context,
-                  'Location',
-                  _locationController.text.isEmpty ? 'Not set' : _locationController.text,
-                  isFetching: _isFetchingLocation,
-                  onEditTap: _fetchLocation,
-                ),
+
                 32.verticalSpace,
                 CustomButton(
                   label: 'Save Changes',
@@ -201,6 +234,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   Widget _editableInfoTile(BuildContext context, String label, TextEditingController controller,
       {required bool isEditing, required VoidCallback onEditTap}) {
     AppTheme theme = context.watch();
+    final isPhone = label.toLowerCase().contains('phone');
     return GlassContainer(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -215,28 +249,69 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
             children: [
               Expanded(
                 child: isEditing
-                    ? TextField(
-                        controller: controller,
-                        autofocus: true,
-                        keyboardType: label.toLowerCase().contains('phone') ? TextInputType.phone : TextInputType.text,
-                        inputFormatters: label.toLowerCase().contains('phone') 
-                            ? [FilteringTextInputFormatter.digitsOnly] 
-                            : null,
-                        style: GoogleFonts.inter(
-                          color: theme.accentTxt,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Enter $label',
-                          hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.3)),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      )
+                    ? (isPhone
+                        ? IntlPhoneField(
+                            controller: controller,
+                            initialCountryCode: _initialCountryCode,
+                            dropdownTextStyle: TextStyle(color: theme.accentTxt),
+                            dropdownIcon: Icon(Icons.arrow_drop_down, color: theme.accentTxt),
+                            style: GoogleFonts.inter(
+                              color: theme.accentTxt,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            pickerDialogStyle: PickerDialogStyle(
+                              backgroundColor: theme.brandDark,
+                              countryCodeStyle: GoogleFonts.inter(color: theme.accentTxt, fontSize: 14),
+                              countryNameStyle: GoogleFonts.inter(color: theme.accentTxt, fontSize: 14),
+                              searchFieldInputDecoration: InputDecoration(
+                                labelText: 'Search Country',
+                                labelStyle: TextStyle(color: theme.accentTxt.withOpacity(0.54)),
+                                hintText: 'Search Country',
+                                hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.3)),
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide(color: theme.accentTxt.withOpacity(0.2)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: theme.primaryBase),
+                                ),
+                              ),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Enter $label',
+                              hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.3)),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onCountryChanged: (country) {
+                              _selectedDialCode = '+${country.dialCode}';
+                              _selectedCountryName = country.name;
+                              _initialCountryCode = country.code;
+                            },
+                          )
+                        : TextField(
+                            controller: controller,
+                            autofocus: true,
+                            style: GoogleFonts.inter(
+                              color: theme.accentTxt,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Enter $label',
+                              hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.3)),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ))
                     : PrimaryText(
-                        text: controller.text.isEmpty ? 'Not set' : controller.text,
+                        text: controller.text.isEmpty
+                            ? 'Not set'
+                            : (isPhone
+                                ? '$_selectedDialCode${controller.text}'
+                                : controller.text),
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: theme.accentTxt),
@@ -251,36 +326,5 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     );
   }
 
-  Widget _locationTile(BuildContext context, String label, String value,
-      {required bool isFetching, required VoidCallback onEditTap}) {
-    AppTheme theme = context.watch();
-    return GlassContainer(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      gradient: theme.glassGradient,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SecondaryText(text: label, fontSize: 12, color: theme.accentTxt.withOpacity(0.7)),
-          8.verticalSpace,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: PrimaryText(
-                    text: value, fontSize: 15, fontWeight: FontWeight.w600, color: theme.accentTxt),
-              ),
-              isFetching
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-                    )
-                  : Icon(Icons.my_location, color: theme.accentTxt, size: 18).rippleClick(onEditTap),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+
 }

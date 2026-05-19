@@ -10,7 +10,7 @@ class ConfigService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Default values
-  int _quoteIntervalMs = 10800000; // 3 hours
+  int _quoteIntervalMs = 3600000; // 1 hour
   String _latestVersion = '1.0.0';
   bool _forceUpdate = false;
   String _updateUrl = 'https://play.google.com/store/apps/details?id=com.mindpilot.app';
@@ -41,7 +41,7 @@ class ConfigService {
       
       if (doc.exists) {
         final data = doc.data()!;
-        _quoteIntervalMs = data['quote_interval_ms'] ?? 10800000;
+        _quoteIntervalMs = data['quote_interval_ms'] ?? 3600000;
         _latestVersion = data['latest_version'] ?? '1.0.0';
         _forceUpdate = data['force_update'] ?? false;
         _updateUrl = data['update_url'] ?? _updateUrl;

@@ -13,8 +13,6 @@ export 'package:flutter_dotenv/flutter_dotenv.dart';
 export 'package:flutter_markdown/flutter_markdown.dart';
 export 'package:flutter_screenutil/flutter_screenutil.dart';
 export 'package:flutter_svg/flutter_svg.dart';
-export 'package:geocoding/geocoding.dart';
-export 'package:geolocator/geolocator.dart';
 export 'package:google_fonts/google_fonts.dart';
 export 'package:google_sign_in/google_sign_in.dart';
 export 'package:intl/intl.dart' hide TextDirection;

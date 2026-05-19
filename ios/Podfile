@@ -40,6 +40,20 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+    end
+  end
+
+  # Auto-generate missing dSYM for ScreenPreventerKit.framework to fix Apple Store Upload warning/rejection
+  framework_path = 'Pods/ScreenProtectorKit/Frameworks/ScreenPreventerKit.xcframework/ios-arm64/ScreenPreventerKit.framework/ScreenPreventerKit'
+  dsyms_dir = 'Pods/ScreenProtectorKit/Frameworks/ScreenPreventerKit.xcframework/ios-arm64/dSYMs'
+  dsym_path = "#{dsyms_dir}/ScreenPreventerKit.framework.dSYM"
+
+  if File.exist?(framework_path)
+    unless File.exist?(dsym_path)
+      puts "Auto-generating missing dSYM for ScreenPreventerKit..."
+      system("mkdir -p #{dsyms_dir}")
+      system("dsymutil #{framework_path} -o #{dsym_path}")
     end
   end
 end

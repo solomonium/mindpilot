@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -207,6 +208,28 @@ User: $text
     );
   }
 
+  Widget _copyIcon(BuildContext context, String text) {
+    AppTheme theme = context.watch();
+    return Icon(
+      Icons.copy_rounded,
+      color: theme.accentTxt.withOpacity(0.4),
+      size: 16,
+    ).rippleClick(() async {
+      final isPro = context.read<AppAuthProvider>().isPro;
+      if (!isPro) {
+        AppHelper.showPaywall(context, feature: 'Copy AI Response');
+        return;
+      }
+      await Clipboard.setData(ClipboardData(text: text));
+      if (context.mounted) {
+        context.showInAppNotification(
+          "Message copied to clipboard!",
+          type: InAppNotificationType.success,
+        );
+      }
+    });
+  }
+
   Widget _chatBubble(BuildContext context, String text, bool isMe, int index) {
     AppTheme theme = context.watch();
     final textColor = isMe
@@ -245,73 +268,97 @@ User: $text
                         ), // Reset
                       ],
                     ),
-                    _shareIcon(context, text, index),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _copyIcon(context, text),
+                        12.horizontalSpace,
+                        _shareIcon(context, text, index),
+                      ],
+                    ),
                   ],
                 ),
               ),
             ),
-          Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-
-            decoration: BoxDecoration(
-              color: isMe
-                  ? theme.primaryBase
-                  : theme.accentTxt.withOpacity(0.1),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: Radius.circular(isMe ? 16 : 0),
-                bottomRight: Radius.circular(isMe ? 0 : 16),
+          GestureDetector(
+            onLongPress: () async {
+              if (!isMe) {
+                final isPro = context.read<AppAuthProvider>().isPro;
+                if (!isPro) {
+                  AppHelper.showPaywall(context, feature: 'Copy AI Response');
+                  return;
+                }
+                await Clipboard.setData(ClipboardData(text: text));
+                if (context.mounted) {
+                  context.showInAppNotification(
+                    "Message copied to clipboard!",
+                    type: InAppNotificationType.success,
+                  );
+                }
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),
-              border: isMe
-                  ? null
-                  : Border.all(color: theme.accentTxt.withOpacity(0.1)),
-            ),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 0),
-                  child: MarkdownBody(
-                    data: text,
-                    styleSheet: MarkdownStyleSheet(
-                      p: TextStyle(color: textColor, fontSize: 16),
-                      strong: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      h1: TextStyle(
-                        color: textColor,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      h2: TextStyle(
-                        color: textColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      h3: TextStyle(
-                        color: textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      listBullet: TextStyle(color: textColor, fontSize: 16),
-                      tableBody: TextStyle(color: textColor, fontSize: 14),
-                      tableHead: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      tableBorder: TableBorder.all(
-                        color: textColor.withOpacity(0.2),
+              decoration: BoxDecoration(
+                color: isMe
+                    ? theme.primaryBase
+                    : theme.accentTxt.withOpacity(0.1),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isMe ? 16 : 0),
+                  bottomRight: Radius.circular(isMe ? 0 : 16),
+                ),
+                border: isMe
+                    ? null
+                    : Border.all(color: theme.accentTxt.withOpacity(0.1)),
+              ),
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 0),
+                    child: MarkdownBody(
+                      data: text,
+                      styleSheet: MarkdownStyleSheet(
+                        p: TextStyle(color: textColor, fontSize: 16),
+                        strong: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        h1: TextStyle(
+                          color: textColor,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        h2: TextStyle(
+                          color: textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        h3: TextStyle(
+                          color: textColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        listBullet: TextStyle(color: textColor, fontSize: 16),
+                        tableBody: TextStyle(color: textColor, fontSize: 14),
+                        tableHead: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        tableBorder: TableBorder.all(
+                          color: textColor.withOpacity(0.2),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

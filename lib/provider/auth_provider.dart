@@ -29,6 +29,9 @@ class AppAuthProvider extends BaseProvider {
   String? _location;
   String? get location => _location;
 
+  String? _country;
+  String? get country => _country;
+
   bool _isAdmin = false;
   bool get isAdmin => _isAdmin;
   int _explanationCount = 0;
@@ -37,7 +40,7 @@ class AppAuthProvider extends BaseProvider {
   int _decisionCredits = 3;
   int get decisionCredits => _decisionCredits;
 
-  int _insightIntervalHours = 3;
+  int _insightIntervalHours = 1;
   int get insightIntervalHours => _insightIntervalHours;
 
   final List<String> _superAdmins = ['laleyesolomon2@gmail.com', 'solteqinnovationsltd@gmail.com'];
@@ -110,7 +113,8 @@ class AppAuthProvider extends BaseProvider {
             _aiPersonality = doc.data()?['aiPersonality'] ?? "Encouraging";
             _phoneNumber = doc.data()?['phoneNumber'];
             _location = doc.data()?['location'];
-            _insightIntervalHours = doc.data()?['insightIntervalHours'] ?? 3;
+            _country = doc.data()?['country'];
+            _insightIntervalHours = doc.data()?['insightIntervalHours'] ?? 1;
             
             final personalization = List<String>.from(doc.data()?['personalization'] ?? []);
             GeminiService().setPersonalization(personalization);
@@ -120,12 +124,16 @@ class AppAuthProvider extends BaseProvider {
           } else {
             _firestore.collection('users').doc(user.uid).set({
               'email': user.email,
+              'name': user.displayName ?? '',
+              'fullName': user.displayName ?? '',
+              'displayName': user.displayName ?? '',
               'userType': 'Freemium',
               'personalization': [],
               'aiTone': 'Balanced',
               'aiPersonality': 'Encouraging',
               'explanationCount': 0,
-              'insightIntervalHours': 3,
+              'insightIntervalHours': 1,
+              'country': '',
               'createdAt': FieldValue.serverTimestamp(),
             }).then((_) => _syncTempPersonalization(user.uid));
             _userType = "Freemium";
@@ -159,7 +167,7 @@ class AppAuthProvider extends BaseProvider {
     }
   }
 
-  Future<void> updateUserProfile({String? phoneNumber, String? location}) async {
+  Future<void> updateUserProfile({String? phoneNumber, String? location, String? country}) async {
     if (_user == null) return;
     
     final updates = <String, dynamic>{};
@@ -170,6 +178,10 @@ class AppAuthProvider extends BaseProvider {
     if (location != null) {
       _location = location;
       updates['location'] = location;
+    }
+    if (country != null) {
+      _country = country;
+      updates['country'] = country;
     }
     
     if (updates.isEmpty) return;

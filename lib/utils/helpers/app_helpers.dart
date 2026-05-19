@@ -11,6 +11,26 @@ class AppHelper {
     WidgetsBinding.instance.focusManager.primaryFocus?.unfocus();
   }
 
+  static Rect? getSharePositionOrigin(BuildContext context) {
+    try {
+      final RenderBox? box = context.findRenderObject() as RenderBox?;
+      if (box != null) {
+        final size = box.size;
+        final position = box.localToGlobal(Offset.zero);
+        if (size.width > 0 && size.height > 0) {
+          return Rect.fromLTWH(position.dx, position.dy, size.width, size.height);
+        }
+      }
+    } catch (_) {}
+    try {
+      final size = MediaQuery.of(context).size;
+      // Fallback: safe, non-zero origin at the bottom-center of the screen
+      return Rect.fromLTWH(size.width / 2 - 50, size.height - 100, 100, 100);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<bool> isOnline() async {
     try {
       final result = await InternetAddress.lookup('google.com').timeout(const Duration(seconds: 5));
@@ -367,6 +387,171 @@ class AppHelper {
         16.horizontalSpace,
         SecondaryText(text: text, color: Colors.white, fontSize: 13),
       ],
+    );
+  }
+
+  static void showAirplaneModePrompt(
+    BuildContext context, {
+    required VoidCallback onStartSession,
+  }) async {
+    // Check if the user has already chosen to suppress the prompt
+    final prefs = await SharedPreferences.getInstance();
+    final bool dontShowAgain = prefs.getBool('DONT_SHOW_AIRPLANE_PROMPT') ?? false;
+
+    if (dontShowAgain) {
+      onStartSession();
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    AppTheme theme = context.read();
+    bool isChecked = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: theme.brandDark,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            contentPadding: EdgeInsets.zero,
+            content: SizedBox(
+              width: 340,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                        child: Image.asset(
+                          R.png.loginBg.png,
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, theme.brandDark],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 20,
+                        right: 20,
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                        ).clickable(() => Navigator.pop(context)),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        left: 20,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.airplanemode_active,
+                              color: Color(0xFFF59E0B),
+                              size: 32,
+                        ),
+                        8.verticalSpace,
+                        PrimaryText(
+                          text: 'Zero Distractions',
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    SecondaryText(
+                      text: 'To get the most out of your focus session and avoid notifications, we highly recommend turning on Airplane Mode.',
+                      color: Colors.white70,
+                      textAlign: TextAlign.center,
+                    ),
+                    24.verticalSpace,
+                    // Checkbox Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Theme(
+                          data: ThemeData(
+                            unselectedWidgetColor: Colors.white30,
+                          ),
+                          child: Checkbox(
+                            value: isChecked,
+                            activeColor: theme.primaryBase,
+                            checkColor: Colors.white,
+                            onChanged: (val) {
+                              setState(() {
+                                isChecked = val ?? false;
+                              });
+                            },
+                          ),
+                        ),
+                        8.horizontalSpace,
+                        SecondaryText(
+                          text: "Don't show this again",
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ).clickable(() {
+                          setState(() {
+                            isChecked = !isChecked;
+                          });
+                        }),
+                      ],
+                    ),
+                    16.verticalSpace,
+                    CustomButton(
+                      label: 'Enable Airplane Mode',
+                      onPressed: () async {
+                        if (isChecked) {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('DONT_SHOW_AIRPLANE_PROMPT', true);
+                        }
+                        if (context.mounted) Navigator.pop(context);
+                        AppSettings.openAppSettings(type: AppSettingsType.wireless);
+                        onStartSession();
+                      },
+                    ),
+                    16.verticalSpace,
+                    SecondaryText(
+                      text: 'Start Session Anyway',
+                      fontSize: 13,
+                      color: Colors.white38,
+                    ).clickable(() async {
+                      if (isChecked) {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('DONT_SHOW_AIRPLANE_PROMPT', true);
+                      }
+                      if (context.mounted) Navigator.pop(context);
+                      onStartSession();
+                    }),
+                  ],
+                ),
+              ),
+            ],
+          ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

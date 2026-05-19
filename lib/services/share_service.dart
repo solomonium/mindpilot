@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 import 'package:mindpilot/export.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
@@ -65,10 +67,22 @@ class ShareService {
       );
       await imagePath.writeAsBytes(imageBytes);
 
+      final shareText = text ?? 'Check out my progress on MindPilot! 🚀';
+      try {
+        await Clipboard.setData(ClipboardData(text: shareText));
+        if (context.mounted) {
+          context.showInAppNotification(
+            'Caption copied to clipboard! You can paste it into your post.',
+            type: InAppNotificationType.info,
+          );
+        }
+      } catch (_) {}
+
       await Share.shareXFiles(
         [XFile(imagePath.path)],
-        text: text ?? 'Check out my progress on MindPilot! 🚀',
+        text: shareText,
         subject: subject,
+        sharePositionOrigin: AppHelper.getSharePositionOrigin(context),
       );
     } catch (e) {
       if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);

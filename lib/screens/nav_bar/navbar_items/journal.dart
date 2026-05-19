@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 import 'package:mindpilot/export.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
@@ -524,12 +526,12 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
     ).rippleClick(onTap);
   }
 
-  void _shareAsReceipt(
+  Future<void> _shareAsReceipt(
     BuildContext context,
     String date,
     String text,
     String? title,
-  ) {
+  ) async {
     final isPro = context.read<AppAuthProvider>().isPro;
     final cleanText = text.replaceAll('**', '').replaceAll('*', '').trim();
 
@@ -560,9 +562,21 @@ Think clearly. Live intentionally.
 ----------------------------
 """;
 
+    final shareText = "$receipt\n\nMindPilot is a premium cognitive productivity assistant that helps you organize your thoughts, sharpen focus, and achieve goals.\nDownload MindPilot here: $downloadUrl";
+    try {
+      await Clipboard.setData(ClipboardData(text: shareText));
+      if (context.mounted) {
+        context.showInAppNotification(
+          'Receipt copied to clipboard! You can paste it into your post.',
+          type: InAppNotificationType.info,
+        );
+      }
+    } catch (_) {}
+
     Share.share(
-      "$receipt\n\nDownload MindPilot: $downloadUrl",
+      shareText,
       subject: 'MindPilot Reflection',
+      sharePositionOrigin: AppHelper.getSharePositionOrigin(context),
     );
   }
 
@@ -661,10 +675,21 @@ Think clearly. Live intentionally.
       );
       await file.writeAsBytes(await pdf.save());
 
+      final shareText = "Sharing my journal entry from MindPilot, the premium secure cognitive productivity assistant. Download it here to organize your thoughts and sharpen your focus: $downloadUrl";
+      try {
+        await Clipboard.setData(ClipboardData(text: shareText));
+        if (context.mounted) {
+          context.showInAppNotification(
+            'Caption copied to clipboard! You can paste it into your post.',
+            type: InAppNotificationType.info,
+          );
+        }
+      } catch (_) {}
+
       await Share.shareXFiles(
         [XFile(file.path)],
-        text:
-            "Sharing my journal entry from MindPilot. Download the app here: $downloadUrl",
+        text: shareText,
+        sharePositionOrigin: AppHelper.getSharePositionOrigin(context),
       );
     } catch (e) {
       if (context.mounted) {

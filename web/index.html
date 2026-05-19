@@ -1,38 +1,781 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindPilot - Think Clearly, Live Intentionally</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="MindPilot - Organize your thoughts, stay focused, and achieve your goals. Experience premium cognitive journaling, secure chat, and custom alarms.">
+  <meta property="og:title" content="MindPilot - Think Clearly, Live Intentionally">
+  <meta property="og:description" content="Organize your thoughts, stay focused, and achieve your goals. Think clearly, live intentionally.">
+  <meta property="og:image" content="https://mindpilot-131f1.web.app/preview.png">
+  <meta property="og:url" content="https://mindpilot-131f1.web.app/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MindPilot - Think Clearly, Live Intentionally">
+  <meta name="twitter:description" content="Organize your thoughts, stay focused, and achieve your goals. Think clearly, live intentionally.">
+  <meta name="twitter:image" content="https://mindpilot-131f1.web.app/preview.png">
+  
+  <!-- Favicon & App Icons -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 0%, #0c0f1d 0%, #030408 100%);
+      --card-bg: rgba(17, 24, 39, 0.45);
+      --border-color: rgba(255, 255, 255, 0.05);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent-indigo: #6366f1;
+      --accent-teal: #10b981;
+      --accent-blue: #3b82f6;
+      --accent-gradient: linear-gradient(135deg, #6366f1 0%, #3b82f6 50%, #10b981 100%);
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
 
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="mindpilot">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scroll-behavior: smooth;
+    }
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
 
-  <title>mindpilot</title>
-  <link rel="manifest" href="manifest.json">
+    /* Floating ambient glowing backgrounds */
+    .ambient-glow-1 {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 70%);
+      top: -200px;
+      left: -100px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .ambient-glow-2 {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0) 70%);
+      top: 30%;
+      right: -100px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .ambient-glow-3 {
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0) 70%);
+      bottom: -100px;
+      left: 10%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Navigation Bar */
+    nav {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+      font-family: var(--font-heading);
+      font-size: 1.6rem;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      transition: transform 0.2s ease;
+    }
+
+    .brand:hover {
+      transform: scale(1.02);
+    }
+
+    .brand img {
+      width: 84px;
+      height: 84px;
+      border-radius: 18px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand span {
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .btn-download {
+      background: var(--accent-gradient);
+      color: #ffffff;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 100px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+    }
+
+    /* Hero Section */
+    .hero {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 24px 100px 24px;
+      text-align: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .badge-promo {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 100px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      backdrop-filter: blur(8px);
+    }
+
+    .badge-promo span {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-teal);
+      box-shadow: 0 0 8px var(--accent-teal);
+    }
+
+    .hero h1 {
+      font-family: var(--font-heading);
+      font-size: 4rem;
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -2px;
+      margin-bottom: 24px;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      max-width: 700px;
+      margin: 0 auto 40px auto;
+      font-weight: 300;
+    }
+
+    .store-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 60px;
+    }
+
+    .store-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      text-decoration: none;
+      padding: 12px 28px;
+      border-radius: 16px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(12px);
+    }
+
+    .store-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+
+    .store-btn svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+
+    .store-btn-text {
+      text-align: left;
+    }
+
+    .store-btn-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .store-btn-title {
+      font-family: var(--font-heading);
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    /* Core Features Grid */
+    .features-section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 24px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .section-title h2 {
+      font-family: var(--font-heading);
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+
+    .section-title p {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 40px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(99, 102, 241, 0.25);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Decorative border glow on hover */
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: -1;
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-icon-wrapper {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      color: var(--accent-indigo);
+      font-size: 1.5rem;
+    }
+
+    .feature-card:hover .feature-icon-wrapper {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: rgba(99, 102, 241, 0.3);
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+    }
+
+    .feature-card h3 {
+      font-family: var(--font-heading);
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    /* App Details Section / Device Mockup preview */
+    .preview-section {
+      max-width: 1000px;
+      margin: 80px auto;
+      padding: 0 24px;
+      text-align: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .mockup-container {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.05) 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 32px;
+      padding: 16px;
+      max-width: 800px;
+      margin: 0 auto;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .mockup-content {
+      background: #090a10;
+      border-radius: 20px;
+      padding: 40px;
+      min-height: 250px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .mockup-logo {
+      width: 160px;
+      height: 160px;
+      border-radius: 36px;
+      margin-bottom: 20px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .mockup-content h3 {
+      font-family: var(--font-heading);
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .mockup-content p {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      max-width: 500px;
+      margin-bottom: 30px;
+    }
+
+    /* Footer */
+    footer {
+      width: 100%;
+      border-top: 1px solid var(--border-color);
+      padding: 60px 24px;
+      background: rgba(3, 4, 8, 0.85);
+      position: relative;
+      z-index: 10;
+      margin-top: 100px;
+    }
+
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 1.3rem;
+    }
+
+    .footer-brand img {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+    }
+
+    .footer-brand span {
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .footer-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .footer-divider {
+      width: 100%;
+      max-width: 800px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .copyright {
+      font-size: 0.85rem;
+      color: rgba(156, 163, 175, 0.5);
+      text-align: center;
+    }
+
+    /* Responsiveness */
+    @media (max-width: 768px) {
+      nav {
+        padding: 16px 20px;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .brand {
+        font-size: 1.4rem;
+      }
+
+      .brand img {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+      }
+
+      /* Capsule styled navigation links for mobile */
+      .nav-links {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 8px 16px;
+        border-radius: 100px;
+        border: 1px solid var(--border-color);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      .nav-links a {
+        font-size: 0.85rem;
+      }
+
+      /* Hide the duplicate CTA in mobile header */
+      .nav-links .btn-download {
+        display: none;
+      }
+      
+      .hero {
+        padding: 40px 20px 60px 20px;
+      }
+
+      .hero h1 {
+        font-size: 2.6rem;
+        letter-spacing: -1.2px;
+      }
+
+      .hero p {
+        font-size: 1.05rem;
+        margin-bottom: 30px;
+      }
+
+      .store-buttons {
+        gap: 12px;
+        flex-direction: column;
+        align-items: stretch;
+        max-width: 280px;
+        margin: 0 auto 40px auto;
+      }
+
+      .store-btn {
+        justify-content: center;
+        padding: 12px 20px;
+        border-radius: 14px;
+      }
+
+      .feature-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      .feature-card {
+        padding: 30px;
+      }
+
+      .mockup-container {
+        padding: 8px;
+        border-radius: 24px;
+      }
+
+      .mockup-logo {
+        width: 100px;
+        height: 100px;
+        border-radius: 24px;
+      }
+
+      .mockup-content {
+        padding: 30px 16px;
+      }
+
+      .mockup-content h3 {
+        font-size: 1.4rem;
+      }
+
+      .mockup-content p {
+        font-size: 0.9rem;
+      }
+
+      footer {
+        padding: 40px 20px;
+        margin-top: 60px;
+      }
+
+      .footer-container {
+        gap: 20px;
+      }
+
+      .footer-links {
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .hero h1 {
+        font-size: 2.2rem;
+      }
+      
+      .nav-links {
+        gap: 12px;
+        padding: 8px 12px;
+      }
+      
+      .nav-links a {
+        font-size: 0.8rem;
+      }
+    }
+  </style>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+
+  <!-- Ambient Glowing Circles -->
+  <div class="ambient-glow-1"></div>
+  <div class="ambient-glow-2"></div>
+  <div class="ambient-glow-3"></div>
+
+  <!-- Navigation Bar -->
+  <nav>
+    <a href="#" class="brand">
+      <img src="favicon.png" alt="MindPilot Logo">
+      Mind<span>Pilot</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/terms">Terms of Service</a>
+      <a href="#download" class="btn-download">Get MindPilot</a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero" id="download">
+    <div class="badge-promo">
+      <span></span> Built For Mental Clarity
+    </div>
+    <h1>Think clearly.<br>Live intentionally.</h1>
+    <p>MindPilot is your ultimate cognitive assistant. Organize your daily workflow, secure your thought logs, chat with support, and unlock tailored mental insights powered by secure AI integrations.</p>
+    
+    <div class="store-buttons">
+      <!-- App Store (iOS) Button -->
+      <a href="https://apps.apple.com/app/mindpilot" class="store-btn">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.16.65-2.88 1.49-.62.71-1.16 1.85-1.01 2.96 1.1.09 2.22-.58 2.9-1.39z"/>
+        </svg>
+        <div class="store-btn-text">
+          <div class="store-btn-subtitle">Download on the</div>
+          <div class="store-btn-title">App Store</div>
+        </div>
+      </a>
+
+      <!-- Google Play Store Button -->
+      <a href="https://play.google.com/store/apps/details?id=com.mindpilot.app" class="store-btn">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 5.277c0-.986.726-1.724 1.706-1.724.364 0 .708.11 1.002.322l11.458 7.37c.72.463.72 1.547 0 2.01L5.708 20.626c-.294.212-.638.322-1.002.322-.98 0-1.706-.738-1.706-1.724V5.277zM17.062 12L5 4.25v15.5L17.062 12z" />
+          <path d="M16.5 12l-12.5-8v16l12.5-8z" opacity="0.15"/>
+        </svg>
+        <div class="store-btn-text">
+          <div class="store-btn-subtitle">Get it on</div>
+          <div class="store-btn-title">Google Play</div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- Core Features Section -->
+  <section class="features-section" id="features">
+    <div class="section-title">
+      <h2>MindPilot Core System</h2>
+      <p>A suite of features designed to elevate your mental routine, synchronize perfectly, and protect your privacy.</p>
+    </div>
+
+    <div class="feature-grid">
+      <!-- Feature 1 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">📓</div>
+        <h3>Secure Offline Journal</h3>
+        <p>Write freely anytime. Restricts database connection bugs while offline to secure your logs inside the high-speed local cache. Syncs immediately when back online.</p>
+      </div>
+
+      <!-- Feature 2 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">🧠</div>
+        <h3>AI-Powered Insights</h3>
+        <p>Receive server-side reflection guides powered by Firebase Cloud Functions. Fully configure your delivery intervals from 1 to 3 hours straight from Settings.</p>
+      </div>
+
+      <!-- Feature 3 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">💬</div>
+        <h3>Real-Time Secure Chat</h3>
+        <p>Experience chat integrations with custom WhatsApp-style swipe-to-reply layouts and a synchronized notification system directly linked to your profile badge.</p>
+      </div>
+
+      <!-- Feature 4 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">⏰</div>
+        <h3>Custom Looping Alarms</h3>
+        <p>Never miss reflection milestones. Supports high-priority looping alarms that repeat dynamically to guarantee awareness of your wellness goals.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Preview Banner section -->
+  <section class="preview-section">
+    <div class="mockup-container">
+      <div class="mockup-content">
+        <img src="favicon.png" alt="MindPilot Icon" class="mockup-logo">
+        <h3>Begin Your Journey Today</h3>
+        <p>Create streaks, keep daily journals, stay alert with custom alarms, and watch your mental focus sharpen with AI insights.</p>
+        <a href="https://play.google.com/store/apps/details?id=com.mindpilot.app" class="btn-download" style="padding: 12px 30px;">Get Started Free</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-container">
+      <a href="#" class="footer-brand">
+        <img src="favicon.png" alt="MindPilot Logo">
+        Mind<span>Pilot</span>
+      </a>
+      <div class="footer-links">
+        <a href="#features">Features</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Service</a>
+        <a href="mailto:solteqinnovationsltd@gmail.com">Support</a>
+      </div>
+      <div class="footer-divider"></div>
+      <div class="copyright">
+        &copy; 2026 MindPilot. All rights reserved. <br>
+        Store distribution links represent app deployments. App Store & Google Play are trademarks of Apple Inc. and Google LLC respectively.
+      </div>
+    </div>
+  </footer>
+
 </body>
 </html>

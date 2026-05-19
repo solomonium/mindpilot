@@ -70,13 +70,13 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
         try {
             if (useZen) {
                 console.log("Fetching from ZenQuotes...");
-                const response = await axios.get("https://zenquotes.io/api/random");
+                const response = await axios.get("https://zenquotes.io/api/random", { timeout: 5000 });
                 quote = response.data[0].q;
                 author = response.data[0].a;
                 source = "ZenQuotes";
             } else {
                 console.log("Fetching from FavQs...");
-                const response = await axios.get("https://favqs.com/api/qotd");
+                const response = await axios.get("https://favqs.com/api/qotd", { timeout: 5000 });
                 quote = response.data.quote.body;
                 author = response.data.quote.author || "Unknown";
                 source = "FavQs";
@@ -86,12 +86,12 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
             // Fallback to the other API if one fails
             try {
                 if (!useZen) {
-                    const response = await axios.get("https://zenquotes.io/api/random");
+                    const response = await axios.get("https://zenquotes.io/api/random", { timeout: 5000 });
                     quote = response.data[0].q;
                     author = response.data[0].a;
                     source = "ZenQuotes (Fallback)";
                 } else {
-                    const response = await axios.get("https://favqs.com/api/qotd");
+                    const response = await axios.get("https://favqs.com/api/qotd", { timeout: 5000 });
                     quote = response.data.quote.body;
                     author = response.data.quote.author || "Unknown";
                     source = "FavQs (Fallback)";
