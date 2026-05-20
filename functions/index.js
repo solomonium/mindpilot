@@ -36,6 +36,114 @@ exports.sendBroadcastNotification = onDocumentCreated("broadcasts/{docId}", asyn
     }
 });
 
+// Curated pool of Chinese Wisdom & Proverbs
+const CHINESE_WISDOM_POOL = [
+    { q: "A journey of a thousand miles begins with a single step.", a: "Lao Tzu" },
+    { q: "The man who moves a mountain begins by carrying away small stones.", a: "Confucius" },
+    { q: "Do not fear going forward slowly; fear only standing still.", a: "Chinese Proverb" },
+    { q: "He who asks is a fool for five minutes, but he who does not ask remains a fool forever.", a: "Chinese Proverb" },
+    { q: "Be not afraid of growing slowly, be afraid only of standing still.", a: "Chinese Proverb" },
+    { q: "Opportunities multiply as they are seized.", a: "Sun Tzu" },
+    { q: "If you are planning for a year, sow rice; if you are planning for a decade, plant trees; if you are planning for a lifetime, educate people.", a: "Chinese Proverb" },
+    { q: "To know the road ahead, ask those coming back.", a: "Chinese Proverb" },
+    { q: "He who conquers himself is the mightiest warrior.", a: "Lao Tzu" },
+    { q: "He who yields is strong; he who bends is victorious.", a: "Sun Tzu" },
+    { q: "In the midst of chaos, there is also opportunity.", a: "Sun Tzu" },
+    { q: "The best time to plant a tree was 20 years ago. The second best time is now.", a: "Chinese Proverb" },
+    { q: "Learning is a treasure that will follow its owner everywhere.", a: "Chinese Proverb" },
+    { q: "A wise man adapts himself to circumstances, as water shapes itself to the vessel that contains it.", a: "Chinese Proverb" },
+    { q: "Control your emotions or they will control you.", a: "Chinese Proverb" },
+    { q: "A book is like a garden carried in the pocket.", a: "Chinese Proverb" },
+    { q: "When the wind of change blows, some build walls, while others build windmills.", a: "Chinese Proverb" },
+    { q: "Tension is who you think you should be. Relaxation is who you are.", a: "Chinese Proverb" },
+    { q: "Knowing others is intelligence; knowing yourself is true wisdom.", a: "Lao Tzu" },
+    { q: "The supreme art of war is to subdue the enemy without fighting.", a: "Sun Tzu" },
+    { q: "Great souls have wills; feeble ones have only wishes.", a: "Chinese Proverb" },
+    { q: "If you want happiness for an hour, take a nap. If you want happiness for a lifetime, help someone else.", a: "Chinese Proverb" },
+    { q: "A diamond with a flaw is worth more than a pebble without.", a: "Confucius" },
+    { q: "Silence is a true friend who never betrays.", a: "Confucius" },
+    { q: "The journey is the reward.", a: "Taoist Saying" },
+    { q: "When you drink the water, remember the spring.", a: "Chinese Proverb" },
+    { q: "Sorrow is the child of too much joy.", a: "Chinese Proverb" }
+];
+
+// Helper to fetch from one of the 6 public free APIs
+async function fetchFromApi(sourceName) {
+    const config = { timeout: 6000 };
+    switch (sourceName) {
+        case "ZenQuotes": {
+            const response = await axios.get("https://zenquotes.io/api/random", config);
+            if (!response.data || !response.data[0]) throw new Error("Empty response from ZenQuotes");
+            return {
+                quote: response.data[0].q,
+                author: response.data[0].a || "Unknown",
+                source: "ZenQuotes"
+            };
+        }
+        case "FavQs": {
+            const response = await axios.get("https://favqs.com/api/qotd", config);
+            if (!response.data || !response.data.quote) throw new Error("Empty response from FavQs");
+            return {
+                quote: response.data.quote.body,
+                author: response.data.quote.author || "Unknown",
+                source: "FavQs"
+            };
+        }
+        case "TypeFit": {
+            const response = await axios.get("https://type.fit/api/quotes", config);
+            if (!response.data || !Array.isArray(response.data)) throw new Error("Empty response from Type.fit");
+            const quotes = response.data;
+            const pick = quotes[Math.floor(Math.random() * quotes.length)];
+            let cleanedAuthor = (pick.author || "Unknown").replace(", type.fit", "").trim();
+            if (cleanedAuthor === "type.fit") cleanedAuthor = "Unknown";
+            return {
+                quote: pick.text,
+                author: cleanedAuthor,
+                source: "Type.fit"
+            };
+        }
+        case "Forismatic": {
+            const response = await axios.get("https://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=en", config);
+            if (!response.data || !response.data.quoteText) throw new Error("Empty response from Forismatic");
+            return {
+                quote: response.data.quoteText,
+                author: response.data.quoteAuthor || "Unknown",
+                source: "Forismatic"
+            };
+        }
+        case "Quotable": {
+            const response = await axios.get("https://api.quotable.io/random", config);
+            if (!response.data || !response.data.content) throw new Error("Empty response from Quotable");
+            return {
+                quote: response.data.content,
+                author: response.data.author || "Unknown",
+                source: "Quotable"
+            };
+        }
+        case "DummyJSON": {
+            const response = await axios.get("https://dummyjson.com/quotes/random", config);
+            if (!response.data || !response.data.quote) throw new Error("Empty response from DummyJSON");
+            return {
+                quote: response.data.quote,
+                author: response.data.author || "Unknown",
+                source: "DummyJSON"
+            };
+        }
+        case "BibleVerse": {
+            const response = await axios.get("https://labs.bible.org/api/?passage=random&type=json", config);
+            if (!response.data || !response.data[0]) throw new Error("Empty response from labs.bible.org");
+            const data = response.data[0];
+            return {
+                quote: data.text,
+                author: `${data.bookname} ${data.chapter}:${data.verse}`,
+                source: "Holy Bible"
+            };
+        }
+        default:
+            throw new Error("Invalid API source: " + sourceName);
+    }
+}
+
 exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
     try {
         const now = admin.firestore.Timestamp.now();
@@ -62,43 +170,41 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
         // 3. Fetch a fresh quote from multiple sources for variety
         let quote = "Clarity comes when you stop seeking answers outside and start listening within.";
         let author = "Unknown";
-        
-        // Randomly choose between ZenQuotes and Quotable
-        const useZen = Math.random() > 0.5;
         let source = "Unknown";
         
-        try {
-            if (useZen) {
-                console.log("Fetching from ZenQuotes...");
-                const response = await axios.get("https://zenquotes.io/api/random", { timeout: 5000 });
-                quote = response.data[0].q;
-                author = response.data[0].a;
-                source = "ZenQuotes";
-            } else {
-                console.log("Fetching from FavQs...");
-                const response = await axios.get("https://favqs.com/api/qotd", { timeout: 5000 });
-                quote = response.data.quote.body;
-                author = response.data.quote.author || "Unknown";
-                source = "FavQs";
-            }
-        } catch (error) {
-            console.error("Primary Quote API Error, trying fallback:", error.message);
-            // Fallback to the other API if one fails
-            try {
-                if (!useZen) {
-                    const response = await axios.get("https://zenquotes.io/api/random", { timeout: 5000 });
-                    quote = response.data[0].q;
-                    author = response.data[0].a;
-                    source = "ZenQuotes (Fallback)";
-                } else {
-                    const response = await axios.get("https://favqs.com/api/qotd", { timeout: 5000 });
-                    quote = response.data.quote.body;
-                    author = response.data.quote.author || "Unknown";
-                    source = "FavQs (Fallback)";
+        // 35% chance to choose a Chinese wisdom proverb, 65% chance to query public APIs
+        const useChineseWisdom = Math.random() < 0.35;
+        
+        if (useChineseWisdom) {
+            console.log("Selecting quote from Curated Chinese Wisdom Pool...");
+            const pick = CHINESE_WISDOM_POOL[Math.floor(Math.random() * CHINESE_WISDOM_POOL.length)];
+            quote = pick.q;
+            author = pick.a;
+            source = "Chinese Wisdom Pool";
+        } else {
+            const apis = ["ZenQuotes", "FavQs", "TypeFit", "Forismatic", "Quotable", "DummyJSON", "BibleVerse"];
+            const shuffledApis = apis.sort(() => Math.random() - 0.5);
+            
+            let success = false;
+            for (const apiName of shuffledApis) {
+                try {
+                    console.log(`Attempting to fetch from API: ${apiName}...`);
+                    const result = await fetchFromApi(apiName);
+                    quote = result.quote;
+                    author = result.author;
+                    source = result.source;
+                    success = true;
+                    console.log(`Successfully fetched quote from ${apiName}`);
+                    break;
+                } catch (error) {
+                    console.warn(`Failed to fetch from ${apiName}: ${error.message}. Trying next...`);
                 }
-            } catch (fallbackError) {
-                console.error("All Quote APIs failed, using local pool.");
-                const quotes = [
+            }
+            
+            if (!success) {
+                console.error("All Quote APIs failed, using local combined pool.");
+                const localBackupPool = [
+                    ...CHINESE_WISDOM_POOL,
                     {q: "The only way to do great work is to love what you do.", a: "Steve Jobs"},
                     {q: "Success is not final, failure is not fatal.", a: "Winston Churchill"},
                     {q: "Believe you can and you're halfway there.", a: "Theodore Roosevelt"},
@@ -108,12 +214,13 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
                     {q: "The mind is everything. What you think you become.", a: "Buddha"},
                     {q: "Difficulties strengthen the mind, as labor does the body.", a: "Seneca"}
                 ];
-                const pick = quotes[Math.floor(Math.random() * quotes.length)];
-                quote = pick.q;
-                author = pick.a;
-                source = "Local Backup";
+                const pick = localBackupPool[Math.floor(Math.random() * localBackupPool.length)];
+                quote = pick.q || pick.quote;
+                author = pick.a || pick.author;
+                source = "Local Combined Backup";
             }
         }
+
 
         const promises = [];
         for (const doc of usersSnap.docs) {
