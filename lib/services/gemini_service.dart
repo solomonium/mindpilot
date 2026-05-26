@@ -6,7 +6,6 @@ class GeminiService {
   GeminiService._internal();
 
   String? _apiKey;
-  String _selectedModel = 'google/gemini-2.0-flash-exp:free';
   final List<Map<String, String>> _messages = [];
   List<String> _availableModels = [];
   List<String> _personalization = [];
@@ -29,11 +28,12 @@ class GeminiService {
     _userName = name;
   }
 
-  void init(String apiKey, {String modelName = 'google/gemini-2.0-flash-exp:free'}) {
+  void init(
+    String apiKey, {
+    String modelName = 'google/gemini-2.0-flash-exp:free',
+  }) {
     _apiKey = apiKey;
-    _selectedModel = modelName;
   }
-
 
   Future<String?> sendMessage(String message) async {
     // Auto-initialize if apiKey is missing
@@ -42,24 +42,29 @@ class GeminiService {
     }
 
     if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception("AI not initialized. Please check your OpenRouter API key.");
+      throw Exception(
+        "AI not initialized. Please check your OpenRouter API key.",
+      );
     }
 
     if (_messages.isEmpty) {
       String context = "";
-      
+
       if (_userName != null && _userName!.isNotEmpty) {
-        context += "The user's name is $_userName. Please address them as $_userName when greeting them or providing feedback. ";
+        context +=
+            "The user's name is $_userName. Please address them as $_userName when greeting them or providing feedback. ";
       }
 
-      context += "Your response style should be **$_aiTone** and your personality should be **$_aiPersonality**. ";
+      context +=
+          "Your response style should be **$_aiTone** and your personality should be **$_aiPersonality**. ";
 
       if (_personalization.isNotEmpty) {
-        context += "The user has selected the following focus areas: ${_personalization.join(', ')}. "
+        context +=
+            "The user has selected the following focus areas: ${_personalization.join(', ')}. "
             "Please tailor your advice, tone, and recommendations to align with these goals. "
             "When relevant to these focus areas, suggest using the **Decision Analyzer** for choices and **Focus Sessions** for concentration.";
       }
-      
+
       if (context.isNotEmpty) {
         _messages.add({'role': 'system', 'content': context});
       }
@@ -68,8 +73,8 @@ class GeminiService {
     _messages.add({'role': 'user', 'content': message});
 
     // 1. Get the list of models
-    List<String> modelsToTry = _availableModels.isNotEmpty 
-        ? List<String>.from(_availableModels) 
+    List<String> modelsToTry = _availableModels.isNotEmpty
+        ? List<String>.from(_availableModels)
         : [
             'google/gemini-flash-1.5-8b:free',
             'mistralai/mistral-7b-instruct:free',
@@ -87,7 +92,7 @@ class GeminiService {
       try {
         final dio = Dio();
         const url = 'https://openrouter.ai/api/v1/chat/completions';
-        
+
         // Add a 1-second delay between retries to prevent 429 errors
         if (i > 0) {
           await Future.delayed(const Duration(seconds: 1));
@@ -99,29 +104,26 @@ class GeminiService {
             headers: {
               'Authorization': 'Bearer $_apiKey',
               'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://mindpilot.app',
+              'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
               'X-Title': 'MindPilot',
             },
             validateStatus: (status) => status! < 500,
             receiveTimeout: const Duration(seconds: 30),
             sendTimeout: const Duration(seconds: 30),
           ),
-          data: {
-            'model': model,
-            'messages': _messages,
-          },
+          data: {'model': model, 'messages': _messages},
         );
 
         if (response.statusCode == 200) {
-          final text = response.data['choices'][0]['message']['content'] as String;
+          final text =
+              response.data['choices'][0]['message']['content'] as String;
           _messages.add({'role': 'assistant', 'content': text});
-          _selectedModel = model; 
           return text;
         } else {
           // If payment or rate limit, log but continue to try other models
           safePrint('OpenRouter Issue ($model): ${response.statusCode}');
           if (i == finalModels.length - 1) {
-             throw Exception("OpenRouter Error: ${response.statusCode}");
+            throw Exception("OpenRouter Error: ${response.statusCode}");
           }
           continue;
         }
@@ -134,16 +136,12 @@ class GeminiService {
     return null;
   }
 
-
-
   Future<List<String>> listModels(String apiKey) async {
     try {
       final dio = Dio();
       final response = await dio.get(
         'https://openrouter.ai/api/v1/models',
-        options: Options(headers: {
-          'Authorization': 'Bearer $apiKey',
-        }),
+        options: Options(headers: {'Authorization': 'Bearer $apiKey'}),
       );
 
       if (response.statusCode == 200) {
@@ -153,7 +151,7 @@ class GeminiService {
             .map((m) => m['id'].toString())
             .where((id) => id.contains(':free') || id.contains('flash'))
             .toList();
-        
+
         if (models.isNotEmpty) {
           _availableModels = models;
           return models;
@@ -170,11 +168,7 @@ class GeminiService {
     ];
   }
 
-
-
-
   void resetChat() {
     _messages.clear();
   }
 }
-

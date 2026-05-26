@@ -12,7 +12,9 @@ class PersonalInformationScreen extends StatefulWidget {
 
 class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   late TextEditingController _phoneController;
+  late TextEditingController _nameController;
   bool _isEditingPhone = false;
+  bool _isEditingName = false;
   bool _isSaving = false;
 
   String _selectedCountryName = 'Nigeria';
@@ -23,6 +25,24 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   void initState() {
     super.initState();
     final auth = context.read<AppAuthProvider>();
+    final user = auth.user;
+
+    final email = auth.email ?? user?.email;
+    final emailPrefix = (email != null && email.contains('@'))
+        ? (email.contains('privaterelay.appleid.com') ? 'User' : email.split('@').first.capitalize())
+        : 'User';
+
+    String displayNameToUse = 'User';
+    if (auth.displayName != null && auth.displayName!.trim().isNotEmpty) {
+      displayNameToUse = auth.displayName!;
+    } else if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
+      displayNameToUse = user.displayName!;
+    } else if (emailPrefix.trim().isNotEmpty) {
+      displayNameToUse = emailPrefix;
+    }
+
+    _nameController = TextEditingController(text: displayNameToUse);
+
     String rawPhone = auth.phoneNumber ?? '';
     _phoneController = TextEditingController();
     
@@ -72,6 +92,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   @override
   void dispose() {
     _phoneController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -89,13 +110,17 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       String completePhone = cleanPhone.isEmpty ? '' : '$_selectedDialCode$cleanPhone';
 
       await context.read<AppAuthProvider>().updateUserProfile(
+            displayName: _nameController.text.trim(),
             phoneNumber: completePhone,
             country: _selectedCountryName,
           );
       if (mounted) {
         context.showInAppNotification('Profile updated successfully!',
             type: InAppNotificationType.success);
-        setState(() => _isEditingPhone = false);
+        setState(() {
+          _isEditingPhone = false;
+          _isEditingName = false;
+        });
       }
     } catch (e) {
       if (mounted) context.showInAppNotification('Error: $e');
@@ -109,6 +134,20 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     AppTheme theme = context.watch();
     final auth = context.watch<AppAuthProvider>();
     final user = auth.user;
+
+    final email = auth.email ?? user?.email;
+    final emailPrefix = (email != null && email.contains('@'))
+        ? (email.contains('privaterelay.appleid.com') ? 'User' : email.split('@').first.capitalize())
+        : 'User';
+
+    String displayNameToUse = 'User';
+    if (auth.displayName != null && auth.displayName!.trim().isNotEmpty) {
+      displayNameToUse = auth.displayName!;
+    } else if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
+      displayNameToUse = user.displayName!;
+    } else if (emailPrefix.trim().isNotEmpty) {
+      displayNameToUse = emailPrefix;
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -150,39 +189,47 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
             child: Column(
               children: [
                 Center(
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: theme.accentTxt.withOpacity(0.1),
-                          image: user?.photoURL != null
-                              ? DecorationImage(
-                                  image: NetworkImage(user!.photoURL!), fit: BoxFit.cover)
-                              : null,
-                        ),
-                        child: user?.photoURL == null
-                            ? Center(child: Icon(Icons.person, color: theme.accentTxt, size: 40))
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: theme.primaryBase, shape: BoxShape.circle),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
-                        ),
-                      ),
-                    ],
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.accentTxt.withOpacity(0.1),
+                      image: user?.photoURL != null
+                          ? DecorationImage(
+                              image: NetworkImage(user!.photoURL!), fit: BoxFit.cover)
+                          : null,
+                    ),
+                    child: user?.photoURL == null
+                        ? Center(
+                            child: displayNameToUse.getInitials().isNotEmpty
+                                ? PrimaryText(
+                                    text: displayNameToUse.getInitials(),
+                                    color: theme.accentTxt,
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                  )
+                                : Icon(Icons.person, color: theme.accentTxt, size: 40),
+                          )
+                        : null,
                   ),
                 ),
                 32.verticalSpace,
-                _infoTile(context, 'Full Name', user?.displayName ?? 'User Name', isEditable: false),
-                _infoTile(context, 'Email Address', user?.email ?? 'user@example.com',
-                    isEditable: false),
+                _editableInfoTile(
+                  context,
+                  'Full Name',
+                  _nameController,
+                  isEditing: _isEditingName,
+                  onEditTap: () => setState(() => _isEditingName = !_isEditingName),
+                ),
+                _infoTile(
+                  context, 
+                  'Email Address', 
+                  (auth.email != null && auth.email!.trim().isNotEmpty)
+                      ? auth.email!
+                      : (user?.email ?? 'user@example.com'),
+                  isEditable: false
+                ),
                 _editableInfoTile(
                   context,
                   'Phone Number',

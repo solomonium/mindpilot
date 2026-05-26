@@ -1,3 +1,12 @@
+
+
+
+
+
+
+
+
+
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
@@ -295,3 +304,81 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
         console.error("Global AutoInsight Error:", e);
     }
 });
+
+// Super Admin list for registration alerts
+const SUPER_ADMIN_EMAILS = [
+    "laleyesolomon2@gmail.com",
+    "solteqinnovationsltd@gmail.com",
+];
+
+exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const newUser = snap.data();
+    if (!newUser) return;
+
+    const userName = newUser.name || newUser.displayName || newUser.email || "Unknown";
+    const userEmail = newUser.email || "No email";
+
+    try {
+        // Find super admin users and get their FCM tokens
+        const promises = [];
+        for (const adminEmail of SUPER_ADMIN_EMAILS) {
+            const adminQuery = await admin.firestore()
+                .collection("users")
+                .where("email", "==", adminEmail)
+                .limit(1)
+                .get();
+
+            if (adminQuery.empty) continue;
+
+            const adminDoc = adminQuery.docs[0];
+            const adminData = adminDoc.data();
+            const fcmToken = adminData.fcmToken;
+
+            if (!fcmToken) continue;
+
+            const payload = {
+                notification: {
+                    title: "🆕 New User Registration",
+                    body: `${userName} (${userEmail}) just signed up!`,
+                },
+                data: {
+                    type: "admin_alert",
+                    title: "New User Registration",
+                    body: `${userName} (${userEmail}) just signed up!`,
+                    click_action: "FLUTTER_NOTIFICATION_CLICK",
+                },
+                android: {
+                    priority: "high",
+                    notification: {
+                        channelId: "mindpilot_notifications",
+                        priority: "high",
+                    },
+                },
+                apns: {
+                    payload: {
+                        aps: {
+                            contentAvailable: true,
+                            sound: "default",
+                        },
+                    },
+                },
+                token: fcmToken,
+            };
+
+            promises.push(
+                admin.messaging().send(payload)
+                    .then(() => console.log(`Registration alert sent to ${adminEmail}`))
+                    .catch((err) => console.error(`Error sending to ${adminEmail}:`, err))
+            );
+        }
+
+        await Promise.all(promises);
+        console.log(`Processed ${promises.length} super admin registration alerts.`);
+    } catch (e) {
+        console.error("onUserCreated Error:", e);
+    }
+});
+

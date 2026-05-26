@@ -95,7 +95,7 @@ class AppHelper {
                     child: Icon(
                       Icons.close,
                       color: Colors.white,
-                    ).clickable(() => Navigator.pop(context)),
+                    ).clickable(() => context.pop()),
                   ),
                   Positioned(
                     bottom: 10,
@@ -141,7 +141,7 @@ class AppHelper {
                     CustomButton(
                       label: 'Upgrade Now',
                       onPressed: () {
-                        Navigator.pop(context);
+                        context.pop();
                         context.push(const UpgradeScreen());
                       },
                     ),
@@ -151,6 +151,27 @@ class AppHelper {
                       fontSize: 11,
                       color: Colors.white38,
                     ),
+                    if (feature == 'Daily Explanation' ||
+                        feature == 'Unlimited AI Chat' ||
+                        feature == 'AI Decision Analysis') ...[
+                      16.verticalSpace,
+                      SecondaryText(
+                        text: '— OR —',
+                        fontSize: 12,
+                        color: Colors.white54,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      16.verticalSpace,
+                      CustomButton(
+                        label: 'Watch Ad for 1 Credit',
+                        isGlass: true,
+                        prefixIcon: const Icon(Icons.play_circle_fill, color: Colors.white),
+                        onPressed: () {
+                          context.pop();
+                          _watchAdForCredit(context, feature!);
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -552,6 +573,55 @@ class AppHelper {
           );
         },
       ),
+    );
+  }
+
+  static void _watchAdForCredit(BuildContext context, String feature) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    AdService.instance.showRewardedAd(
+      onUserEarnedReward: (ad, reward) async {
+        context.pop(); // Dismiss spinner
+
+        if (feature == 'Daily Explanation') {
+          await context.read<AppAuthProvider>().rewardExplanationCount();
+          if (context.mounted) {
+            context.showInAppNotification(
+              "Rewarded! You earned 1 more Daily Explanation.",
+              type: InAppNotificationType.success,
+            );
+          }
+        } else if (feature == 'Unlimited AI Chat') {
+          context.read<ChatProvider>().rewardMessageCount();
+          if (context.mounted) {
+            context.showInAppNotification(
+              "Rewarded! You earned 1 more chat message.",
+              type: InAppNotificationType.success,
+            );
+          }
+        } else if (feature == 'AI Decision Analysis') {
+          await context.read<AppAuthProvider>().rewardDecisionCredit();
+          if (context.mounted) {
+            context.showInAppNotification(
+              "Rewarded! You earned 1 more Decision credit.",
+              type: InAppNotificationType.success,
+            );
+          }
+        }
+      },
+      onAdFailedToShow: () {
+        context.pop(); // Dismiss spinner
+        context.showInAppNotification(
+          "Ad not ready yet. Please try again in a few seconds.",
+          type: InAppNotificationType.error,
+        );
+      },
     );
   }
 }

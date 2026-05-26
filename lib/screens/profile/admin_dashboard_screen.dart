@@ -48,10 +48,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _fetchTotalUsers() async {
     try {
       final countSnapshot = await FirebaseFirestore.instance.collection('users').count().get();
+      final count = countSnapshot.count ?? 0;
+      
       setState(() {
-        _totalUsers = countSnapshot.count ?? 0;
+        _totalUsers = count;
         _isLoadingUsersCount = false;
       });
+
+      // Self-healing: automatically synchronize the authenticated users count
+      // in the settings collection with the actual number of registered users in Firestore.
+      final config = ConfigService();
+      if (config.authenticatedUsersCount != count) {
+        await FirebaseFirestore.instance
+            .collection('app_config')
+            .doc('settings')
+            .set({
+              'authenticated_users_count': count,
+            }, SetOptions(merge: true));
+        await config.fetchRemoteConfig();
+        if (mounted) {
+          setState(() {});
+        }
+      }
     } catch (e) {
       debugPrint('Error fetching user count: $e');
       setState(() => _isLoadingUsersCount = false);
@@ -113,6 +131,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _sectionTitle(context, 'Broadcast System'),
                 16.verticalSpace,
                 _broadcastCard(context),
+                32.verticalSpace,
+                _sectionTitle(context, 'Feedback Card Control'),
+                16.verticalSpace,
+                _feedbackToggleCard(context),
                 32.verticalSpace,
                 _sectionTitle(context, 'User Membership Management'),
                 16.verticalSpace,
@@ -443,7 +465,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _configItem('Registered Users', _isLoadingUsersCount ? 'Loading...' : '$_totalUsers'),
+          _configItem('Registered Users (Firestore)', _isLoadingUsersCount ? 'Loading...' : '$_totalUsers'),
+          _configItem('Total Authenticated (Config)', config.authenticatedUsersCount.toString()),
           _configItem('Version', config.latestVersion),
           _configItem(
             'Interval (mins)',
@@ -515,11 +538,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     fontWeight: FontWeight.bold,
                   ).rippleClick(() async {
                     await config.fetchRemoteConfig();
+                    await _fetchTotalUsers();
                     setState(() {
                       _phoneController.text = config.supportPhone;
                       _versionController.text = config.latestVersion;
-                      _intervalController.text = config.quoteIntervalMs
-                          .toString();
+                      _intervalController.text = (config.quoteIntervalMs / 60000).round().toString();
                       _updateUrlController.text = config.updateUrl;
                       _forceUpdateValue = config.forceUpdate;
                     });
@@ -605,6 +628,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             'quote_interval_ms': intervalMs,
             'update_url': updateUrl,
             'force_update': _forceUpdateValue,
+            'authenticated_users_count': _totalUsers, // Maintain/sync the accurate total user count automatically
             'updatedAt': FieldValue.serverTimestamp(),
           });
 
@@ -822,6 +846,87 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           fontSize: 12,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
+      ),
+    );
+  }
+
+  Widget _feedbackToggleCard(BuildContext context) {
+    AppTheme theme = context.watch<AppTheme>();
+    return GlassContainer(
+      padding: const EdgeInsets.all(20),
+      gradient: theme.glassGradient,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SecondaryText(
+            text: 'Instantly trigger a feedback card for all active users. Toggle ON to show the feedback prompt app-wide.',
+            color: theme.accentTxt.withOpacity(0.7),
+            fontSize: 13,
+          ),
+          20.verticalSpace,
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('app_config')
+                .doc('settings')
+                .snapshots(),
+            builder: (context, snapshot) {
+              bool isEnabled = false;
+              if (snapshot.hasData && snapshot.data!.exists) {
+                final data = snapshot.data!.data() as Map<String, dynamic>?;
+                isEnabled = data?['showFeedbackCard'] ?? false;
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isEnabled ? Icons.feedback : Icons.feedback_outlined,
+                        color: isEnabled ? theme.successPrimary : theme.accentTxt.withOpacity(0.5),
+                        size: 22,
+                      ),
+                      12.horizontalSpace,
+                      PrimaryText(
+                        text: isEnabled ? 'Feedback Card Active' : 'Feedback Card Off',
+                        color: isEnabled ? theme.successPrimary : theme.accentTxt.withOpacity(0.7),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ],
+                  ),
+                  Switch(
+                    value: isEnabled,
+                    activeColor: theme.successPrimary,
+                    onChanged: (val) async {
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('app_config')
+                            .doc('settings')
+                            .set(
+                              {'showFeedbackCard': val},
+                              SetOptions(merge: true),
+                            );
+                        if (mounted) {
+                          context.showInAppNotification(
+                            val
+                                ? '✅ Feedback card activated for all users!'
+                                : '⛔ Feedback card deactivated.',
+                            type: val
+                                ? InAppNotificationType.success
+                                : InAppNotificationType.error,
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) context.showInAppNotification('Error: $e');
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }

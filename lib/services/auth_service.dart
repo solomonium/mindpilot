@@ -1,8 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:mindpilot/export.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Cache name from the most recent Apple Sign-In authorization
+  static String? lastAppleFullName;
 
   Future<User?> signInWithGoogle() async {
     try {
@@ -27,9 +29,73 @@ class AuthService {
       );
 
       final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        safePrint('🎉 Successful Google Sign-In! Firebase User details:');
+        safePrint('  UID: ${user.uid}');
+        safePrint('  Email: ${user.email}');
+        safePrint('  Display Name: ${user.displayName}');
+        safePrint('  Photo URL: ${user.photoURL}');
+      }
+
       return userCredential.user;
     } catch (e) {
-      print('Error during Google Sign-In: $e');
+      safePrint('Error during Google Sign-In: $e');
+      return null;
+    }
+  }
+
+  Future<User?> signInWithApple() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      // Cache the full name immediately before signing in (since authStateChanges fires instantly)
+      if (credential.givenName != null || credential.familyName != null) {
+        lastAppleFullName = '${credential.givenName ?? ''} ${credential.familyName ?? ''}'.trim();
+      }
+
+      final oauthCredential = OAuthProvider("apple.com").credential(
+        idToken: credential.identityToken,
+        accessToken: credential.authorizationCode,
+      );
+
+      final UserCredential userCredential = await _auth.signInWithCredential(oauthCredential);
+      final User? user = userCredential.user;
+
+      safePrint('🍏 Successful Apple Sign-In! Raw Credential details:');
+      safePrint('  User Identifier: ${credential.userIdentifier}');
+      safePrint('  Given Name: ${credential.givenName}');
+      safePrint('  Family Name: ${credential.familyName}');
+      safePrint('  Email: ${credential.email}');
+      safePrint('  Identity Token length: ${credential.identityToken?.length}');
+      safePrint('  Authorization Code length: ${credential.authorizationCode.length}');
+
+      if (user != null) {
+        safePrint('🎉 Firebase User details:');
+        safePrint('  UID: ${user.uid}');
+        safePrint('  Email: ${user.email}');
+        safePrint('  Display Name: ${user.displayName}');
+        safePrint('  Photo URL: ${user.photoURL}');
+      }
+
+      if (user != null && lastAppleFullName != null && lastAppleFullName!.isNotEmpty) {
+        try {
+          await user.updateDisplayName(lastAppleFullName);
+          await user.reload();
+        } catch (e) {
+          safePrint('Error updating Apple display name: $e');
+        }
+      }
+
+      return _auth.currentUser;
+    } catch (e) {
+      safePrint('Error during Apple Sign-In: $e');
       return null;
     }
   }
@@ -39,7 +105,7 @@ class AuthService {
       await GoogleSignIn.instance.disconnect();
       await _auth.signOut();
     } catch (e) {
-      print('Error signing out: $e');
+      safePrint('Error signing out: $e');
     }
   }
 }

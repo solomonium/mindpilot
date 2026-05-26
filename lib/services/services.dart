@@ -9,6 +9,7 @@ export 'analytics_service.dart';
 export 'payment_service.dart';
 export 'share_service.dart';
 export 'sync_service.dart';
+export 'ad_service.dart';
 
 
 

@@ -38,8 +38,10 @@ class ProfileScreen extends StatelessWidget {
               _header(context),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
                   children: [
+                    if (!context.watch<AppAuthProvider>().isPro)
+                      _upgradeBanner(context, theme),
                     if (context.watch<AppAuthProvider>().isAdmin)
                       _menuItem(context, Icons.admin_panel_settings_outlined, 'Admin Privileges', isSpecial: true, onTap: () {
                         context.push(const AdminDashboardScreen());
@@ -74,8 +76,8 @@ class ProfileScreen extends StatelessWidget {
                       context.push(const SupportScreen());
                     }),
                     _menuItem(context, Icons.share_outlined, 'Share App', onTap: () async {
-                      final downloadUrl = ConfigService().updateUrl;
-                      final shareText = "Hey! I've been using MindPilot to sharpen my focus, organize my thoughts, and clear my mind. 🧠✨\n\nWhat is MindPilot?\nIt's a premium, secure productivity and wellness assistant designed to:\n• Clear mental clutter with secure cognitive journaling\n• Improve concentration and stay on track with custom looping alarms\n• Work through complex life decisions with the Decision Analyzer\n• Provide daily, personalized AI-driven cognitive insights\n\nI really think it will help you boost your focus, reduce distractions, and achieve your goals. Check it out here:\n👉 $downloadUrl";
+                      final shareUrl = ConfigService().shareUrl;
+                      final shareText = "Hey! I've been using MindPilot to sharpen my focus, organize my thoughts, and clear my mind. 🧠✨\n\nWhat is MindPilot?\nIt's a premium, secure productivity and wellness assistant designed to:\n• Clear mental clutter with secure cognitive journaling\n• Improve concentration and stay on track with custom looping alarms\n• Work through complex life decisions with the Decision Analyzer\n• Provide daily, personalized AI-driven cognitive insights\n\nI really think it will help you boost your focus, reduce distractions, and achieve your goals. Check it out here:\n👉 $shareUrl";
 
                       try {
                         await Clipboard.setData(ClipboardData(text: shareText));
@@ -135,6 +137,20 @@ class ProfileScreen extends StatelessWidget {
     final user = authProvider.user;
     final isPro = authProvider.userType == 'Pro Member';
 
+    final email = authProvider.email ?? user?.email;
+    final emailPrefix = (email != null && email.contains('@'))
+        ? (email.contains('privaterelay.appleid.com') ? 'User' : email.split('@').first.capitalize())
+        : 'User';
+
+    String displayNameToUse = 'User';
+    if (authProvider.displayName != null && authProvider.displayName!.trim().isNotEmpty) {
+      displayNameToUse = authProvider.displayName!;
+    } else if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
+      displayNameToUse = user.displayName!;
+    } else if (emailPrefix.trim().isNotEmpty) {
+      displayNameToUse = emailPrefix;
+    }
+
     return GlassContainer(
       padding: const EdgeInsets.only(top: 60, bottom: 30),
       width: double.infinity,
@@ -153,18 +169,31 @@ class ProfileScreen extends StatelessWidget {
               radius: 45,
               backgroundColor: theme.primaryBase.withOpacity(0.1),
               backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-              child: user?.photoURL == null ? Icon(Icons.person, color: theme.accentTxt, size: 40) : null,
+              child: user?.photoURL == null
+                  ? Center(
+                      child: displayNameToUse.getInitials().isNotEmpty
+                          ? PrimaryText(
+                              text: displayNameToUse.getInitials(),
+                              color: theme.accentTxt,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            )
+                          : Icon(Icons.person, color: theme.accentTxt, size: 40),
+                    )
+                  : null,
             ),
           ),
           16.verticalSpace,
           PrimaryText(
-              text: user?.displayName ?? 'User Name',
+              text: displayNameToUse,
               color: theme.accentTxt,
               fontSize: 20,
               fontWeight: FontWeight.bold),
           4.verticalSpace,
           SecondaryText(
-              text: user?.email ?? 'user@example.com',
+              text: (authProvider.email != null && authProvider.email!.trim().isNotEmpty)
+                  ? authProvider.email!
+                  : (user?.email ?? 'user@example.com'),
               color: theme.accentTxt.withOpacity(0.7),
               fontSize: 13),
           16.verticalSpace,
@@ -309,5 +338,80 @@ class ProfileScreen extends StatelessWidget {
       ],
     );
 
+  }
+
+  Widget _upgradeBanner(BuildContext context, AppTheme theme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [
+            theme.primaryBase,
+            const Color(0xFFF59E0B), // Golden accent
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primaryBase.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => context.push(const UpgradeScreen()),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.stars,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                20.horizontalSpace,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      PrimaryText(
+                        text: 'Upgrade to MindPilot Pro',
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      4.verticalSpace,
+                      SecondaryText(
+                        text: 'Unlock unlimited AI, advanced growth stats & premium themes.',
+                        color: Colors.white.withOpacity(0.85),
+                        fontSize: 12,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

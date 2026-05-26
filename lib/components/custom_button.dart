@@ -119,11 +119,14 @@ class _CustomButtonState extends State<CustomButton> {
                       widget.prefixIcon!,
                       12.horizontalSpace,
                     ],
-                    PrimaryText(
-                      text: widget.label,
-                      fontSize: widget.fontSize ?? 18,
-                      fontWeight: FontWeight.bold,
-                      color: textCol,
+                    Flexible(
+                      child: PrimaryText(
+                        text: widget.label,
+                        fontSize: widget.fontSize ?? 18,
+                        fontWeight: FontWeight.bold,
+                        color: textCol,
+                        textOverflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -177,10 +180,13 @@ class _CustomButtonState extends State<CustomButton> {
                         widget.prefixIcon!,
                         12.horizontalSpace,
                       ],
-                      SecondaryText(
-                        text: widget.label,
-                        fontSize: widget.fontSize ?? 18,
-                        color: textCol,
+                      Flexible(
+                        child: SecondaryText(
+                          text: widget.label,
+                          fontSize: widget.fontSize ?? 18,
+                          color: textCol,
+                          textOverflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
@@ -226,10 +232,13 @@ class _CustomButtonState extends State<CustomButton> {
                     widget.prefixIcon!,
                     12.horizontalSpace,
                   ],
-                  SecondaryText(
-                    text: widget.label,
-                    fontSize: widget.fontSize ?? 18,
-                    color: textCol,
+                  Flexible(
+                    child: SecondaryText(
+                      text: widget.label,
+                      fontSize: widget.fontSize ?? 18,
+                      color: textCol,
+                      textOverflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),

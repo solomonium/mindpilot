@@ -22,7 +22,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'mindpilot_journal.db');
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -109,6 +109,13 @@ class DatabaseHelper {
         debugPrint('Migration Error: $e');
       }
     }
+    if (oldVersion < 12) {
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN doneTime TEXT');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
+      }
+    }
   }
 
 
@@ -141,7 +148,8 @@ class DatabaseHelper {
         completionTime TEXT,
         startTime TEXT,
         durationMinutes INTEGER,
-        remoteId TEXT
+        remoteId TEXT,
+        doneTime TEXT
       )
     ''');
     await db.execute('''

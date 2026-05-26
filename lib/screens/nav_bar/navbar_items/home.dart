@@ -41,6 +41,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = authStore.user;
     final isPro = authStore.isPro;
 
+    final email = authStore.email ?? user?.email;
+    final emailPrefix = (email != null && email.contains('@'))
+        ? (email.contains('privaterelay.appleid.com') ? 'User' : email.split('@').first.capitalize())
+        : 'User';
+
+    String displayNameToUse = 'User';
+    if (authStore.displayName != null && authStore.displayName!.trim().isNotEmpty) {
+      displayNameToUse = authStore.displayName!;
+    } else if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
+      displayNameToUse = user.displayName!;
+    } else if (emailPrefix.trim().isNotEmpty) {
+      displayNameToUse = emailPrefix;
+    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -64,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ? DecorationImage(
                                   image: NetworkImage(user!.photoURL!),
                                   fit: BoxFit.cover,
-                                )
+                                  )
                               : null,
                           boxShadow: [
                             BoxShadow(
@@ -75,11 +89,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: user?.photoURL == null
                             ? Center(
-                                child: Icon(
-                                  Icons.person,
-                                  color: theme.primaryBase,
-                                  size: 24,
-                                ),
+                                child: displayNameToUse.getInitials().isNotEmpty
+                                    ? PrimaryText(
+                                        text: displayNameToUse.getInitials(),
+                                        color: theme.primaryBase,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      )
+                                    : Icon(
+                                        Icons.person,
+                                        color: theme.primaryBase,
+                                        size: 24,
+                                      ),
                               )
                             : null,
                       ),
@@ -89,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           PrimaryText(
                             text:
-                                '${TimeTeller.tellTimeOfTheDay()}, ${user?.displayName?.split(' ').first ?? 'User'}',
+                                '${TimeTeller.tellTimeOfTheDay()}, ${displayNameToUse.split(' ').first}',
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: theme.accentTxt,
@@ -745,7 +766,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-              32.verticalSpace,
+              110.verticalSpace,
             ],
           ),
         ),

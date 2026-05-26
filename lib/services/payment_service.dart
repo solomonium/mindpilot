@@ -1,79 +1,155 @@
 import 'dart:async';
-
-import 'package:in_app_purchase/in_app_purchase.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:mindpilot/export.dart';
 
 class PaymentService {
-  static final InAppPurchase _iap = InAppPurchase.instance;
-  static StreamSubscription<List<PurchaseDetails>>? _subscription;
+  // Entitlement ID mapped to RevenueCat
+  static String get entitlementId => dotenv.env['REVENUECAT_ENTITLEMENT_ID'] ?? 'pro';
 
-  static const String monthlyPlanId = 'mindpilot_pro_monthly';
-  static const String yearlyPlanId = 'mindpilot_pro_yearly';
+  // ValueNotifiers to allow UI screens to listen to payment states
+  static final ValueNotifier<bool> isPurchasing = ValueNotifier<bool>(false);
+  static final ValueNotifier<bool?> purchasedOrRestored = ValueNotifier<bool?>(null);
 
-  static void initialize() {
-    final Stream<List<PurchaseDetails>> purchaseUpdated = _iap.purchaseStream;
-    _subscription = purchaseUpdated.listen(
-      (purchaseDetailsList) {
-        _listenToPurchaseUpdated(purchaseDetailsList);
-      },
-      onDone: () {
-        _subscription?.cancel();
-      },
-      onError: (error) {
-        safePrint('Purchase stream error: $error');
-      },
-    );
-  }
+  static Future<void> initialize() async {
+    try {
+      await Purchases.setLogLevel(LogLevel.debug);
 
-  static Future<void> buyPro(String productId) async {
-    final bool available = await _iap.isAvailable();
-    if (!available) {
-      safePrint('Store not available');
-      return;
-    }
-
-    final ProductDetailsResponse response = await _iap.queryProductDetails({
-      productId,
-    });
-    if (response.notFoundIDs.isNotEmpty) {
-      safePrint('Product not found: $productId');
-      return;
-    }
-
-    final PurchaseParam purchaseParam = PurchaseParam(
-      productDetails: response.productDetails.first,
-    );
-    await _iap.buyNonConsumable(purchaseParam: purchaseParam);
-  }
-
-  static void _listenToPurchaseUpdated(
-    List<PurchaseDetails> purchaseDetailsList,
-  ) {
-    for (var purchaseDetails in purchaseDetailsList) {
-      if (purchaseDetails.status == PurchaseStatus.pending) {
-        // Show loading
-      } else {
-        if (purchaseDetails.status == PurchaseStatus.error) {
-          safePrint('Purchase error: ${purchaseDetails.error}');
-        } else if (purchaseDetails.status == PurchaseStatus.purchased ||
-            purchaseDetails.status == PurchaseStatus.restored) {
-          _deliverProduct(purchaseDetails);
-        }
-        if (purchaseDetails.pendingCompletePurchase) {
-          _iap.completePurchase(purchaseDetails);
-        }
+      String? apiKey;
+      if (Platform.isAndroid) {
+        apiKey = dotenv.env['REVENUECAT_ANDROID_API_KEY'];
+      } else if (Platform.isIOS) {
+        apiKey = dotenv.env['REVENUECAT_IOS_API_KEY'];
       }
+
+      if (apiKey == null || apiKey.isEmpty || apiKey == 'your_android_api_key_here' || apiKey == 'your_ios_api_key_here') {
+        safePrint('RevenueCat API Key is missing or placeholders used. Skipping configuration.');
+        return;
+      }
+
+      PurchasesConfiguration configuration = PurchasesConfiguration(apiKey);
+      await Purchases.configure(configuration);
+      safePrint('RevenueCat successfully configured');
+
+      // Sync subscription status on launch
+      await syncSubscriptionStatus();
+    } catch (e) {
+      safePrint('Error initializing RevenueCat: $e');
     }
   }
 
-  static void _deliverProduct(PurchaseDetails purchaseDetails) {
-    // Here we update Firestore to set userType to 'Pro Member'
-    // This connects the global store payment to your existing database system
-    safePrint('Delivering Pro access for ${purchaseDetails.productID}');
-    // Logic to update AuthProvider/Firestore goes here
+  static Future<List<Package>> fetchOfferings() async {
+    try {
+      final offerings = await Purchases.getOfferings();
+      if (offerings.current != null) {
+        return offerings.current!.availablePackages;
+      }
+    } catch (e) {
+      safePrint('Error fetching offerings: $e');
+    }
+    return [];
   }
 
-  static void dispose() {
-    _subscription?.cancel();
+  static Future<bool> buyPackage(Package package) async {
+    isPurchasing.value = true;
+    purchasedOrRestored.value = null;
+    try {
+      CustomerInfo customerInfo = await Purchases.purchasePackage(package);
+      final bool active = customerInfo.entitlements.all[entitlementId]?.isActive == true;
+      if (active) {
+        await _deliverProAccess(true);
+        purchasedOrRestored.value = true;
+        return true;
+      }
+    } on PlatformException catch (e) {
+      var errorCode = PurchasesErrorHelper.getErrorCode(e);
+      if (errorCode != PurchasesErrorCode.purchaseCancelledError) {
+        safePrint('RevenueCat Purchase Error: $e');
+      }
+      purchasedOrRestored.value = false;
+    } catch (e) {
+      safePrint('Purchase Error: $e');
+      purchasedOrRestored.value = false;
+    } finally {
+      isPurchasing.value = false;
+    }
+    return false;
+  }
+
+  static Future<bool> buyProduct(StoreProduct product) async {
+    isPurchasing.value = true;
+    purchasedOrRestored.value = null;
+    try {
+      CustomerInfo customerInfo = await Purchases.purchaseStoreProduct(product);
+      final bool active =
+          customerInfo.entitlements.all[entitlementId]?.isActive == true;
+      if (active) {
+        await _deliverProAccess(true);
+        purchasedOrRestored.value = true;
+        return true;
+      }
+    } on PlatformException catch (e) {
+      var errorCode = PurchasesErrorHelper.getErrorCode(e);
+      if (errorCode != PurchasesErrorCode.purchaseCancelledError) {
+        safePrint('RevenueCat Product Purchase Error: $e');
+      }
+      purchasedOrRestored.value = false;
+    } catch (e) {
+      safePrint('Product Purchase Error: $e');
+      purchasedOrRestored.value = false;
+    } finally {
+      isPurchasing.value = false;
+    }
+    return false;
+  }
+
+  static Future<bool> restorePurchases() async {
+    isPurchasing.value = true;
+    purchasedOrRestored.value = null;
+    try {
+      CustomerInfo customerInfo = await Purchases.restorePurchases();
+      final bool active = customerInfo.entitlements.all[entitlementId]?.isActive == true;
+      await _deliverProAccess(active);
+      purchasedOrRestored.value = active;
+      return active;
+    } catch (e) {
+      safePrint('Restore purchases error: $e');
+      purchasedOrRestored.value = false;
+    } finally {
+      isPurchasing.value = false;
+    }
+    return false;
+  }
+
+  static Future<void> syncSubscriptionStatus() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      // Identify user with RevenueCat if logged in
+      await Purchases.logIn(uid);
+
+      CustomerInfo customerInfo = await Purchases.getCustomerInfo();
+      final bool active = customerInfo.entitlements.all[entitlementId]?.isActive == true;
+      await _deliverProAccess(active);
+    } catch (e) {
+      safePrint('Error syncing subscription status: $e');
+    }
+  }
+
+  static Future<void> _deliverProAccess(bool active) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final targetUserType = active ? 'Pro Member' : 'Freemium';
+        await FirebaseFirestore.instance.collection('users').doc(uid).update({
+          'userType': targetUserType,
+        });
+        safePrint('Firestore updated userType to $targetUserType for $uid');
+      }
+    } catch (e) {
+      safePrint('Error updating Firestore userType: $e');
+    }
   }
 }

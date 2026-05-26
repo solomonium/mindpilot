@@ -178,7 +178,7 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                     ),
                     Expanded(
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
                         itemCount: entries.length,
                         itemBuilder: (context, index) {
                           final entry = entries[index];
@@ -546,7 +546,7 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
           "${cleanText.substring(0, visibleLength)}...\n\n[PRO CONTENT HIDDEN]\nUpgrade to Yearly Premium to unlock full history and sharing!";
     }
 
-    final downloadUrl = ConfigService().updateUrl;
+    final shareUrl = ConfigService().shareUrl;
     final receipt =
         """
 ----------------------------
@@ -562,7 +562,7 @@ Think clearly. Live intentionally.
 ----------------------------
 """;
 
-    final shareText = "$receipt\n\nMindPilot is a premium cognitive productivity assistant that helps you organize your thoughts, sharpen focus, and achieve goals.\nDownload MindPilot here: $downloadUrl";
+    final shareText = "$receipt\n\nMindPilot is a premium cognitive productivity assistant that helps you organize your thoughts, sharpen focus, and achieve goals.\nDownload MindPilot here: $shareUrl";
     try {
       await Clipboard.setData(ClipboardData(text: shareText));
       if (context.mounted) {
@@ -588,7 +588,7 @@ Think clearly. Live intentionally.
   ) async {
     final pdf = pw.Document();
     final cleanText = text.replaceAll('**', '').replaceAll('*', '').trim();
-    final downloadUrl = ConfigService().updateUrl;
+    final shareUrl = ConfigService().shareUrl;
 
     pdf.addPage(
       pw.MultiPage(
@@ -675,7 +675,7 @@ Think clearly. Live intentionally.
       );
       await file.writeAsBytes(await pdf.save());
 
-      final shareText = "Sharing my journal entry from MindPilot, the premium secure cognitive productivity assistant. Download it here to organize your thoughts and sharpen your focus: $downloadUrl";
+      final shareText = "Sharing my journal entry from MindPilot, the premium secure cognitive productivity assistant. Download it here to organize your thoughts and sharpen your focus: $shareUrl";
       try {
         await Clipboard.setData(ClipboardData(text: shareText));
         if (context.mounted) {

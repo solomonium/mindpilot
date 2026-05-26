@@ -282,6 +282,7 @@ class _DecisionAnalyzerScreenState extends State<DecisionAnalyzerScreen> {
                     onPressed: _analyzeDecision,
                     isGlass: true,
                   ),
+                  120.verticalSpace,
                 ],
               ),
             ),

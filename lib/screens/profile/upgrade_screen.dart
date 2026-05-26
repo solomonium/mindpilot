@@ -1,5 +1,5 @@
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:mindpilot/export.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class UpgradeScreen extends StatefulWidget {
   const UpgradeScreen({super.key});
@@ -10,6 +10,9 @@ class UpgradeScreen extends StatefulWidget {
 
 class _UpgradeScreenState extends State<UpgradeScreen> {
   int _selectedPlan = 1; // 0 for Monthly, 1 for Yearly
+  bool _isPurchasing = false;
+  List<Package> _packages = [];
+  List<StoreProduct> _directProducts = [];
 
   final List<Map<String, dynamic>> _plans = [
     {
@@ -26,6 +29,113 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
       'save': 'Save 33%',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOfferings();
+    PaymentService.isPurchasing.addListener(_onPurchasingChanged);
+    PaymentService.purchasedOrRestored.addListener(
+      _onPurchasedOrRestoredChanged,
+    );
+  }
+
+  @override
+  void dispose() {
+    PaymentService.isPurchasing.removeListener(_onPurchasingChanged);
+    PaymentService.purchasedOrRestored.removeListener(
+      _onPurchasedOrRestoredChanged,
+    );
+    super.dispose();
+  }
+
+  void _onPurchasingChanged() {
+    if (mounted) {
+      setState(() {
+        _isPurchasing = PaymentService.isPurchasing.value;
+      });
+    }
+  }
+
+  void _onPurchasedOrRestoredChanged() {
+    final status = PaymentService.purchasedOrRestored.value;
+    if (status == null) return;
+
+    if (status) {
+      if (mounted) {
+        context.showInAppNotification(
+          'Welcome to MindPilot Pro!',
+          type: InAppNotificationType.success,
+        );
+        context.pop();
+      }
+    } else {
+      if (mounted) {
+        context.showInAppNotification(
+          'Purchase failed or could not be verified. Please try again.',
+          type: InAppNotificationType.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _loadOfferings() async {
+    // 1. Direct Store Product Fetch Debug Block (Bypassing RevenueCat Offerings)
+    try {
+      safePrint(
+        'DEBUG: Fetching products directly from Google Play / App Store...',
+      );
+
+      // Enter your EXACT product IDs here to check if they are returned by Google Play / App Store
+      final List<String> directProductIds = [
+        // 'monthly_pro',
+        // 'yearly_pro',
+        'mindpilot_pro_monthly',
+        'mindpilot_pro_yearly',
+      ];
+
+      final directProducts = await Purchases.getProducts(directProductIds);
+      if (directProducts.isNotEmpty) {
+        safePrint(
+          'DEBUG DIRECT FETCH: Found ${directProducts.length} products directly from store:',
+        );
+        for (var product in directProducts) {
+          safePrint(
+            '  - ID: ${product.identifier} | Price: ${product.priceString} | Title: ${product.title}',
+          );
+        }
+        if (mounted) {
+          setState(() {
+            _directProducts = directProducts;
+            for (var product in _directProducts) {
+              final isMonthly = product.identifier.contains('monthly');
+              final planIndex = isMonthly ? 0 : 1;
+              _plans[planIndex]['price'] = product.priceString;
+            }
+          });
+        }
+      } else {
+        safePrint(
+          'DEBUG DIRECT FETCH: No direct products returned for IDs: $directProductIds. Please verify your Product IDs match Google Play.',
+        );
+      }
+    } catch (e) {
+      safePrint('DEBUG DIRECT FETCH ERROR: $e');
+    }
+
+    // 2. Standard RevenueCat Offerings Fetch
+    final packages = await PaymentService.fetchOfferings();
+    if (packages.isNotEmpty && mounted) {
+      setState(() {
+        _packages = packages;
+        for (var package in _packages) {
+          final isMonthly = package.packageType == PackageType.monthly;
+          final planIndex = isMonthly ? 0 : 1;
+          _plans[planIndex]['price'] = package.storeProduct.priceString;
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,68 +195,10 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                           color: theme.accentTxt.withOpacity(0.7),
                         ),
                         40.verticalSpace,
-                        40.verticalSpace,
                         ...List.generate(
                           _plans.length,
                           (index) => Column(
-                            children: [
-                              _planCard(index),
-                              if (index == 1) ...[
-                                // Under Yearly Plan
-                                8.verticalSpace,
-                                Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    GlassContainer(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                        horizontal: 16,
-                                      ),
-                                      width: double.infinity,
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          const Color(
-                                            0xFF25D366,
-                                          ).withOpacity(0.1),
-                                          const Color(
-                                            0xFF25D366,
-                                          ).withOpacity(0.05),
-                                        ],
-                                      ),
-                                      border: Border.all(
-                                        color: const Color(
-                                          0xFF25D366,
-                                        ).withOpacity(0.3),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.chat_bubble,
-                                            color: Color(0xFF25D366),
-                                            size: 20,
-                                          ),
-                                          12.horizontalSpace,
-                                          const PrimaryText(
-                                            text: 'Request Pro via WhatsApp',
-                                            color: Color(0xFF25D366),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                        ],
-                                      ),
-                                    ).rippleClick(() => _launchWhatsApp()),
-                                    Positioned(
-                                      top: -10,
-                                      right: -5,
-                                      child: const _PromoTag(),
-                                    ),
-                                  ],
-                                ),
-                                16.verticalSpace,
-                              ],
-                            ],
+                            children: [_planCard(index), 16.verticalSpace],
                           ),
                         ),
                         40.verticalSpace,
@@ -157,17 +209,75 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                           width: double.infinity,
                           gradient: theme.glassGradient,
                           child: Center(
-                            child: PrimaryText(
-                              text: 'Start Pro Journey',
-                              color: theme.accentTxt,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                            child: _isPurchasing
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : PrimaryText(
+                                    text: 'Start Pro Journey',
+                                    color: theme.accentTxt,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                           ),
                         ).rippleClick(() {
+                          if (_isPurchasing) return;
+
+                          // Standard flow: if RevenueCat offerings are fetched successfully, purchase using the package
+                          if (_packages.isNotEmpty) {
+                            final targetType = _selectedPlan == 0
+                                ? PackageType.monthly
+                                : PackageType.annual;
+                            Package? packageToBuy;
+                            try {
+                              packageToBuy = _packages.firstWhere(
+                                (p) => p.packageType == targetType,
+                              );
+                            } catch (_) {
+                              try {
+                                packageToBuy = _packages.firstWhere(
+                                  (p) => _selectedPlan == 0
+                                      ? p.packageType == PackageType.monthly
+                                      : (p.packageType == PackageType.annual ||
+                                            p.packageType ==
+                                                PackageType.lifetime),
+                                );
+                              } catch (_) {
+                                packageToBuy = _packages.first;
+                              }
+                            }
+                            PaymentService.buyPackage(packageToBuy);
+                            return;
+                          }
+
+                          // Fallback flow: if offerings are empty but direct products are fetched, purchase directly from Google Play / App Store
+                          if (_directProducts.isNotEmpty) {
+                            final isMonthly = _selectedPlan == 0;
+                            StoreProduct? productToBuy;
+                            try {
+                              productToBuy = _directProducts.firstWhere(
+                                (p) => isMonthly
+                                    ? p.identifier.contains('monthly')
+                                    : p.identifier.contains('yearly'),
+                              );
+                            } catch (_) {
+                              productToBuy = _directProducts.first;
+                            }
+                            PaymentService.buyProduct(productToBuy);
+                            return;
+                          }
+
+                          // Fallback: If both are unavailable, notify user
                           context.showInAppNotification(
-                            'In-app purchases are coming soon!',
-                            type: InAppNotificationType.info,
+                            'Subscription plans are currently unavailable. Please check your internet connection and try again.',
+                            type: InAppNotificationType.error,
                           );
                         }),
                         24.verticalSpace,
@@ -177,11 +287,54 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                           fontSize: 13,
                           decoration: TextDecoration.underline,
                         ).rippleClick(() {
-                          context.showInAppNotification(
-                            'Subscription restoration is coming soon!',
-                            type: InAppNotificationType.info,
-                          );
+                          if (_isPurchasing) return;
+                          PaymentService.restorePurchases();
                         }),
+                        20.verticalSpace,
+                        // 📜 Apple EULA and Privacy Policy links (Mandatory for App Store auto-renewable subscriptions!)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SecondaryText(
+                              text: 'Privacy Policy',
+                              color: theme.accentTxt.withOpacity(0.4),
+                              fontSize: 11,
+                              decoration: TextDecoration.underline,
+                            ).rippleClick(() async {
+                              final url = Uri.parse('https://mindpilot-131f1.web.app/privacy');
+                              try {
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                                }
+                              } catch (e) {
+                                safePrint('Error launching privacy policy: $e');
+                              }
+                            }),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: SecondaryText(
+                                text: '•',
+                                color: theme.accentTxt.withOpacity(0.3),
+                                fontSize: 11,
+                              ),
+                            ),
+                            SecondaryText(
+                              text: 'Terms of Use (EULA)',
+                              color: theme.accentTxt.withOpacity(0.4),
+                              fontSize: 11,
+                              decoration: TextDecoration.underline,
+                            ).rippleClick(() async {
+                              final url = Uri.parse('https://mindpilot-131f1.web.app/terms');
+                              try {
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                                }
+                              } catch (e) {
+                                safePrint('Error launching terms of use: $e');
+                              }
+                            }),
+                          ],
+                        ),
                         40.verticalSpace,
                       ],
                     ),
@@ -190,6 +343,29 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
               ],
             ),
           ),
+          if (_isPurchasing)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.5),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                      16.verticalSpace,
+                      PrimaryText(
+                        text: 'Processing secure payment...',
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -238,7 +414,10 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 4,
                   children: [
                     PrimaryText(
                       text: plan['title'],
@@ -246,8 +425,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                       fontWeight: FontWeight.bold,
                       color: theme.accentTxt,
                     ),
-                    if (plan['save'] != null) ...[
-                      12.horizontalSpace,
+                    if (plan['save'] != null)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -264,7 +442,6 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                           color: Colors.white,
                         ),
                       ),
-                    ],
                   ],
                 ),
                 4.verticalSpace,
@@ -342,148 +519,6 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Future<void> _showExitDialog(String appName, VoidCallback onConfirm) async {
-    AppTheme theme = context.read();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.brandDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: PrimaryText(
-          text: 'Leave MindPilot?',
-          color: theme.accentTxt,
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
-        ),
-        content: SecondaryText(
-          text:
-              'You are about to be redirected to $appName to continue your Pro upgrade.',
-          color: theme.accentTxt.withOpacity(0.7),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: SecondaryText(
-              text: 'Cancel',
-              color: theme.accentTxt.withOpacity(0.5),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              onConfirm();
-            },
-            child: PrimaryText(
-              text: 'Continue',
-              color: theme.primaryBase,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _launchWhatsApp() async {
-    _showExitDialog('WhatsApp', () async {
-      String rawPhone = ConfigService().supportPhone;
-      // Remove all non-numeric characters
-      String cleanPhone = rawPhone.replaceAll(RegExp(r'\D'), '');
-
-      // If it starts with 0 (e.g. 090...), replace with 234
-      if (cleanPhone.startsWith('0')) {
-        cleanPhone = '234${cleanPhone.substring(1)}';
-      } else if (!cleanPhone.startsWith('234') && cleanPhone.length <= 11) {
-        // Fallback for Nigerian numbers without 234 or leading 0
-        cleanPhone = '234$cleanPhone';
-      }
-
-      final userEmail =
-          context.read<AppAuthProvider>().user?.email ?? "Unknown Email";
-      final message = Uri.encodeComponent(
-        "Hello MindPilot Team, I would like to upgrade my account to MindPilot Pro. Here is my email: $userEmail",
-      );
-      final url = "https://wa.me/$cleanPhone?text=$message";
-
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          context.showInAppNotification(
-            'Could not launch WhatsApp. Please contact ${ConfigService().supportPhone}.',
-          );
-        }
-      }
-    });
-  }
-
-  Future<void> processPurchase() async {
-    // Legacy method - no longer used but kept for reference or future use
-    context.showInAppNotification(
-      'In-app purchases are coming soon!',
-      type: InAppNotificationType.info,
-    );
-  }
-}
-
-class _PromoTag extends StatefulWidget {
-  const _PromoTag();
-
-  @override
-  State<_PromoTag> createState() => _PromoTagState();
-}
-
-class _PromoTagState extends State<_PromoTag>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    )..repeat(reverse: true);
-    _animation = Tween<double>(
-      begin: 0.9,
-      end: 1.1,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _animation,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFF3131), // Vibrant Red
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF3131).withOpacity(0.6),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: const PrimaryText(
-          text: 'LIMITED OFFER',
-          color: Colors.white,
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
     );
   }
 }

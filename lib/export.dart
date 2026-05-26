@@ -15,11 +15,14 @@ export 'package:flutter_screenutil/flutter_screenutil.dart';
 export 'package:flutter_svg/flutter_svg.dart';
 export 'package:google_fonts/google_fonts.dart';
 export 'package:google_sign_in/google_sign_in.dart';
+export 'package:sign_in_with_apple/sign_in_with_apple.dart' hide IconAlignment;
 export 'package:intl/intl.dart' hide TextDirection;
 export 'package:pretty_dio_logger/pretty_dio_logger.dart';
 export 'package:provider/provider.dart';
 export 'package:screen_protector/screen_protector.dart';
 export 'package:shared_preferences/shared_preferences.dart';
+export 'package:google_mobile_ads/google_mobile_ads.dart';
+export 'package:url_launcher/url_launcher.dart';
 
 export 'components/components.dart';
 export 'models/models.dart';

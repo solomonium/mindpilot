@@ -1,19 +1,20 @@
-import 'dart:io';
 import 'dart:async';
+import 'dart:io';
+
 import 'package:audioplayers/audioplayers.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:mindpilot/export.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  
-  final isEnabled = await SharedPrefs.getBool('PUSH_NOTIFICATIONS_ENABLED') ?? false;
+
+  final isEnabled =
+      await SharedPrefs.getBool('PUSH_NOTIFICATIONS_ENABLED') ?? false;
   final type = message.data['type'] ?? 'update';
 
   if (!isEnabled && type != 'insight') {
@@ -21,9 +22,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 
   final dbHelper = DatabaseHelper();
-  final title = message.notification?.title ?? message.data['title'] ?? 'MindPilot';
+  final title =
+      message.notification?.title ?? message.data['title'] ?? 'MindPilot';
   final body = message.notification?.body ?? message.data['body'] ?? '';
-  
+
   // Debug log for Admin
   print('--- [FCM BACKGROUND PAYLOAD] ---');
   print('Data: ${message.data}');
@@ -52,23 +54,96 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isAlarmPlaying = false;
   StreamSubscription? _playerCompleteSubscription;
 
+  String? _pendingPayload;
+
+  void setPendingPayload(String? payload) {
+    _pendingPayload = payload;
+  }
+
+  String? consumePendingPayload() {
+    final payload = _pendingPayload;
+    _pendingPayload = null;
+    return payload;
+  }
+
+  static const MethodChannel _permissionChannel = MethodChannel(
+    'com.mindpilot.app/permissions',
+  );
+
+  Future<bool> canUseFullScreenIntent() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final bool? result = await _permissionChannel.invokeMethod<bool>(
+        'canUseFullScreenIntent',
+      );
+      return result ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> openFullScreenIntentSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _permissionChannel.invokeMethod<void>(
+        'openFullScreenIntentSettings',
+      );
+    } catch (_) {}
+  }
+
+  Future<bool> canDrawOverlays() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final bool? result = await _permissionChannel.invokeMethod<bool>(
+        'canDrawOverlays',
+      );
+      return result ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> openOverlaySettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _permissionChannel.invokeMethod<void>('openOverlaySettings');
+    } catch (_) {}
+  }
 
   Future<void> initialize() async {
     const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
     const iosInit = DarwinInitializationSettings();
-    const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
-    
+    const initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+
     await _localNotifications.initialize(
       settings: initSettings,
       onDidReceiveNotificationResponse: (details) {
-        _handleNotificationClick(details.payload);
+        handleNotificationClick(details.payload);
       },
     );
+
+    try {
+      final NotificationAppLaunchDetails? notificationAppLaunchDetails =
+          await _localNotifications.getNotificationAppLaunchDetails();
+      if (notificationAppLaunchDetails != null &&
+          notificationAppLaunchDetails.didNotificationLaunchApp) {
+        final NotificationResponse? notificationResponse =
+            notificationAppLaunchDetails.notificationResponse;
+        if (notificationResponse != null &&
+            notificationResponse.payload != null) {
+          setPendingPayload(notificationResponse.payload);
+        }
+      }
+    } catch (_) {}
 
     tz.initializeTimeZones();
     try {
@@ -81,37 +156,37 @@ class NotificationService {
     }
 
     if (Platform.isAndroid) {
-      const AndroidNotificationChannel generalChannel = AndroidNotificationChannel(
-        'mindpilot_notifications',
-        'General Notifications',
-        description: 'Used for important updates and insights',
-        importance: Importance.max,
-      );
+      const AndroidNotificationChannel generalChannel =
+          AndroidNotificationChannel(
+            'mindpilot_notifications',
+            'General Notifications',
+            description: 'Used for important updates and insights',
+            importance: Importance.max,
+          );
 
       const AndroidNotificationChannel taskChannel = AndroidNotificationChannel(
-        'task_alarm_channel',
+        'task_alarm_channel_v5',
         'Task Alarms',
         description: 'Alarms for scheduled tasks',
         importance: Importance.max,
         playSound: true,
+        sound: RawResourceAndroidNotificationSound('alarm'),
         enableVibration: true,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
       );
 
-      final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
-      
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
       await androidPlugin?.createNotificationChannel(generalChannel);
       await androidPlugin?.createNotificationChannel(taskChannel);
       await androidPlugin?.requestNotificationsPermission();
       await androidPlugin?.requestExactAlarmsPermission();
     }
 
-
-    await _fcm.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    await _fcm.requestPermission(alert: true, badge: true, sound: true);
 
     try {
       await _fcm.subscribeToTopic('all_users');
@@ -129,19 +204,21 @@ class NotificationService {
     if (initialMessage != null) {
       _processMessage(initialMessage, isForeground: false, wasTapped: true);
     }
-    
+
     _startForegroundAlarmChecker();
-    
-    _fcm.getToken().then((token) {
-      if (token != null) {
-        _syncTokenToProvider(token);
-      }
-    });
+
+    logDeviceToken();
 
     _fcm.onTokenRefresh.listen((token) {
       _syncTokenToProvider(token);
     });
   }
+
+
+
+
+
+
 
   void _syncTokenToProvider(String token) {
     final context = R.N.navKey.currentContext;
@@ -157,7 +234,7 @@ class NotificationService {
       try {
         final now = DateTime.now();
         final tasks = await DatabaseHelper().getTasks();
-        
+
         for (var task in tasks) {
           final startTime = task['startTime'] as String?;
           final isDone = (task['isDone'] == 1 || task['isDone'] == true);
@@ -167,8 +244,14 @@ class NotificationService {
             try {
               final DateFormat format = DateFormat('hh:mm a');
               final DateTime parsedTime = format.parse(startTime);
-              
-              var startDt = DateTime(now.year, now.month, now.day, parsedTime.hour, parsedTime.minute);
+
+              var startDt = DateTime(
+                now.year,
+                now.month,
+                now.day,
+                parsedTime.hour,
+                parsedTime.minute,
+              );
 
               if (startDt.isBefore(now.subtract(const Duration(hours: 1)))) {
                 startDt = startDt.add(const Duration(days: 1));
@@ -181,12 +264,14 @@ class NotificationService {
                 if (!_playedAlarms.contains(taskId)) {
                   _playedAlarms.add(taskId);
                   playAlarmSound();
-                  
-                  final payload = 'focus_session:${task['id']}:${startDt.toIso8601String()}';
+
+                  final duration = (task['durationMinutes'] as int?) ?? 25;
+                  final payload =
+                      'focus_session|$duration|${startDt.toIso8601String()}';
                   showForegroundNotification(
-                    'Task Starting Soon', 
-                    'Your task "${task['title']}" starts in 2 minutes.', 
-                    payload
+                    'Task Starting Soon',
+                    'Your task "${task['title']}" starts in 2 minutes.',
+                    payload,
                   );
                 }
               }
@@ -195,9 +280,9 @@ class NotificationService {
               if (startDiff >= 0 && startDiff < 15) {
                 if (!_launchedTasks.contains(taskId)) {
                   _launchedTasks.add(taskId);
-                  
+
                   final duration = (task['durationMinutes'] as int?) ?? 25;
-                  
+
                   R.N.navKey.currentState?.push(
                     MaterialPageRoute(
                       builder: (_) => FocusSessionScreen(
@@ -209,7 +294,6 @@ class NotificationService {
                   );
                 }
               }
-
             } catch (_) {}
           }
         }
@@ -220,18 +304,35 @@ class NotificationService {
   final Set<int> _playedAlarms = {};
   final Set<int> _launchedTasks = {};
 
-
   Future<void> logDeviceToken() async {
     try {
       if (Platform.isIOS) {
-        final apnsToken = await _fcm.getAPNSToken();
-        if (apnsToken == null) return;
+        String? apnsToken;
+        for (int i = 0; i < 10; i++) {
+          apnsToken = await _fcm.getAPNSToken();
+          if (apnsToken != null) break;
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        if (apnsToken == null) {
+          safePrint("APNs token is null on iOS. Cannot fetch FCM token.");
+          return;
+        }
       }
-      await _fcm.getToken().timeout(const Duration(seconds: 15));
-    } catch (_) {}
+      final token = await _fcm.getToken().timeout(const Duration(seconds: 15));
+      if (token != null) {
+        safePrint("Successfully retrieved FCM token: $token");
+        _syncTokenToProvider(token);
+      }
+    } catch (e) {
+      safePrint("Error retrieving FCM Token: $e");
+    }
   }
 
-  void _processMessage(RemoteMessage message, {bool isForeground = false, bool wasTapped = false}) {
+  void _processMessage(
+    RemoteMessage message, {
+    bool isForeground = false,
+    bool wasTapped = false,
+  }) {
     final context = R.N.navKey.currentContext;
     if (context == null) return;
 
@@ -247,7 +348,8 @@ class NotificationService {
     safePrint('Data: ${message.data}');
     safePrint('-------------------------------');
 
-    final title = message.notification?.title ?? message.data['title'] ?? 'MindPilot';
+    final title =
+        message.notification?.title ?? message.data['title'] ?? 'MindPilot';
     final body = message.notification?.body ?? message.data['body'] ?? '';
 
     context.read<NotificationProvider>().addNotification({
@@ -268,11 +370,15 @@ class NotificationService {
     }
 
     if (wasTapped) {
-      _handleNotificationClick(type);
+      handleNotificationClick(type);
     }
   }
 
-  Future<void> showForegroundNotification(String title, String body, String type) async {
+  Future<void> showForegroundNotification(
+    String title,
+    String body,
+    String type,
+  ) async {
     const androidDetails = AndroidNotificationDetails(
       'mindpilot_notifications',
       'General Notifications',
@@ -280,7 +386,10 @@ class NotificationService {
       priority: Priority.high,
     );
     const iosDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
 
     await _localNotifications.show(
       id: DateTime.now().millisecond,
@@ -294,28 +403,32 @@ class NotificationService {
   Future<void> playAlarmSound() async {
     if (_isAlarmPlaying) return;
     try {
-      await _audioPlayer.setAudioContext(AudioContext(
-        android: AudioContextAndroid(
-          isSpeakerphoneOn: true,
-          stayAwake: true,
-          contentType: AndroidContentType.music,
-          usageType: AndroidUsageType.alarm,
-          audioFocus: AndroidAudioFocus.gainTransient,
+      await _audioPlayer.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            stayAwake: true,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.alarm,
+            audioFocus: AndroidAudioFocus.gainTransient,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: {
+              AVAudioSessionOptions.defaultToSpeaker,
+              AVAudioSessionOptions.mixWithOthers,
+            },
+          ),
         ),
-        iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.playback,
-          options: {
-            AVAudioSessionOptions.defaultToSpeaker,
-            AVAudioSessionOptions.mixWithOthers,
-          },
-        ),
-      ));
+      );
 
       _isAlarmPlaying = true;
       int playCount = 0;
-      
+
       _playerCompleteSubscription?.cancel();
-      _playerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((_) async {
+      _playerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((
+        _,
+      ) async {
         playCount++;
         if (playCount < 5) {
           await _audioPlayer.seek(Duration.zero);
@@ -329,17 +442,24 @@ class NotificationService {
 
       await _audioPlayer.setSource(AssetSource('audio/alarm.mp3'));
       await _audioPlayer.resume();
-      
     } catch (_) {
       _isAlarmPlaying = false;
       _playerCompleteSubscription?.cancel();
     }
   }
 
-  void _handleNotificationClick(String? payload) {
+  Future<void> stopAlarmSound() async {
+    try {
+      await _audioPlayer.stop();
+      _isAlarmPlaying = false;
+      _playerCompleteSubscription?.cancel();
+    } catch (_) {}
+  }
+
+  void handleNotificationClick(String? payload) {
     if (payload == null) return;
-    
-    if (payload.startsWith('focus_session:')) {
+
+    if (payload.startsWith('focus_session|')) {
       playAlarmSound();
     }
 
@@ -353,18 +473,20 @@ class NotificationService {
       if (context != null) {
         AppHelper.showFeedbackPrompt(context);
       }
-    } else if (payload.startsWith('focus_session:')) {
+    } else if (payload.startsWith('focus_session|')) {
       final context = R.N.navKey.currentContext;
       if (context != null) {
-        final parts = payload.split(':');
+        final parts = payload.split('|');
         final duration = int.tryParse(parts[1]) ?? 30;
         final startDt = parts.length > 2 ? DateTime.tryParse(parts[2]) : null;
-        
-        context.push(FocusSessionScreen(
-          initialDuration: duration, 
-          autoStart: true,
-          scheduledStartTime: startDt,
-        ));
+
+        context.push(
+          FocusSessionScreen(
+            initialDuration: duration,
+            autoStart: true,
+            scheduledStartTime: startDt,
+          ),
+        );
       }
     }
   }
@@ -378,7 +500,10 @@ class NotificationService {
       priority: Priority.high,
     );
     const iosDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
 
     await _localNotifications.zonedSchedule(
       id: 0,
@@ -399,15 +524,24 @@ class NotificationService {
     }
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
 
-    tz.TZDateTime scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, 21);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      21,
+    );
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
     return scheduledDate;
   }
 
-
-  Future<void> scheduleTaskAlarm(String title, DateTime startTime, int duration) async {
+  Future<void> scheduleTaskAlarm(
+    String title,
+    DateTime startTime,
+    int duration,
+  ) async {
     try {
       tz.local;
     } catch (_) {
@@ -417,46 +551,159 @@ class NotificationService {
     }
 
     if (Platform.isAndroid) {
-      final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       await androidPlugin?.requestExactAlarmsPermission();
     }
 
-
+    // 1. Schedule 2-minute warning notification with custom alarm sound
     final alarmTime = startTime.subtract(const Duration(minutes: 2));
+    if (alarmTime.isAfter(DateTime.now())) {
+      final tzAlarmTime = tz.TZDateTime.from(alarmTime, tz.local);
 
-    if (alarmTime.isBefore(DateTime.now())) {
-      return;
+      const androidDetails = AndroidNotificationDetails(
+        'task_alarm_channel_v5',
+        'Task Alarms',
+        channelDescription: 'Alarms for scheduled tasks',
+        importance: Importance.max,
+        priority: Priority.high,
+        sound: RawResourceAndroidNotificationSound('alarm'),
+        ticker: 'Task Reminder',
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'alarm.mp3',
+        categoryIdentifier: 'task_alarm',
+      );
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _localNotifications.zonedSchedule(
+        id: title.hashCode.abs(),
+        title: 'Task Starting Soon',
+        body:
+            'Your task "$title" starts in 2 minutes. Prepare for your focus session!',
+        scheduledDate: tzAlarmTime,
+        notificationDetails: details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: 'focus_session|$duration|${startTime.toIso8601String()}',
+      );
     }
 
-    final tzAlarmTime = tz.TZDateTime.from(alarmTime, tz.local);
+    // 2. Schedule exact start-time notification with custom alarm sound and Full Screen Intent on Android (to auto-open app)
+    if (startTime.isAfter(DateTime.now())) {
+      final tzStartTime = tz.TZDateTime.from(startTime, tz.local);
+      final bool hasFullScreenPermission = await canUseFullScreenIntent();
 
+      final androidStartDetails = AndroidNotificationDetails(
+        'task_alarm_channel_v5',
+        'Task Alarms',
+        channelDescription: 'Alarms for scheduled tasks',
+        importance: Importance.max,
+        priority: Priority.max,
+        sound: RawResourceAndroidNotificationSound('alarm'),
+        ticker: 'Task Starter',
+        category: AndroidNotificationCategory.alarm,
+        fullScreenIntent:
+            hasFullScreenPermission, // Dynamically use the permission status!
+      );
+
+      const iosStartDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'alarm.mp3',
+        categoryIdentifier: 'task_alarm',
+      );
+      final startDetails = NotificationDetails(
+        android: androidStartDetails,
+        iOS: iosStartDetails,
+      );
+
+      await _localNotifications.zonedSchedule(
+        id: title.hashCode.abs() + 1,
+        title: 'Task Starting Now!',
+        body:
+            'Your task "$title" is starting now. Let\'s begin the focus session!',
+        scheduledDate: tzStartTime,
+        notificationDetails: startDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: 'focus_session|$duration|${startTime.toIso8601String()}',
+      );
+    }
+  }
+
+  Future<void> scheduleFocusCompleteAlarm({
+    required DateTime endTime,
+    required String soundName,
+  }) async {
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    }
+
+    final remainingSeconds = endTime.difference(DateTime.now()).inSeconds;
+    // 🌍 Timezone-agnostic calculation: always schedules exactly remainingSeconds in the future relative to the active timezone!
+    final tzEndTime = tz.TZDateTime.now(tz.local).add(Duration(seconds: remainingSeconds));
+
+    // 🧠 Ultra-robust notification channel using standard high-importance system alerts
     const androidDetails = AndroidNotificationDetails(
-      'task_alarm_channel',
-      'Task Alarms',
-      channelDescription: 'Alarms for scheduled tasks',
+      'focus_complete_channel_v1', // Clean new channel
+      'Focus Session Completion',
+      channelDescription:
+          'Heads-up banner alerts when a focus session finishes',
       importance: Importance.max,
-      priority: Priority.high,
-      ticker: 'Task Reminder',
+      priority: Priority.max,
+      ticker: 'Focus Alarm',
+      category: AndroidNotificationCategory.alarm,
+      playSound: true,
+      enableVibration: true,
     );
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      categoryIdentifier: 'task_alarm',
+      categoryIdentifier: 'focus_complete',
     );
-    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
-    await _localNotifications.zonedSchedule(
-      id: title.hashCode.abs(),
-      title: 'Task Starting Soon',
-      body: 'Your task "$title" starts in 2 minutes. Prepare for your focus session!',
-      scheduledDate: tzAlarmTime,
-      notificationDetails: details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: 'focus_session:$duration:${startTime.toIso8601String()}',
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
     );
+
+    // Cancel any existing focus complete alarm first
+    await cancelFocusCompleteAlarm();
+
+    try {
+      await _localNotifications.zonedSchedule(
+        id: 8888, // Fixed ID for Focus Complete Alarm
+        title: 'Focus Session Complete! 🧠',
+        body: 'Great job! You finished your focus session.',
+        scheduledDate: tzEndTime,
+        notificationDetails: details,
+        androidScheduleMode: AndroidScheduleMode
+            .inexactAllowWhileIdle, // Incredibly robust, works without exact alarm permission
+        payload: 'focus_complete_alarm',
+      );
+      safePrint('Successfully scheduled background focus completion notification at $tzEndTime (in $remainingSeconds seconds) with timezone ${tz.local.name}');
+    } catch (e) {
+      safePrint('Error scheduling focus complete notification: $e');
+    }
+  }
+
+  Future<void> cancelFocusCompleteAlarm() async {
+    await _localNotifications.cancel(id: 8888);
   }
 
   Future<void> cancelDailyReminder() async {
@@ -465,17 +712,20 @@ class NotificationService {
 
   Future<bool> isNotificationsEnabled() async {
     final settings = await _fcm.getNotificationSettings();
-    final fcmAllowed = settings.authorizationStatus == AuthorizationStatus.authorized || 
-                       settings.authorizationStatus == AuthorizationStatus.provisional;
-    
+    final fcmAllowed =
+        settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+
     if (!fcmAllowed) return false;
 
     if (Platform.isAndroid) {
-      final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       return await androidPlugin?.areNotificationsEnabled() ?? false;
     }
-    
+
     return fcmAllowed;
   }
 
@@ -485,20 +735,26 @@ class NotificationService {
       badge: true,
       sound: true,
     );
-    
-    bool isAuthorized = settings.authorizationStatus == AuthorizationStatus.authorized || 
-                       settings.authorizationStatus == AuthorizationStatus.provisional;
+
+    bool isAuthorized =
+        settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
 
     if (Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-          _localNotifications.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      
-      final bool? grantedNotificationPermission = await androidImplementation?.requestNotificationsPermission();
+          _localNotifications
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >();
+
+      final bool? grantedNotificationPermission = await androidImplementation
+          ?.requestNotificationsPermission();
       isAuthorized = isAuthorized && (grantedNotificationPermission ?? false);
     } else if (Platform.isIOS) {
-      final iosImplementation = _localNotifications.resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin>();
+      final iosImplementation = _localNotifications
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
       final bool? granted = await iosImplementation?.requestPermissions(
         alert: true,
         badge: true,
@@ -506,7 +762,7 @@ class NotificationService {
       );
       isAuthorized = isAuthorized && (granted ?? false);
     }
-    
+
     return isAuthorized;
   }
 }

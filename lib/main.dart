@@ -4,6 +4,9 @@ import 'package:mindpilot/firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize AdService / AdMob SDK
+  await AdService.instance.initialize();
+
   try {
     await dotenv.load(fileName: ".env");
     await Firebase.initializeApp(
@@ -65,7 +68,7 @@ Future<void> _initializeBackgroundServices() async {
     await NotificationService().initialize();
 
     await AnalyticsService.logAppOpen();
-    PaymentService.initialize();
+    await PaymentService.initialize();
 
     final isAllowed = await NotificationService().isNotificationsEnabled();
 

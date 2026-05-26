@@ -423,7 +423,19 @@
       height: 160px;
       border-radius: 36px;
       margin-bottom: 20px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+    
+    .mockup-logo:hover {
+      transform: scale(1.03) rotate(1deg);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7), 0 0 35px rgba(99, 102, 241, 0.35);
+      border-color: rgba(99, 102, 241, 0.25);
     }
 
     .mockup-content h3 {
@@ -518,8 +530,438 @@
       text-align: center;
     }
 
-    /* Responsiveness */
+    /* ==========================================================================
+       OPTIMIZED HIGH-PERFORMANCE GLASSMORPHISM & GPU LAYERS
+       ========================================================================== */
+    .feature-card, .mock-device-container, .btn-download, .store-btn {
+      transform: translateZ(0); /* Promotes elements to dedicated GPU layers */
+      will-change: transform; /* Declares animation intent to prevent repaint lag */
+    }
+
+    /* Optimized performant glass cards (reduces rendering pipeline workload) */
+    .waitlist-card, .waitlist-success-card {
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      background: rgba(17, 24, 39, 0.75); /* Slightly higher opacity to maintain style with lower blur */
+    }
+
+    .mock-device-container {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      background: rgba(15, 17, 28, 0.85);
+    }
+
+    /* ==========================================================================
+       FUTURISTIC WAITLIST INTERACTION & INPUT CAPSULE
+       ========================================================================== */
+    .waitlist-card, .waitlist-success-card {
+      width: 100%;
+      max-width: 540px;
+      margin-bottom: 24px;
+      border-radius: 24px; /* Beautiful rounded corners */
+      border: 1px solid rgba(255, 255, 255, 0.06); /* Soft premium glowing outline */
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .waitlist-card:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+      box-shadow: 0 25px 50px rgba(99, 102, 241, 0.15);
+    }
+
+    .waitlist-header h3 {
+      font-family: var(--font-heading);
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #ffffff;
+      text-align: left;
+    }
+
+    .waitlist-header p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    /* Capsule Styled Premium waitlist input bar */
+    .waitlist-input-wrapper {
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 6px;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .waitlist-input-wrapper:focus-within {
+      border-color: rgba(168, 85, 247, 0.5); /* Glowing violet border */
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.25), 
+                  inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .waitlist-input-wrapper input {
+      flex: 1;
+      background: transparent !important;
+      border: none !important;
+      padding: 14px 16px 14px 44px !important; /* Spacing for the mail icon */
+      color: #ffffff !important;
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+    }
+
+    .waitlist-input-wrapper input::placeholder {
+      color: rgba(255, 255, 255, 0.35) !important;
+      font-weight: 400;
+    }
+
+    /* Futuristic Mail Icon positioning */
+    .input-icon {
+      position: absolute;
+      left: 18px;
+      width: 20px;
+      height: 20px;
+      color: rgba(255, 255, 255, 0.35);
+      pointer-events: none;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .waitlist-input-wrapper:focus-within .input-icon {
+      color: var(--accent-indigo);
+      transform: scale(1.05);
+    }
+
+    /* Glow-Animated Premium waitlist button */
+    .waitlist-input-wrapper button {
+      background: linear-gradient(135deg, #6366f1 0%, #d946ef 50%, #06b6d4 100%) !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 14px !important;
+      padding: 12px 28px !important;
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 15px rgba(217, 70, 239, 0.3), 
+                  inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .waitlist-input-wrapper button:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 8px 30px rgba(217, 70, 239, 0.55), 
+                  inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .waitlist-input-wrapper button:active {
+      transform: translateY(1px);
+    }
+
+    .waitlist-input-wrapper button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .error-msg {
+      color: #ef4444;
+      font-size: 0.85rem;
+      margin-top: 8px;
+      min-height: 18px;
+      font-weight: 500;
+      text-align: left;
+    }
+
+    /* ==========================================================================
+       🧠 SCI-FI DECISION ANALYSER DIAL & LAYOUTS (Restored & Premium-Enhanced)
+       ========================================================================== */
+    .hero-mock-right {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+    }
+
+    .mock-app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .mock-bullet {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .mock-bullet.active {
+      background: var(--accent-indigo);
+      box-shadow: 0 0 8px var(--accent-indigo);
+      animation: pulse-bullet 1.5s infinite alternate;
+    }
+
+    @keyframes pulse-bullet {
+      from { transform: scale(1); opacity: 0.7; }
+      to { transform: scale(1.2); opacity: 1; }
+    }
+
+    .mock-app-title {
+      font-family: var(--font-heading);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .mock-status-icon {
+      font-size: 1rem;
+    }
+
+    .mock-decision-input {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .mock-decision-input .input-label {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.35);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .mock-decision-input .input-value {
+      font-family: var(--font-heading);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .mock-analyzer-body {
+      display: grid;
+      grid-template-columns: 1.15fr 1.25fr;
+      gap: 20px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    /* 🔮 Spectacular Holographic Gauge Dial Circle */
+    .mock-score-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .gauge-outer {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(15, 17, 28, 0.4) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+      box-shadow: 0 0 35px rgba(99, 102, 241, 0.22),
+                  inset 0 0 15px rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(5px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .gauge-outer:hover {
+      box-shadow: 0 0 45px rgba(99, 102, 241, 0.35),
+                  inset 0 0 20px rgba(255, 255, 255, 0.1);
+      transform: scale(1.03);
+    }
+
+    .gauge-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .gauge-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-width: 6;
+      stroke-dasharray: 4, 3; /* Tech-inspired dotted circle track */
+    }
+
+    .gauge-fill {
+      fill: none;
+      stroke: url(#gaugeGradient);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 264;
+      stroke-dashoffset: 264;
+      animation: gauge-draw 2.2s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
+    }
+
+    .gauge-label-container {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gauge-percent {
+      font-family: var(--font-heading);
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1;
+      text-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+    }
+
+    .gauge-verdict {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+
+    .recommendation-status {
+      margin-top: 16px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent-teal);
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+      letter-spacing: 0.5px;
+    }
+
+    /* Core factors section */
+    .mock-factors-section {
+      text-align: left;
+    }
+
+    .factors-title {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.35);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .factor-row {
+      margin-bottom: 12px;
+    }
+
+    .factor-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .factor-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+    }
+
+    .factor-name {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .factor-weight {
+      font-weight: 700;
+      font-family: var(--font-heading);
+    }
+
+    .factor-row:nth-child(2) .factor-weight { color: var(--accent-teal); }
+    .factor-row:nth-child(3) .factor-weight { color: var(--accent-blue); }
+    .factor-row:nth-child(4) .factor-weight { color: #ef4444; }
+
+    .factor-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 100px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      width: 0;
+      animation: bar-expand 2s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
+    }
+
+    .mock-ai-feedback {
+      background: rgba(99, 102, 241, 0.05);
+      border: 1px solid rgba(99, 102, 241, 0.1);
+      border-radius: 16px;
+      padding: 14px 16px;
+      text-align: left;
+      font-size: 0.82rem;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .mock-ai-feedback p {
+      margin: 0;
+    }
+
+    .mock-ai-feedback strong {
+      color: var(--accent-indigo);
+    }
+
+    /* ==========================================================================
+       MOBILE EXPERIENCE COMPLIANCE & PERFORMANCE QUERIES
+       ========================================================================== */
+    
+    /* Disable expensive rendering objects on mobile browsers completely */
     @media (max-width: 768px) {
+      .ambient-glow-1, .ambient-glow-2, .ambient-glow-3 {
+        display: none !important; /* Disables 600px+ off-screen CPU pixel calculations */
+      }
+    }
+
+    /* Tablet & Desktop Layout Refinement */
+    @media (max-width: 1024px) {
+      .hero-grid {
+        grid-template-columns: 1.1fr 1fr;
+        gap: 30px;
+      }
+      .hero-content-left h1 {
+        font-size: 3.2rem;
+      }
+    }
+
+    /* Standard Mobile Layout Alignment (Widths under 900px) */
+    @media (max-width: 900px) {
       nav {
         padding: 16px 20px;
         flex-direction: column;
@@ -536,7 +978,7 @@
         border-radius: 12px;
       }
 
-      /* Capsule styled navigation links for mobile */
+      /* Compact capsule mobile navigation links */
       .nav-links {
         display: flex;
         gap: 16px;
@@ -554,41 +996,81 @@
         font-size: 0.85rem;
       }
 
-      /* Hide the duplicate CTA in mobile header */
       .nav-links .btn-download {
-        display: none;
+        display: none; /* Hide duplicate button in header on mobile */
       }
-      
+
       .hero {
         padding: 40px 20px 60px 20px;
       }
 
-      .hero h1 {
-        font-size: 2.6rem;
+      .hero-grid {
+        grid-template-columns: 1fr; /* Stack Hero grid vertically */
+        gap: 40px;
+        text-align: center;
+      }
+
+      .hero-content-left {
+        align-items: center; /* Center typography and forms on mobile */
+        width: 100%;
+      }
+
+      .hero-content-left h1 {
+        font-size: 2.8rem;
+        text-align: center;
         letter-spacing: -1.2px;
       }
 
-      .hero p {
+      .hero-content-left p {
+        text-align: center;
         font-size: 1.05rem;
         margin-bottom: 30px;
       }
 
-      .store-buttons {
-        gap: 12px;
-        flex-direction: column;
-        align-items: stretch;
-        max-width: 280px;
-        margin: 0 auto 40px auto;
+      .waitlist-card {
+        margin: 0 auto 24px auto;
+        width: 100%;
+        max-width: 100%; /* Spans full width of container */
+        padding: 24px 18px;
       }
 
-      .store-btn {
-        justify-content: center;
-        padding: 12px 20px;
-        border-radius: 14px;
+      .waitlist-input-wrapper {
+        flex-direction: column; /* Stack input field & submit button vertically on mobile */
+        gap: 12px;
+      }
+
+      .waitlist-input-wrapper input {
+        width: 100%;
+        text-align: center;
+      }
+
+      .waitlist-input-wrapper button {
+        width: 100%;
+        padding: 14px 0;
+      }
+
+      /* Center and stack Decision Analyser Mockup */
+      .hero-mock-right {
+        width: 100%;
+      }
+
+      .mock-device-container {
+        margin: 0 auto;
+        max-width: 100%;
+        padding: 20px 16px;
+      }
+
+      .mock-analyzer-body {
+        grid-template-columns: 1fr; /* Stack verdict dial and factor rows vertically */
+        gap: 30px;
+      }
+
+      .mock-score-section {
+        margin-bottom: 10px;
       }
 
       .feature-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr; /* Single column features on mobile */
         gap: 20px;
       }
 
@@ -635,8 +1117,9 @@
       }
     }
 
-    @media (max-width: 360px) {
-      .hero h1 {
+    /* Small screens / Compact Viewport styling */
+    @media (max-width: 380px) {
+      .hero-content-left h1 {
         font-size: 2.2rem;
       }
       
@@ -674,35 +1157,129 @@
 
   <!-- Hero Section -->
   <section class="hero" id="download">
-    <div class="badge-promo">
-      <span></span> Built For Mental Clarity
-    </div>
-    <h1>Think clearly.<br>Live intentionally.</h1>
-    <p>MindPilot is your ultimate cognitive assistant. Organize your daily workflow, secure your thought logs, chat with support, and unlock tailored mental insights powered by secure AI integrations.</p>
-    
-    <div class="store-buttons">
-      <!-- App Store (iOS) Button -->
-      <a href="https://apps.apple.com/app/mindpilot" class="store-btn">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.16.65-2.88 1.49-.62.71-1.16 1.85-1.01 2.96 1.1.09 2.22-.58 2.9-1.39z"/>
-        </svg>
-        <div class="store-btn-text">
-          <div class="store-btn-subtitle">Download on the</div>
-          <div class="store-btn-title">App Store</div>
+    <div class="hero-grid">
+      
+      <!-- Left Column: Copywriting & App Download Center -->
+      <div class="hero-content-left">
+        <div class="badge-promo">
+          <span style="background-color: var(--accent-teal);"></span> Live on App Store & Google Play
         </div>
-      </a>
-
-      <!-- Google Play Store Button -->
-      <a href="https://play.google.com/store/apps/details?id=com.mindpilot.app" class="store-btn">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 5.277c0-.986.726-1.724 1.706-1.724.364 0 .708.11 1.002.322l11.458 7.37c.72.463.72 1.547 0 2.01L5.708 20.626c-.294.212-.638.322-1.002.322-.98 0-1.706-.738-1.706-1.724V5.277zM17.062 12L5 4.25v15.5L17.062 12z" />
-          <path d="M16.5 12l-12.5-8v16l12.5-8z" opacity="0.15"/>
-        </svg>
-        <div class="store-btn-text">
-          <div class="store-btn-subtitle">Get it on</div>
-          <div class="store-btn-title">Google Play</div>
+        <h1>MindPilot:<br>Stop Overthinking.<br>Make Confident Decisions.</h1>
+        <p>MindPilot is your ultimate cognitive assistant. Organize your daily thoughts, track wellness metrics, and make confident decisions backed by interactive, secure AI analysis.</p>
+        
+        <!-- Download Center Container -->
+        <div class="waitlist-card" id="downloadCard" style="border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);">
+          <div class="waitlist-header">
+            <h3 style="background: linear-gradient(135deg, #a5b4fc, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Download Now Available</h3>
+            <p>Get MindPilot instantly on your mobile device. Start tracking wellness, journaling offline, and analyzing tough decisions with AI.</p>
+          </div>
+          
+          <div class="download-buttons-group" style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
+            <a href="https://apps.apple.com/ng/app/mind-pilot/id6770153795" target="_blank" class="btn-download" style="padding: 14px 28px; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border-radius: 14px; font-weight: 700; transition: all 0.3s ease;">
+              <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-.96.04-2.13.64-2.82 1.45-.6.69-1.12 1.83-.98 2.94.1.08 2.15.48 2.81-1.33z"/>
+              </svg>
+              App Store (iOS)
+            </a>
+            <a href="https://play.google.com/store/apps/details?id=com.mindpilot.app" target="_blank" class="btn-download" style="padding: 14px 28px; background: linear-gradient(135deg, #6366f1 0%, #10b981 100%); display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border-radius: 14px; font-weight: 700; transition: all 0.3s ease;">
+              <svg style="width: 20px; height: 20px; fill: currentColor;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.609 1.814L13.783 12 3.609 22.186c-.18.18-.383.27-.609.27-.452 0-.814-.362-.814-.814V2.358c0-.452.362-.814.814-.814.226 0 .429.09.609.27zm11.23 9.126l3.327-3.327c.362-.362.362-.949 0-1.311s-.949-.362-1.311 0l-3.83 3.83 1.814 1.814c.226-.226.226-.226 0 0zm-.904.904l-1.814-1.814-3.83 3.83c-.362.362-.362.949 0 1.311s.949.362 1.311 0l4.333-4.327zM5.327 3.53l9.043 9.044-9.043 9.043V3.53z"/>
+              </svg>
+              Google Play (Android)
+            </a>
+          </div>
         </div>
-      </a>
+        
+        <div class="launching-soon-text">
+          Available globally on iOS and Android. Built with military-grade privacy.
+        </div>
+      </div>
+      
+      <!-- Right Column: Interactive AI Decision Analyser Mockup -->
+      <div class="hero-mock-right">
+        <div class="mock-device-container">
+          <div class="mock-app-header">
+            <span class="mock-bullet active"></span>
+            <div class="mock-app-title">AI Decision Analyser</div>
+            <span class="mock-status-icon">🧠</span>
+          </div>
+          
+          <div class="mock-decision-input">
+            <div class="input-label">Decision to Analyze</div>
+            <div class="input-value">Should I launch my product today?</div>
+          </div>
+          
+          <div class="mock-analyzer-body">
+            <!-- Left Side of Widget: Visual Recommendation Dial -->
+            <div class="mock-score-section">
+              <div class="gauge-outer">
+                <svg viewBox="0 0 100 100" class="gauge-svg">
+                  <!-- Gradient for glowing fill -->
+                  <defs>
+                    <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#6366f1" />
+                      <stop offset="50%" stop-color="#3b82f6" />
+                      <stop offset="100%" stop-color="#10b981" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="42" class="gauge-bg" />
+                  <circle cx="50" cy="50" r="42" class="gauge-fill" />
+                </svg>
+                <div class="gauge-label-container">
+                  <span class="gauge-percent">87%</span>
+                  <span class="gauge-verdict">RECOMMENDED</span>
+                </div>
+              </div>
+              <div class="recommendation-status">
+                <span>⚡ AI Verdict: Strong Go</span>
+              </div>
+            </div>
+            
+            <!-- Right Side of Widget: Configured Factors -->
+            <div class="mock-factors-section">
+              <div class="factors-title">Primary Core Factors</div>
+              
+              <!-- Factor 1 -->
+              <div class="factor-row" style="--target-width: 90%;">
+                <div class="factor-info">
+                  <span class="factor-name">Market Readiness</span>
+                  <span class="factor-weight">+9.0</span>
+                </div>
+                <div class="factor-progress-bar">
+                  <div class="bar-fill" style="background: var(--accent-teal);"></div>
+                </div>
+              </div>
+              
+              <!-- Factor 2 -->
+              <div class="factor-row" style="--target-width: 75%;">
+                <div class="factor-info">
+                  <span class="factor-name">Feature Completeness</span>
+                  <span class="factor-weight">+7.5</span>
+                </div>
+                <div class="factor-progress-bar">
+                  <div class="bar-fill" style="background: var(--accent-blue);"></div>
+                </div>
+              </div>
+              
+              <!-- Factor 3 -->
+              <div class="factor-row" style="--target-width: 30%;">
+                <div class="factor-info">
+                  <span class="factor-name">Developer Fatigue</span>
+                  <span class="factor-weight">-3.0</span>
+                </div>
+                <div class="factor-progress-bar">
+                  <div class="bar-fill" style="background: #ef4444;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mock-ai-feedback">
+            <p><strong>MindPilot AI:</strong> Landing page is optimized and waitlist is active. All user subscription records and cognitive logs are encrypted with military-grade security.</p>
+          </div>
+        </div>
+      </div>
+      
     </div>
   </section>
 
@@ -751,7 +1328,10 @@
         <img src="favicon.png" alt="MindPilot Icon" class="mockup-logo">
         <h3>Begin Your Journey Today</h3>
         <p>Create streaks, keep daily journals, stay alert with custom alarms, and watch your mental focus sharpen with AI insights.</p>
-        <a href="https://play.google.com/store/apps/details?id=com.mindpilot.app" class="btn-download" style="padding: 12px 30px;">Get Started Free</a>
+        <div class="download-buttons-group" style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 24px;">
+          <a href="https://play.google.com/store/apps/details?id=com.mindpilot.app" target="_blank" class="btn-download" style="padding: 12px 30px; text-decoration: none;">Get on Google Play</a>
+          <a href="https://apps.apple.com/ng/app/mind-pilot/id6770153795" target="_blank" class="btn-download" style="padding: 12px 30px; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); text-decoration: none;">Download on App Store</a>
+        </div>
       </div>
     </div>
   </section>
@@ -776,6 +1356,191 @@
       </div>
     </div>
   </footer>
+
+  <!-- ==========================================================================
+       FIREBASE INTEGRATION & FORM HANDLERS
+       ========================================================================== -->
+  
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-VCJHSPJF1S"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-VCJHSPJF1S');
+  </script>
+
+  <!-- Firebase App & Firestore Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Public Firebase web credentials
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4J2z380yMB7ToJDTyoZZhLjPoyiqw-3s",
+      authDomain: "mindpilot-131f1.firebaseapp.com",
+      projectId: "mindpilot-131f1",
+      storageBucket: "mindpilot-131f1.firebasestorage.app",
+      messagingSenderId: "802202587833",
+      appId: "1:802202587833:web:6af45f6d6223702d580168",
+      measurementId: "G-VCJHSPJF1S"
+    };
+
+    // Initialize Firebase
+    try {
+      firebase.initializeApp(firebaseConfig);
+      window.db = firebase.firestore();
+      console.log("Firebase initialized successfully");
+    } catch (e) {
+      console.error("Firebase initialization failed:", e);
+    }
+
+    // Trigger widget entry animations once fully loaded
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        const container = document.querySelector(".mock-device-container");
+        if (container) {
+          container.classList.add("loaded");
+        }
+      }, 200);
+    });
+
+    async function handleWaitlistSubmit(event) {
+      event.preventDefault();
+      
+      const emailInput = document.getElementById("waitlistEmail");
+      const submitBtn = document.getElementById("waitlistSubmitBtn");
+      const spinner = document.getElementById("waitlistSpinner");
+      const errorMsg = document.getElementById("waitlistError");
+      const waitlistCard = document.getElementById("waitlistCard");
+      const successCard = document.getElementById("waitlistSuccessCard");
+      
+      const email = emailInput.value.trim().toLowerCase();
+      
+      // Basic input validation
+      if (!email) {
+        errorMsg.innerText = "Please enter your email address.";
+        return;
+      }
+      
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        errorMsg.innerText = "Please enter a valid email address.";
+        return;
+      }
+      
+      // Clear previous error
+      errorMsg.innerText = "";
+      
+      // Toggle loading state
+      emailInput.disabled = true;
+      submitBtn.disabled = true;
+      spinner.style.display = "inline-block";
+      
+      try {
+        if (!window.db) {
+          throw new Error("Firestore database client is not initialized.");
+        }
+        
+        const docRef = window.db.collection("waitlist").doc(email);
+        
+        // 🛡️ Try a client-side uniqueness check (works if your Firestore rules allow public reads)
+        let docExists = false;
+        try {
+          const docSnap = await docRef.get();
+          if (docSnap.exists) {
+            docExists = true;
+          }
+        } catch (readError) {
+          // If public reads are denied by security rules (common for waitlists), we catch the error 
+          // and gracefully fall back to native database write-permission constraints.
+          console.warn("Public read check skipped:", readError.message);
+        }
+        
+        if (docExists) {
+          errorMsg.innerText = "This email is already on the waitlist!";
+          // Restore button state
+          emailInput.disabled = false;
+          submitBtn.disabled = false;
+          spinner.style.display = "none";
+          return;
+        }
+        
+        // Write to Firestore waitlist collection formatted for the Trigger Email extension
+        // Using the email as the document ID natively guarantees complete uniqueness!
+        await docRef.set({
+          to: email, // The recipient address (Trigger Email extension looks for this)
+          email: email, // Keep this field for easy viewing in your console
+          from: "Solteq Innovations <solteqinnovationsltd@gmail.com>", // Set correct sender directly
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          userAgent: navigator.userAgent,
+          message: {
+            subject: "You're in! Access the MindPilot Beta 🧠",
+            html: `
+              <div style="font-family: sans-serif; background-color: #0c0f1d; color: #f3f4f6; padding: 40px 20px; text-align: center;">
+                <div style="max-width: 600px; margin: 0 auto; background: #111827; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);">
+                  <h1 style="color: #6366f1; font-size: 28px; margin-bottom: 20px;">Welcome to MindPilot!</h1>
+                  <p style="font-size: 16px; line-height: 1.6; color: #9ca3af; margin-bottom: 30px;">
+                    Thank you for joining our exclusive early access list. Because you registered early, you've been added to our official beta testing group!
+                  </p>
+                  
+                  <div style="margin: 30px 0; display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                    <a href="https://apps.apple.com/ng/app/mind-pilot/id6770153795" style="background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 14px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); margin: 5px;">
+                      Download on App Store (iOS)
+                    </a>
+                    <a href="https://play.google.com/apps/testing/com.mindpilot.app" style="background: linear-gradient(135deg, #6366f1 0%, #10b981 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 14px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); margin: 5px;">
+                      Join Google Play Beta (Android)
+                    </a>
+                  </div>
+                  
+                  <hr style="border: 0; border-top: 1px solid rgba(255, 255, 255, 0.08); margin: 30px 0;">
+                  
+                  <p style="font-size: 12px; color: #4b5563; line-height: 1.5;">
+                    MindPilot — Stop Overthinking. Make Confident Decisions.<br>
+                    Military-grade cognitive assistant.
+                  </p>
+                </div>
+              </div>
+            `
+          }
+        });
+        
+        // Log custom Google Analytics conversion event
+        if (typeof gtag === "function") {
+          gtag("event", "join_waitlist", {
+            event_category: "Engagement",
+            event_label: "Waitlist Signup",
+            email_domain: email.split("@")[1]
+          });
+        }
+        
+        // Smooth transition to success state
+        waitlistCard.style.opacity = "0";
+        setTimeout(() => {
+          waitlistCard.style.display = "none";
+          successCard.style.display = "block";
+          successCard.style.opacity = "0";
+          setTimeout(() => {
+            successCard.style.opacity = "1";
+          }, 50);
+        }, 300);
+        
+      } catch (err) {
+        console.error("Error saving email to waitlist:", err);
+        // Handle native uniqueness enforcement (permission-denied thrown by Firestore when trying to update/overwrite an existing doc ID)
+        if (err && (err.code === "permission-denied" || err.message?.includes("insufficient permissions") || err.message?.includes("PERMISSION_DENIED"))) {
+          errorMsg.innerText = "This email is already on the waitlist!";
+        } else {
+          errorMsg.innerText = "Unable to register. Please check your connection and try again.";
+        }
+        
+        // Restore button state
+        emailInput.disabled = false;
+        submitBtn.disabled = false;
+        spinner.style.display = "none";
+      }
+    }
+  </script>
 
 </body>
 </html>

@@ -1,5 +1,5 @@
+import 'dart:io';
 import 'package:mindpilot/export.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class ConfigService {
@@ -14,7 +14,9 @@ class ConfigService {
   String _latestVersion = '1.0.0';
   bool _forceUpdate = false;
   String _updateUrl = 'https://play.google.com/store/apps/details?id=com.mindpilot.app';
+  String _shareUrl = 'https://mindpilot-131f1.web.app/share';
   String _supportPhone = '09043230179';
+  int _authenticatedUsersCount = 0;
 
   String _currentAppVersion = '1.0.1';
 
@@ -22,8 +24,15 @@ class ConfigService {
   String get latestVersion => _latestVersion;
   String get currentAppVersion => _currentAppVersion;
   bool get forceUpdate => _forceUpdate;
-  String get updateUrl => _updateUrl;
+  String get updateUrl {
+    if (Platform.isIOS) {
+      return 'https://apps.apple.com/ng/app/mind-pilot/id6770153795';
+    }
+    return _updateUrl;
+  }
+  String get shareUrl => _shareUrl;
   String get supportPhone => _supportPhone;
+  int get authenticatedUsersCount => _authenticatedUsersCount;
 
   Future<void> init() async {
     try {
@@ -45,9 +54,11 @@ class ConfigService {
         _latestVersion = data['latest_version'] ?? '1.0.0';
         _forceUpdate = data['force_update'] ?? false;
         _updateUrl = data['update_url'] ?? _updateUrl;
+        _shareUrl = data['share_url'] ?? _shareUrl;
         _supportPhone = data['support_phone'] ?? _supportPhone;
+        _authenticatedUsersCount = data['authenticated_users_count'] ?? 0;
         
-        safePrint('✅ Remote Config Loaded: Interval=$_quoteIntervalMs, Version=$_latestVersion');
+        safePrint('✅ Remote Config Loaded: Interval=$_quoteIntervalMs, Version=$_latestVersion, AuthUsers=$_authenticatedUsersCount');
       } else {
         safePrint('⚠️ Remote Config doc not found. Using defaults.');
       }

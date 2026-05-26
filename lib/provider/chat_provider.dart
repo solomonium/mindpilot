@@ -86,6 +86,15 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void rewardMessageCount() async {
+    if (_dailyMessageCount > 0) {
+      _dailyMessageCount--;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('DAILY_CHAT_COUNT', _dailyMessageCount);
+      notifyListeners();
+    }
+  }
+
   void addMessage(String text, bool isMe) {
     _messages.add({"text": text, "isMe": isMe});
     

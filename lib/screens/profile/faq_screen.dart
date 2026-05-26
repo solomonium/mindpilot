@@ -63,7 +63,7 @@ class FAQScreen extends StatelessWidget {
                 16.verticalSpace,
                 _faqItem(theme, 'Is my data private?', 'Yes. We take privacy seriously. Your personal journals and decision analyses are encrypted and stored securely. We do not sell your personal data.'),
                 16.verticalSpace,
-                _faqItem(theme, 'How do I upgrade to Pro?', 'You can upgrade by visiting the "Upgrade to Pro" section in the app. Currently, we offer manual activation via WhatsApp for premium access.'),
+                _faqItem(theme, 'How do I upgrade to Pro?', 'You can upgrade by visiting the "Upgrade to Pro" section in the app. Premium features are coming soon via Apple In-App Purchase.'),
                 16.verticalSpace,
                 _faqItem(theme, 'What happens if I forget my password?', 'You can reset your password using the "Forgot Password" link on the login screen, which will send a reset link to your registered email.'),
                 40.verticalSpace,

@@ -10,6 +10,7 @@ class TaskItem {
   final int? durationMinutes;
   final String? remoteId;
   final bool isDone;
+  final String? doneTime;
 
   TaskItem({
     this.id,
@@ -21,6 +22,7 @@ class TaskItem {
     this.durationMinutes,
     this.remoteId,
     this.isDone = false,
+    this.doneTime,
   });
 
   Map<String, dynamic> toMap() {
@@ -34,6 +36,7 @@ class TaskItem {
       'durationMinutes': durationMinutes,
       'remoteId': remoteId,
       'isDone': isDone ? 1 : 0,
+      'doneTime': doneTime,
     };
   }
 }
@@ -63,8 +66,23 @@ class TaskProvider extends ChangeNotifier {
         durationMinutes: item['durationMinutes'],
         remoteId: item['remoteId'],
         isDone: item['isDone'] == 1,
+        doneTime: item['doneTime'],
       ));
     }
+    // Sort: active tasks first (newest created), then done tasks (newest done first)
+    _tasks.sort((a, b) {
+      if (a.isDone != b.isDone) return a.isDone ? 1 : -1;
+      if (!a.isDone) {
+        return (b.id ?? 0).compareTo(a.id ?? 0);
+      } else {
+        final dtA = a.doneTime ?? '';
+        final dtB = b.doneTime ?? '';
+        if (dtA.isEmpty && dtB.isEmpty) return (b.id ?? 0).compareTo(a.id ?? 0);
+        if (dtA.isEmpty) return 1;
+        if (dtB.isEmpty) return -1;
+        return dtB.compareTo(dtA);
+      }
+    });
     await refreshStats();
     notifyListeners();
   }
@@ -127,6 +145,7 @@ class TaskProvider extends ChangeNotifier {
         durationMinutes: task.durationMinutes,
         remoteId: task.remoteId,
         isDone: task.isDone,
+        doneTime: task.doneTime,
       );
       
       await _dbHelper.updateTask(id, updatedTask.toMap());
@@ -144,6 +163,7 @@ class TaskProvider extends ChangeNotifier {
       return;
     }
 
+    final nowDone = !task.isDone;
     final updatedTask = TaskItem(
       id: task.id,
       title: task.title,
@@ -153,7 +173,8 @@ class TaskProvider extends ChangeNotifier {
       startTime: task.startTime,
       durationMinutes: task.durationMinutes,
       remoteId: task.remoteId,
-      isDone: !task.isDone,
+      isDone: nowDone,
+      doneTime: nowDone ? DateTime.now().toIso8601String() : null,
     );
     await _dbHelper.updateTask(task.id!, updatedTask.toMap());
     

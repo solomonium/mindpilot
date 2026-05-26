@@ -66,7 +66,7 @@ class DefaultFirebaseOptions {
     projectId: 'mindpilot-131f1',
     storageBucket: 'mindpilot-131f1.firebasestorage.app',
     iosClientId: dotenv.env['FIREBASE_IOS_CLIENT_ID'],
-    iosBundleId: 'com.example.archonitDevTest',
+    iosBundleId: 'com.solteq.mindpilot',
   );
 
   static FirebaseOptions macos = FirebaseOptions(
@@ -76,7 +76,7 @@ class DefaultFirebaseOptions {
     projectId: 'mindpilot-131f1',
     storageBucket: 'mindpilot-131f1.firebasestorage.app',
     iosClientId: dotenv.env['FIREBASE_IOS_CLIENT_ID'],
-    iosBundleId: 'com.example.archonitDevTest',
+    iosBundleId: 'com.solteq.mindpilot',
   );
 
   static FirebaseOptions windows = FirebaseOptions(

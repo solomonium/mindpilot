@@ -38,6 +38,7 @@ class SyncService {
             'startTime': data['startTime'],
             'durationMinutes': data['durationMinutes'],
             'remoteId': remoteId,
+            'doneTime': data['doneTime'],
           });
         }
       }

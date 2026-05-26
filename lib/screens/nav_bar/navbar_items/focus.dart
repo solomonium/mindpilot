@@ -19,13 +19,14 @@ class FocusSessionScreen extends StatefulWidget {
   State<FocusSessionScreen> createState() => _FocusSessionScreenState();
 }
 
-class _FocusSessionScreenState extends State<FocusSessionScreen> {
+class _FocusSessionScreenState extends State<FocusSessionScreen> with WidgetsBindingObserver {
   Timer? _timer;
   final AudioPlayer _audioPlayer = AudioPlayer();
   int _selectedMinutes = 25;
   int _secondsRemaining = 25 * 60;
   bool _isRunning = false;
   bool _isAlarmPlaying = false;
+  DateTime? _endTime;
 
   String _selectedSound = 'Standard Alert';
 
@@ -62,6 +63,8 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    NotificationService().stopAlarmSound();
     _selectedMinutes = widget.initialDuration ?? 25;
     _secondsRemaining = _selectedMinutes * 60;
     _audioPlayer.setSource(UrlSource(_sounds[0]['url']!));
@@ -111,6 +114,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _waitingTimer?.cancel();
     _audioPlayer.dispose();
@@ -121,6 +125,17 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
     try {
       if (_isAlarmPlaying) return;
       setState(() => _isAlarmPlaying = true);
+
+      final bool online = await AppHelper.isOnline();
+      if (!online) {
+        await _audioPlayer.setSource(AssetSource('audio/alarm.mp3'));
+      } else {
+        final selectedSoundMap = _sounds.firstWhere(
+          (s) => s['name'] == _selectedSound,
+          orElse: () => _sounds[0],
+        );
+        await _audioPlayer.setSource(UrlSource(selectedSoundMap['url']!));
+      }
 
       await _audioPlayer.seek(Duration.zero);
       await _audioPlayer.resume();
@@ -134,30 +149,88 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
       });
     } catch (e) {
       safePrint('Error playing sound: $e');
-      setState(() => _isAlarmPlaying = false);
+      try {
+        // Fallback to local asset if network play fails
+        await _audioPlayer.setSource(AssetSource('audio/alarm.mp3'));
+        await _audioPlayer.seek(Duration.zero);
+        await _audioPlayer.resume();
+        Future.delayed(Duration(seconds: durationSeconds), () async {
+          if (mounted) {
+            await _audioPlayer.stop();
+            setState(() => _isAlarmPlaying = false);
+          }
+        });
+      } catch (innerError) {
+        safePrint('Error playing fallback sound: $innerError');
+        setState(() => _isAlarmPlaying = false);
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _updateTimerOnResume();
+    }
+  }
+
+  void _updateTimerOnResume() {
+    if (!mounted) return;
+    if (_isRunning && _endTime != null) {
+      _tick();
+    }
+    if (_isWaitingForStart && widget.scheduledStartTime != null) {
+      final diff = widget.scheduledStartTime!.difference(DateTime.now()).inSeconds;
+      if (diff <= 0) {
+        _waitingTimer?.cancel();
+        setState(() {
+          _isWaitingForStart = false;
+          _secondsToStart = 0;
+        });
+        _playSound(durationSeconds: 5);
+      } else {
+        setState(() => _secondsToStart = diff);
+      }
     }
   }
 
   void _startTimer() {
     if (_timer != null) _timer!.cancel();
+    _endTime = DateTime.now().add(Duration(seconds: _secondsRemaining));
     setState(() => _isRunning = true);
 
+    NotificationService().scheduleFocusCompleteAlarm(
+      endTime: _endTime!,
+      soundName: _selectedSound,
+    );
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsRemaining > 0) {
-        setState(() {
-          _secondsRemaining--;
-        });
-      } else {
-        _stopTimer();
-        _playSound(durationSeconds: 5); // Ring for at least 5 seconds
-        context.read<JournalProvider>().saveFocusSession(_selectedMinutes);
-        context.showInAppNotification(
-          'Great job! You finished your session.',
-          title: 'Focus Complete',
-          type: InAppNotificationType.success,
-        );
-      }
+      _tick();
     });
+  }
+
+  void _tick() {
+    if (!mounted || _endTime == null) return;
+    final now = DateTime.now();
+    final remaining = _endTime!.difference(now).inSeconds;
+
+    if (remaining > 0) {
+      setState(() {
+        _secondsRemaining = remaining;
+      });
+    } else {
+      setState(() {
+        _secondsRemaining = 0;
+      });
+      _stopTimer();
+      _playSound(durationSeconds: 5); // Ring for at least 5 seconds
+      context.read<JournalProvider>().saveFocusSession(_selectedMinutes);
+      context.showInAppNotification(
+        'Great job! You finished your session.',
+        title: 'Focus Complete',
+        type: InAppNotificationType.success,
+      );
+    }
   }
 
   void _onStartTimerTap() async {
@@ -176,7 +249,9 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
 
   void _stopTimer() {
     _timer?.cancel();
+    _endTime = null;
     setState(() => _isRunning = false);
+    NotificationService().cancelFocusCompleteAlarm();
   }
 
   void resetTimer() {
@@ -393,7 +468,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                 ),
                 12.verticalSpace,
                 _sessionTypes(theme),
-                20.verticalSpace,
+                120.verticalSpace,
               ],
             ),
           ),

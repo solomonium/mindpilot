@@ -208,6 +208,13 @@ class NotificationProvider extends ChangeNotifier {
     await loadNotifications();
   }
 
+  Future<void> deleteMultipleNotifications(List<int> ids) async {
+    for (var id in ids) {
+      await _dbHelper.deleteNotification(id);
+    }
+    await loadNotifications();
+  }
+
   Future<bool> fetchInsightExplanation() async {
     if (_insightExplanation != null) return false;
     _isFetchingExplanation = true;
@@ -233,7 +240,17 @@ class NotificationProvider extends ChangeNotifier {
       final hasAuthor = shortName != null;
       final authorRef = hasAuthor ? shortName : "the author";
       
-      final prompt = "Explain what $authorRef means by this insight: '$_dailyInsight'. Use very simple, 1-2 sentence language suitable for a teenager. ${hasAuthor ? "Refer to the author by their first name only (e.g., '$shortName means...' or 'What $shortName is saying is...')." : "Refer to the insight (e.g., 'This means...' or 'What this is saying is...')."} Then, provide a dynamic section starting with '**Quick Tip:**' that links this specific insight to the most relevant feature in the MindPilot app. If the insight is about productivity or focus, highly recommend using the **Focus Session**. If it is about clarity, choices, or mental clutter, highly recommend using the **Decision Analyzer**. Explain exactly how using that specific tool will help them put the lesson into practice today. Use **bold markers** for the feature names and the 'Quick Tip' label.";
+      final prompt = "Explain what $authorRef means by this insight: '$_dailyInsight'. "
+          "If the insight is a Bible verse or passage (or is attributed to a biblical source, book, or verse), "
+          "you MUST explain it based on the context of that specific Bible passage rather than analyzing it randomly or in isolation. "
+          "Use very simple, 1-2 sentence language suitable for a teenager. "
+          "${hasAuthor ? "Refer to the author by their first name only (e.g., '$shortName means...' or 'What $shortName is saying is...')." : "Refer to the insight (e.g., 'This means...' or 'What this is saying is...')."} "
+          "Then, provide a dynamic section starting with '**Quick Tip:**' that links this specific explanation "
+          "to the most relevant feature in the MindPilot app, narrowing it down to how to use the MindPilot tools to engage with the explanation. "
+          "If the insight/passage is about productivity or focus, highly recommend using the **Focus Session** to reflect on or work on the lesson. "
+          "If it is about clarity, choices, or mental clutter, highly recommend using the **Decision Analyzer** to evaluate a specific decision or choice related to the passage. "
+          "Explain exactly how using that specific tool will help them put the lesson into practice today. "
+          "Use **bold markers** for the feature names and the 'Quick Tip' label.";
       
       safePrint("Explaining Insight: $_dailyInsight");
       final response = await gemini.sendMessage(prompt);

@@ -102,27 +102,11 @@ class _LoginScreenState extends State<LoginScreen> with FormMixin {
                       16.verticalSpace,
                       _socialButton(
                         context,
-                        label: 'Facebook',
-                        icon: R.png.facebook.svg,
-                        isSvg: true,
-                        onPressed: () {
-                          context.showInAppNotification(
-                            'Facebook login is coming soon!',
-                            type: InAppNotificationType.info,
-                          );
-                        },
-                      ),
-                      16.verticalSpace,
-                      _socialButton(
-                        context,
                         label: 'Apple',
                         icon: Icons.apple,
-                        onPressed: () {
-                          context.showInAppNotification(
-                            'Apple login is coming soon!',
-                            type: InAppNotificationType.info,
-                          );
-                        },
+                        onPressed: () => context
+                            .read<AppAuthProvider>()
+                            .loginWithApple(context),
                       ),
                       32.verticalSpace,
                       /*
