@@ -31,6 +31,22 @@
           }
         },
         {
+          "client_id": "802202587833-euphr0mp9oqvqporsfag636do0mavr9i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mindpilot.app",
+            "certificate_hash": "1b59d0d6ee94b732c96d8dece5bc4cb41b3d8523"
+          }
+        },
+        {
+          "client_id": "802202587833-qbbadhr3oqoot1ev3ic8aa24ujd9v1ms.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mindpilot.app",
+            "certificate_hash": "a1aea8be2f1e41d3464df7ec3e1c3cc55e16fb5c"
+          }
+        },
+        {
           "client_id": "802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -48,10 +64,11 @@
               "client_type": 3
             },
             {
-              "client_id": "802202587833-6u4ljq0ulaqpu4gr8rf77ltopvp6ujem.apps.googleusercontent.com",
+              "client_id": "802202587833-0q9f69adk4i65rrvnarvuafl46vjj46g.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.solteq.mindpilot"
+                "bundle_id": "com.solteq.mindpilot",
+                "app_store_id": "6770153795"
               }
             }
           ]
