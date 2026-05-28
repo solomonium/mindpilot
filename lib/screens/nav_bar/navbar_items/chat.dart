@@ -175,12 +175,57 @@ User: $text
                   itemCount: chatStore.messages.length,
                   itemBuilder: (context, index) {
                     final message = chatStore.messages[index];
-                    return _chatBubble(
+                    final currentTimestampStr = message['timestamp'] as String?;
+
+                    Widget? headerWidget;
+                    if (currentTimestampStr != null) {
+                      final currentDateTime = DateTime.tryParse(
+                        currentTimestampStr,
+                      );
+                      if (currentDateTime != null) {
+                        bool showHeader = false;
+                        if (index == 0) {
+                          showHeader = true;
+                        } else {
+                          final prevMessage = chatStore.messages[index - 1];
+                          final prevTimestampStr =
+                              prevMessage['timestamp'] as String?;
+                          if (prevTimestampStr != null) {
+                            final prevDateTime = DateTime.tryParse(
+                              prevTimestampStr,
+                            );
+                            if (prevDateTime != null) {
+                              if (currentDateTime.year != prevDateTime.year ||
+                                  currentDateTime.month != prevDateTime.month ||
+                                  currentDateTime.day != prevDateTime.day) {
+                                showHeader = true;
+                              }
+                            }
+                          } else {
+                            showHeader = true;
+                          }
+                        }
+
+                        if (showHeader) {
+                          headerWidget = _dateHeader(context, currentDateTime);
+                        }
+                      }
+                    }
+
+                    final bubble = _chatBubble(
                       context,
                       message['text'],
                       message['isMe'],
                       index,
                     );
+
+                    if (headerWidget != null) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [headerWidget, bubble],
+                      );
+                    }
+                    return bubble;
                   },
                 ),
               ),
@@ -230,11 +275,62 @@ User: $text
     });
   }
 
+  Widget _dateHeader(BuildContext context, DateTime dateTime) {
+    AppTheme theme = context.watch();
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final msgDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+
+    String text;
+    if (msgDate == today) {
+      text = "Today";
+    } else if (msgDate == yesterday) {
+      text = "Yesterday";
+    } else if (now.year == dateTime.year) {
+      text = DateFormat("MMMM d").format(dateTime); // e.g., "May 27"
+    } else {
+      text = DateFormat(
+        "MMMM d, yyyy",
+      ).format(dateTime); // e.g., "May 27, 2026"
+    }
+
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.accentTxt.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.accentTxt.withOpacity(0.06)),
+        ),
+        child: SecondaryText(
+          text: text,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: theme.accentTxt.withOpacity(0.5),
+        ),
+      ),
+    );
+  }
+
   Widget _chatBubble(BuildContext context, String text, bool isMe, int index) {
     AppTheme theme = context.watch();
     final textColor = isMe
         ? Colors.white
         : (_bubbleColors[index] ?? theme.accentTxt);
+
+    final chatStore = context.read<ChatProvider>();
+    final message = chatStore.messages[index];
+    final timestampStr = message['timestamp'] as String?;
+    String? timeStr;
+    if (timestampStr != null) {
+      final dateTime = DateTime.tryParse(timestampStr);
+      if (dateTime != null) {
+        timeStr = DateFormat('h:mm a').format(dateTime);
+      }
+    }
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -266,6 +362,14 @@ User: $text
                           theme.accentTxt,
                           isReset: true,
                         ), // Reset
+                        if (timeStr != null) ...[
+                          12.horizontalSpace,
+                          SecondaryText(
+                            text: timeStr,
+                            fontSize: 10,
+                            color: theme.accentTxt.withOpacity(0.4),
+                          ),
+                        ],
                       ],
                     ),
                     Row(
@@ -280,85 +384,77 @@ User: $text
                 ),
               ),
             ),
-          GestureDetector(
-            onLongPress: () async {
-              if (!isMe) {
-                final isPro = context.read<AppAuthProvider>().isPro;
-                if (!isPro) {
-                  AppHelper.showPaywall(context, feature: 'Copy AI Response');
-                  return;
-                }
-                await Clipboard.setData(ClipboardData(text: text));
-                if (context.mounted) {
-                  context.showInAppNotification(
-                    "Message copied to clipboard!",
-                    type: InAppNotificationType.success,
-                  );
-                }
-              }
-            },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
+          if (isMe && timeStr != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 4),
+              child: SecondaryText(
+                text: timeStr,
+                fontSize: 10,
+                color: theme.accentTxt.withOpacity(0.4),
               ),
-              decoration: BoxDecoration(
-                color: isMe
-                    ? theme.primaryBase
-                    : theme.accentTxt.withOpacity(0.1),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isMe ? 16 : 0),
-                  bottomRight: Radius.circular(isMe ? 0 : 16),
-                ),
-                border: isMe
-                    ? null
-                    : Border.all(color: theme.accentTxt.withOpacity(0.1)),
+            ),
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
+            decoration: BoxDecoration(
+              color: isMe
+                  ? theme.primaryBase
+                  : theme.accentTxt.withOpacity(0.1),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: Radius.circular(isMe ? 16 : 0),
+                bottomRight: Radius.circular(isMe ? 0 : 16),
               ),
-              child: Stack(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 0),
-                    child: MarkdownBody(
-                      data: text,
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(color: textColor, fontSize: 16),
-                        strong: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        h1: TextStyle(
-                          color: textColor,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        h2: TextStyle(
-                          color: textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        h3: TextStyle(
-                          color: textColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        listBullet: TextStyle(color: textColor, fontSize: 16),
-                        tableBody: TextStyle(color: textColor, fontSize: 14),
-                        tableHead: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        tableBorder: TableBorder.all(
-                          color: textColor.withOpacity(0.2),
-                        ),
+              border: isMe
+                  ? null
+                  : Border.all(color: theme.accentTxt.withOpacity(0.1)),
+            ),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 0),
+                  child: MarkdownBody(
+                    selectable: true,
+                    data: text,
+                    styleSheet: MarkdownStyleSheet(
+                      p: TextStyle(color: textColor, fontSize: 16),
+                      strong: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      h1: TextStyle(
+                        color: textColor,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      h2: TextStyle(
+                        color: textColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      h3: TextStyle(
+                        color: textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      listBullet: TextStyle(color: textColor, fontSize: 16),
+                      tableBody: TextStyle(color: textColor, fontSize: 14),
+                      tableHead: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      tableBorder: TableBorder.all(
+                        color: textColor.withOpacity(0.2),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -449,8 +545,6 @@ User: $text
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _quickActionChip(context, '👋 Hello!'),
-                8.horizontalSpace,
                 _quickActionChip(context, '😊 How are you?'),
                 8.horizontalSpace,
                 _quickActionChip(context, '🚀 Tell me about MindPilot'),

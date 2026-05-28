@@ -52,9 +52,8 @@ class _MainScreenState extends State<MainScreen> {
 
     if (Platform.isAndroid) {
       bool hasFullScreen = await notificationService.canUseFullScreenIntent();
-      bool hasOverlay = await notificationService.canDrawOverlays();
 
-      if (!hasFullScreen || !hasOverlay) {
+      if (!hasFullScreen) {
         if (!mounted) return;
         showDialog(
           context: context,
@@ -92,7 +91,7 @@ class _MainScreenState extends State<MainScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text(
-                        'To automatically launch your focus sessions at the exact start time (even when your screen is locked or the app is minimized), please enable the following permissions:',
+                        'To automatically launch your focus sessions at the exact start time (even when your screen is locked or the app is minimized), please enable the following permission:',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
@@ -173,78 +172,6 @@ class _MainScreenState extends State<MainScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      // Overlay permission row
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF221F35),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.picture_in_picture_rounded,
-                              color: Colors.deepPurpleAccent,
-                              size: 26,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Display Over Other Apps',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    hasOverlay ? 'Permission granted' : 'Bypasses background activity blocks',
-                                    style: TextStyle(
-                                      color: hasOverlay ? Colors.greenAccent : const Color(0xFFB8B5D0),
-                                      fontSize: 11.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (hasOverlay)
-                              const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 24)
-                            else
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.deepPurpleAccent,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                ),
-                                onPressed: () async {
-                                  await notificationService.openOverlaySettings();
-                                  await Future.delayed(const Duration(milliseconds: 1000));
-                                  final res = await notificationService.canDrawOverlays();
-                                  setState(() {
-                                    hasOverlay = res;
-                                  });
-                                },
-                                child: const Text(
-                                  'Configure',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                   actionsAlignment: MainAxisAlignment.spaceBetween,
@@ -273,25 +200,23 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                       onPressed: () async {
                         final screenRes = await notificationService.canUseFullScreenIntent();
-                        final overlayRes = await notificationService.canDrawOverlays();
                         
                         setState(() {
                           hasFullScreen = screenRes;
-                          hasOverlay = overlayRes;
                         });
 
-                        if (hasFullScreen && hasOverlay) {
+                        if (hasFullScreen) {
                           if (context.mounted) {
                             Navigator.of(context).pop();
                             context.showInAppNotification(
-                              'Permissions verified! Alarms will launch automatically.',
+                              'Permission verified! Alarms will launch automatically.',
                               type: InAppNotificationType.success,
                             );
                           }
                         } else {
                           if (context.mounted) {
                             context.showInAppNotification(
-                              'Please configure both permissions to enable automatic alarms.',
+                              'Please configure the permission to enable automatic alarms.',
                               type: InAppNotificationType.error,
                             );
                           }

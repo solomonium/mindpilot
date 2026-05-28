@@ -320,6 +320,7 @@ exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
 
     const userName = newUser.name || newUser.displayName || newUser.email || "Unknown";
     const userEmail = newUser.email || "No email";
+    const userCountry = newUser.regCountry ? ` from ${newUser.regCountry}` : "";
 
     try {
         // Find super admin users and get their FCM tokens
@@ -342,12 +343,12 @@ exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
             const payload = {
                 notification: {
                     title: "🆕 New User Registration",
-                    body: `${userName} (${userEmail}) just signed up!`,
+                    body: `${userName} (${userEmail})${userCountry} just signed up!`,
                 },
                 data: {
                     type: "admin_alert",
                     title: "New User Registration",
-                    body: `${userName} (${userEmail}) just signed up!`,
+                    body: `${userName} (${userEmail})${userCountry} just signed up!`,
                     click_action: "FLUTTER_NOTIFICATION_CLICK",
                 },
                 android: {

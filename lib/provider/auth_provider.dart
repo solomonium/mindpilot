@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mindpilot/export.dart';
@@ -54,6 +55,29 @@ class AppAuthProvider extends BaseProvider {
   StreamSubscription? _userDocSubscription;
 
   AppAuthProvider() {
+    _initAuth();
+  }
+
+  Future<void> _checkAppVersionAndForceLogout() async {
+    try {
+      final currentVersion = ConfigService().currentAppVersion;
+      final lastStoredVersion = await SharedPrefs.getString('LAST_INSTALLED_APP_VERSION');
+
+      if (lastStoredVersion != currentVersion) {
+        if (FirebaseAuth.instance.currentUser != null) {
+          await FirebaseAuth.instance.signOut();
+          safePrint('🔄 New app version detected (stored: "$lastStoredVersion", current: "$currentVersion"). Forced logout for data migration.');
+        }
+        await SharedPrefs.setString('LAST_INSTALLED_APP_VERSION', currentVersion);
+      }
+    } catch (e) {
+      safePrint('⚠️ Error checking app version for force logout: $e');
+    }
+  }
+
+  Future<void> _initAuth() async {
+    await _checkAppVersionAndForceLogout();
+
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       _user = user;
       if (user != null) {
@@ -72,6 +96,14 @@ class AppAuthProvider extends BaseProvider {
         
         // Sync FCM Token immediately on login/startup
         NotificationService().logDeviceToken();
+
+        // Idempotently restart broadcasts subscription on login
+        final context = R.N.navKey.currentContext;
+        if (context != null) {
+          try {
+            context.read<NotificationProvider>().listenToBroadcasts();
+          } catch (_) {}
+        }
       } else {
         _userDocSubscription?.cancel();
         _userType = "Freemium";
@@ -82,9 +114,40 @@ class AppAuthProvider extends BaseProvider {
         _email = null;
         GeminiService().setUserName(null);
         GeminiService().setAiPreferences("Balanced", "Encouraging");
+
+        // Cancel broadcasts subscription on sign-out before permissions are lost
+        final context = R.N.navKey.currentContext;
+        if (context != null) {
+          try {
+            context.read<NotificationProvider>().cancelBroadcastsSubscription();
+          } catch (_) {}
+        }
       }
       notifyListeners();
     });
+  }
+
+  String _detectCountry() {
+    try {
+      final String code = ui.PlatformDispatcher.instance.locale.countryCode?.toUpperCase() ?? '';
+      switch (code) {
+        case 'UG': return 'Uganda';
+        case 'KE': return 'Kenya';
+        case 'NG': return 'Nigeria';
+        case 'GH': return 'Ghana';
+        case 'ZA': return 'South Africa';
+        case 'US': return 'United States';
+        case 'GB': return 'United Kingdom';
+        case 'CA': return 'Canada';
+        case 'AU': return 'Australia';
+        case 'DE': return 'Germany';
+        case 'FR': return 'France';
+        default:
+          return code.isNotEmpty ? code : 'Unknown';
+      }
+    } catch (_) {
+      return 'Unknown';
+    }
   }
 
   Future<void> ensureFirestoreUserExists(User user) async {
@@ -107,6 +170,7 @@ class AppAuthProvider extends BaseProvider {
           'explanationCount': 0,
           'insightIntervalHours': 1,
           'country': '',
+          'regCountry': _detectCountry(),
           'createdAt': FieldValue.serverTimestamp(),
         });
         safePrint('🚀 Proactively created missing Firestore user document for UID: ${user.uid}');
@@ -118,6 +182,15 @@ class AppAuthProvider extends BaseProvider {
           safePrint('📈 Automatically incremented authenticated_users_count in settings');
         } catch (e) {
           safePrint('⚠️ Failed to increment authenticated_users_count: $e');
+        }
+      } else {
+        // Retroactively backfill regCountry if missing for existing users
+        final data = doc.data();
+        if (data != null && !data.containsKey('regCountry')) {
+          await _firestore.collection('users').doc(user.uid).update({
+            'regCountry': _detectCountry(),
+          });
+          safePrint('🌍 Retroactively set regCountry for existing user: ${user.uid}');
         }
       }
     } catch (e) {
@@ -221,6 +294,7 @@ class AppAuthProvider extends BaseProvider {
               'explanationCount': 0,
               'insightIntervalHours': 1,
               'country': '',
+              'regCountry': _detectCountry(),
               'createdAt': FieldValue.serverTimestamp(),
             }).then((_) {
               _syncTempPersonalization(user.uid);
@@ -238,6 +312,7 @@ class AppAuthProvider extends BaseProvider {
           }
           notifyListeners();
           _checkAndResetDecisionCredits();
+          _checkAndResetExplanationCount();
         });
   }
 
@@ -252,6 +327,26 @@ class AppAuthProvider extends BaseProvider {
       await SharedPrefs.setInt('DECISION_CREDITS', 3);
     } else {
       _decisionCredits = await SharedPrefs.getInt('DECISION_CREDITS') ?? 3;
+    }
+    notifyListeners();
+  }
+
+  Future<void> _checkAndResetExplanationCount() async {
+    if (_user == null) return;
+    final now = DateTime.now();
+    final today = DateFormat('yyyy-MM-dd').format(now);
+    final lastReset = await SharedPrefs.getString('LAST_EXPLANATION_RESET_DATE');
+
+    if (lastReset != today) {
+      _explanationCount = 0;
+      await SharedPrefs.setString('LAST_EXPLANATION_RESET_DATE', today);
+      try {
+        await _firestore.collection('users').doc(_user!.uid).update({
+          'explanationCount': 0,
+        });
+      } catch (e) {
+        safePrint('Error resetting daily explanationCount in Firestore: $e');
+      }
     }
     notifyListeners();
   }

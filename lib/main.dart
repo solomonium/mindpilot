@@ -40,6 +40,7 @@ void main() async {
         ChangeNotifierProvider.value(value: appProvider),
         ChangeNotifierProvider(create: (_) => AppAuthProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
+        ChangeNotifierProvider(create: (_) => FocusProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(
           create: (_) => JournalProvider()..loadInitialData(),
@@ -60,7 +61,7 @@ void main() async {
 Future<void> _initializeBackgroundServices() async {
   try {
     await GoogleSignIn.instance.initialize(
-      clientId: dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID'],
+      clientId: kIsWeb ? dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID'] : null,
       serverClientId: dotenv.env['GOOGLE_SIGN_IN_SERVER_CLIENT_ID'],
     );
 

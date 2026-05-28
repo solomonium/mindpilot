@@ -47,6 +47,7 @@ class NotificationProvider extends ChangeNotifier {
   bool _isFetchingExplanation = false;
   String? _fetchError;
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  StreamSubscription<QuerySnapshot>? _broadcastsSubscription;
 
 
   List<AppNotification> get notifications => _notifications;
@@ -95,7 +96,8 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void listenToBroadcasts() {
-    FirebaseFirestore.instance
+    _broadcastsSubscription?.cancel();
+    _broadcastsSubscription = FirebaseFirestore.instance
         .collection('broadcasts')
         .orderBy('createdAt', descending: true)
         .limit(1)
@@ -310,9 +312,15 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void cancelBroadcastsSubscription() {
+    _broadcastsSubscription?.cancel();
+    _broadcastsSubscription = null;
+  }
+
 
   @override
   void dispose() {
+    cancelBroadcastsSubscription();
     super.dispose();
   }
 }

@@ -8,9 +8,10 @@ class AuthService {
 
   Future<User?> signInWithGoogle() async {
     try {
-      // Ensure the plugin is initialized with the Web Client ID for Android
+      // Ensure the plugin is initialized with correct server client ID, avoiding overriding platform client ID on iOS/Android
       await GoogleSignIn.instance.initialize(
-        serverClientId: '802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com',
+        clientId: kIsWeb ? dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID'] : null,
+        serverClientId: dotenv.env['GOOGLE_SIGN_IN_SERVER_CLIENT_ID'] ?? '802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com',
       );
 
       final GoogleSignInAccount? googleUser = await GoogleSignIn.instance.authenticate();

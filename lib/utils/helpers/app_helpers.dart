@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:screen_protector/screen_protector.dart';
 
 class AppHelper {
+  static bool _listenerAdded = false;
+
   static void unFocus() {
     WidgetsBinding.instance.focusManager.primaryFocus?.unfocus();
   }
@@ -42,9 +44,51 @@ class AppHelper {
 
   static Future<void> setScreenshotProtection(bool enable) async {
     try {
-      if (enable) {
+      final context = R.N.navKey.currentContext;
+      bool isPro = false;
+      if (context != null) {
+        try {
+          isPro = context.read<AppAuthProvider>().isPro;
+        } catch (_) {}
+      }
+
+      if (enable && !isPro) {
+        // Enforce protection only for freemium users
         await ScreenProtector.preventScreenshotOn();
+
+        // Register native screenshot and screen recording listeners dynamically (only once)
+        if (!_listenerAdded) {
+          _listenerAdded = true;
+          ScreenProtector.addListener(() {
+            final currentContext = R.N.navKey.currentContext;
+            if (currentContext != null && currentContext.mounted) {
+              final activePro = currentContext.read<AppAuthProvider>().isPro;
+              if (!activePro) {
+                currentContext.showInAppNotification(
+                  'Screenshots are disabled on Freemium. Upgrade to Pro to enable them!',
+                  title: 'Pro Feature Only',
+                  type: InAppNotificationType.info,
+                );
+              }
+            }
+          }, (isRecording) {
+            if (isRecording) {
+              final currentContext = R.N.navKey.currentContext;
+              if (currentContext != null && currentContext.mounted) {
+                final activePro = currentContext.read<AppAuthProvider>().isPro;
+                if (!activePro) {
+                  currentContext.showInAppNotification(
+                    'Screen recording is disabled on Freemium. Upgrade to Pro to enable them!',
+                    title: 'Pro Feature Only',
+                    type: InAppNotificationType.info,
+                  );
+                }
+              }
+            }
+          });
+        }
       } else {
+        // Allow screenshots/recordings for Pro members or when explicitly disabling protection
         await ScreenProtector.preventScreenshotOff();
       }
     } catch (e) {
@@ -137,6 +181,8 @@ class AppHelper {
                     _benefitRow(Icons.analytics, 'Deep Growth Analytics'),
                     12.verticalSpace,
                     _benefitRow(Icons.palette, 'Special Glassmorphism Themes'),
+                    12.verticalSpace,
+                    _benefitRow(Icons.camera_alt, 'Native Screenshots & Screen Recording'),
                     32.verticalSpace,
                     CustomButton(
                       label: 'Upgrade Now',
@@ -406,7 +452,9 @@ class AppHelper {
       children: [
         Icon(icon, color: const Color(0xFF10B981), size: 18),
         16.horizontalSpace,
-        SecondaryText(text: text, color: Colors.white, fontSize: 13),
+        Expanded(
+          child: SecondaryText(text: text, color: Colors.white, fontSize: 13),
+        ),
       ],
     );
   }

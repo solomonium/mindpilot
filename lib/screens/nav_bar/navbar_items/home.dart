@@ -419,7 +419,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               }
 
                               if (_isInsightExpanded &&
-                                  (isPro || (authStore.explanationCount < 3)) &&
                                   notifStore.fetchError == null) {
                                 return Icon(
                                   Icons.keyboard_arrow_up,
@@ -907,9 +906,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ).rippleClick(() {
       if (title == R.S.decisionAnalyzer) {
-        context.push(const DecisionAnalyzerScreen());
+        context.read<HomeProvider>().navIndex = 2;
       } else if (title == R.S.focusSession) {
-        context.push(const FocusSessionScreen());
+        context.read<HomeProvider>().navIndex = 1;
       } else if (title == R.S.createTask) {
         context.push(const TaskCreationScreen());
       }

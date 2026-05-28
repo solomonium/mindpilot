@@ -80,6 +80,13 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   }
 
   Future<void> _loadOfferings() async {
+    if (!PaymentService.isConfigured) {
+      safePrint(
+        'DEBUG: PaymentService is not configured. Skipping offerings/products fetch.',
+      );
+      return;
+    }
+
     // 1. Direct Store Product Fetch Debug Block (Bypassing RevenueCat Offerings)
     try {
       safePrint(
@@ -493,6 +500,11 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         _featureItem(
           Icons.auto_awesome,
           'Share AI Chat Highlights with Branded Cards',
+        ),
+        16.verticalSpace,
+        _featureItem(
+          Icons.camera_alt,
+          'Native Screenshot & Screen Recording Permission',
         ),
       ],
     );

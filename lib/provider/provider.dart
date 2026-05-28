@@ -7,3 +7,4 @@ export 'chat_provider.dart';
 export 'journal_provider.dart';
 export 'task_provider.dart';
 export 'notification_provider.dart';
+export 'focus_provider.dart';

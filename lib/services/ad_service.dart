@@ -20,9 +20,9 @@ class AdService {
     } else {
       // 💰 Your Production Ad Unit IDs (Active when compiled for App Store / Play Store release)
       if (defaultTargetPlatform == TargetPlatform.android) {
-        return 'ca-app-pub-2538400635781158/1840139396';
+        return 'ca-app-pub-3958979158113241/3815633259';
       } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-        return 'ca-app-pub-2538400635781158/1617155417';
+        return 'ca-app-pub-3958979158113241/5612234572';
       }
     }
     throw UnsupportedError("Unsupported platform for AdMob");

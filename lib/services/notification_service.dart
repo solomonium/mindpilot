@@ -175,6 +175,17 @@ class NotificationService {
         audioAttributesUsage: AudioAttributesUsage.alarm,
       );
 
+      const AndroidNotificationChannel focusChannel = AndroidNotificationChannel(
+        'focus_complete_channel_v2',
+        'Focus Session Completion',
+        description: 'Alarms when a focus session finishes',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('alarm'),
+        enableVibration: true,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+      );
+
       final androidPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -182,6 +193,7 @@ class NotificationService {
 
       await androidPlugin?.createNotificationChannel(generalChannel);
       await androidPlugin?.createNotificationChannel(taskChannel);
+      await androidPlugin?.createNotificationChannel(focusChannel);
       await androidPlugin?.requestNotificationsPermission();
       await androidPlugin?.requestExactAlarmsPermission();
     }
@@ -657,8 +669,8 @@ class NotificationService {
     final tzEndTime = tz.TZDateTime.now(tz.local).add(Duration(seconds: remainingSeconds));
 
     // 🧠 Ultra-robust notification channel using standard high-importance system alerts
-    const androidDetails = AndroidNotificationDetails(
-      'focus_complete_channel_v1', // Clean new channel
+    final androidDetails = AndroidNotificationDetails(
+      'focus_complete_channel_v2', // Clean new channel
       'Focus Session Completion',
       channelDescription:
           'Heads-up banner alerts when a focus session finishes',
@@ -667,6 +679,8 @@ class NotificationService {
       ticker: 'Focus Alarm',
       category: AndroidNotificationCategory.alarm,
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('alarm'),
+      audioAttributesUsage: AudioAttributesUsage.alarm,
       enableVibration: true,
     );
 
@@ -674,10 +688,11 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'alarm.mp3',
       categoryIdentifier: 'focus_complete',
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -692,8 +707,7 @@ class NotificationService {
         body: 'Great job! You finished your focus session.',
         scheduledDate: tzEndTime,
         notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode
-            .inexactAllowWhileIdle, // Incredibly robust, works without exact alarm permission
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Exact schedule mode so it triggers on time when minimized
         payload: 'focus_complete_alarm',
       );
       safePrint('Successfully scheduled background focus completion notification at $tzEndTime (in $remainingSeconds seconds) with timezone ${tz.local.name}');
@@ -704,6 +718,49 @@ class NotificationService {
 
   Future<void> cancelFocusCompleteAlarm() async {
     await _localNotifications.cancel(id: 8888);
+  }
+
+  Future<void> showFocusCompleteNotification() async {
+    const androidDetails = AndroidNotificationDetails(
+      'focus_complete_channel_v2',
+      'Focus Session Completion',
+      channelDescription:
+          'Heads-up banner alerts when a focus session finishes',
+      importance: Importance.max,
+      priority: Priority.max,
+      ticker: 'Focus Alarm',
+      category: AndroidNotificationCategory.alarm,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('alarm'),
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      enableVibration: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: 'alarm.mp3',
+      categoryIdentifier: 'focus_complete',
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    try {
+      await _localNotifications.show(
+        id: 8888,
+        title: 'Focus Session Complete! 🧠',
+        body: 'Great job! You finished your focus session.',
+        notificationDetails: details,
+        payload: 'focus_complete_alarm',
+      );
+      safePrint('Successfully showed immediate focus completion notification');
+    } catch (e) {
+      safePrint('Error showing immediate focus completion notification: $e');
+    }
   }
 
   Future<void> cancelDailyReminder() async {

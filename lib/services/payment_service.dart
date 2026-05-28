@@ -5,6 +5,9 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:mindpilot/export.dart';
 
 class PaymentService {
+  static bool _isConfigured = false;
+  static bool get isConfigured => _isConfigured;
+
   // Entitlement ID mapped to RevenueCat
   static String get entitlementId => dotenv.env['REVENUECAT_ENTITLEMENT_ID'] ?? 'pro';
 
@@ -14,8 +17,6 @@ class PaymentService {
 
   static Future<void> initialize() async {
     try {
-      await Purchases.setLogLevel(LogLevel.debug);
-
       String? apiKey;
       if (Platform.isAndroid) {
         apiKey = dotenv.env['REVENUECAT_ANDROID_API_KEY'];
@@ -30,6 +31,8 @@ class PaymentService {
 
       PurchasesConfiguration configuration = PurchasesConfiguration(apiKey);
       await Purchases.configure(configuration);
+      _isConfigured = true;
+      await Purchases.setLogLevel(LogLevel.debug);
       safePrint('RevenueCat successfully configured');
 
       // Sync subscription status on launch
@@ -40,10 +43,22 @@ class PaymentService {
   }
 
   static Future<List<Package>> fetchOfferings() async {
+    if (!_isConfigured) {
+      safePrint('PaymentService: Purchases SDK not configured. Cannot fetch offerings.');
+      return [];
+    }
     try {
       final offerings = await Purchases.getOfferings();
       if (offerings.current != null) {
-        return offerings.current!.availablePackages;
+        final packages = offerings.current!.availablePackages;
+        
+        safePrint('🎉 DEBUG REVENUECAT FETCH: Found ${packages.length} packages in current offering:');
+        for (var package in packages) {
+          final p = package.storeProduct;
+          safePrint('  - Package Type: ${package.packageType} | Product ID: ${p.identifier} | Price: ${p.priceString} | Title: ${p.title}');
+        }
+        
+        return packages;
       }
     } catch (e) {
       safePrint('Error fetching offerings: $e');
@@ -52,6 +67,10 @@ class PaymentService {
   }
 
   static Future<bool> buyPackage(Package package) async {
+    if (!_isConfigured) {
+      safePrint('PaymentService: Purchases SDK not configured. Cannot buy package.');
+      return false;
+    }
     isPurchasing.value = true;
     purchasedOrRestored.value = null;
     try {
@@ -78,6 +97,10 @@ class PaymentService {
   }
 
   static Future<bool> buyProduct(StoreProduct product) async {
+    if (!_isConfigured) {
+      safePrint('PaymentService: Purchases SDK not configured. Cannot buy product.');
+      return false;
+    }
     isPurchasing.value = true;
     purchasedOrRestored.value = null;
     try {
@@ -105,6 +128,10 @@ class PaymentService {
   }
 
   static Future<bool> restorePurchases() async {
+    if (!_isConfigured) {
+      safePrint('PaymentService: Purchases SDK not configured. Cannot restore purchases.');
+      return false;
+    }
     isPurchasing.value = true;
     purchasedOrRestored.value = null;
     try {
@@ -123,6 +150,10 @@ class PaymentService {
   }
 
   static Future<void> syncSubscriptionStatus() async {
+    if (!_isConfigured) {
+      safePrint('PaymentService: Purchases SDK not configured. Skipping sync.');
+      return;
+    }
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;

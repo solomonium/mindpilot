@@ -2,7 +2,6 @@
 
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mindpilot/export.dart';
 
 class AnimatedSplashScreen extends StatefulWidget {
@@ -36,10 +35,13 @@ class SplashScreenState extends State<AnimatedSplashScreen>
             .collection('users')
             .doc(user.uid)
             .get()
-            .timeout(const Duration(seconds: 5), onTimeout: () {
-              throw TimeoutException('Network timeout');
-            });
-            
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () {
+                throw TimeoutException('Network timeout');
+              },
+            );
+
         final hasPersonalized = doc.data()?['hasCompletedSetup'] ?? false;
 
         if (mounted) {
@@ -119,14 +121,14 @@ class SplashScreenState extends State<AnimatedSplashScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 SizedBox(
-                  width: animation.value * 200,
-                  height: animation.value * 200,
+                  width: animation.value * 150,
+                  height: animation.value * 150,
                   child: Image.asset(
                     R.png.mindpilotApp.png,
                     fit: BoxFit.contain,
                   ),
                 ),
-                4.verticalSpace,
+                20.verticalSpace,
                 SecondaryText(
                   text: 'Think clearly. Live intentionally.',
                   fontSize: 13,

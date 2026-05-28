@@ -22,7 +22,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'mindpilot_journal.db');
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -116,6 +116,20 @@ class DatabaseHelper {
         debugPrint('Migration Error: $e');
       }
     }
+    if (oldVersion < 13) {
+      try {
+        await db.execute('''
+          CREATE TABLE chat_messages(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            text TEXT,
+            isMe INTEGER,
+            timestamp TEXT
+          )
+        ''');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
+      }
+    }
   }
 
 
@@ -163,6 +177,14 @@ class DatabaseHelper {
         remoteId TEXT,
         author TEXT,
         source TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE chat_messages(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        text TEXT,
+        isMe INTEGER,
+        timestamp TEXT
       )
     ''');
   }
@@ -304,11 +326,27 @@ class DatabaseHelper {
     await db.delete('tasks');
   }
 
+  Future<int> insertChatMessage(Map<String, dynamic> msg) async {
+    Database db = await database;
+    return await db.insert('chat_messages', msg);
+  }
+
+  Future<List<Map<String, dynamic>>> getChatMessages() async {
+    Database db = await database;
+    return await db.query('chat_messages', orderBy: 'id ASC');
+  }
+
+  Future<void> clearChatMessages() async {
+    Database db = await database;
+    await db.delete('chat_messages');
+  }
+
   Future<void> clearAll() async {
     Database db = await database;
     await db.delete('journal_entries');
     await db.delete('focus_sessions');
     await db.delete('tasks');
     await db.delete('notifications');
+    await db.delete('chat_messages');
   }
 }

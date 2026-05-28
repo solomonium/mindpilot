@@ -40,20 +40,36 @@ class ChatProvider extends ChangeNotifier {
       }
     }
 
-
-
-
-
-    
     _geminiService.init(apiKey, modelName: _selectedModel);
     
-    if (_messages.isEmpty) {
+    // Load existing chat history from SQLite!
+    final savedMessages = await DatabaseHelper().getChatMessages();
+    _messages.clear();
+    if (savedMessages.isNotEmpty) {
+      for (var msg in savedMessages) {
+        _messages.add({
+          'text': msg['text'],
+          'isMe': msg['isMe'] == 1,
+          'timestamp': msg['timestamp'],
+        });
+      }
+    } else {
+      // Add first greeting to database and memory
       final user = FirebaseAuth.instance.currentUser;
       final name = user?.displayName?.getFirstName();
       final greeting = name != null ? "Hello $name! I'm your MindPilot assistant. How can I help you today?" : "Hello! I'm your MindPilot assistant. How can I help you today?";
+      final timestamp = DateTime.now().toIso8601String();
+      
+      await DatabaseHelper().insertChatMessage({
+        'text': greeting,
+        'isMe': 0,
+        'timestamp': timestamp,
+      });
+
       _messages.add({
         "text": greeting,
         "isMe": false,
+        "timestamp": timestamp,
       });
     }
     
@@ -95,8 +111,21 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  void addMessage(String text, bool isMe) {
-    _messages.add({"text": text, "isMe": isMe});
+  void addMessage(String text, bool isMe) async {
+    final timestamp = DateTime.now().toIso8601String();
+
+    // Persist to local SQLite DB
+    await DatabaseHelper().insertChatMessage({
+      'text': text,
+      'isMe': isMe ? 1 : 0,
+      'timestamp': timestamp,
+    });
+
+    _messages.add({
+      "text": text,
+      "isMe": isMe,
+      "timestamp": timestamp,
+    });
     
     // Automatically alternate model for the next request
     if (isMe && _availableModels.isNotEmpty) {
@@ -107,7 +136,6 @@ class ChatProvider extends ChangeNotifier {
       safePrint('AI: Alternated to model $_selectedModel');
     }
 
-    
     notifyListeners();
   }
 
@@ -120,7 +148,8 @@ class ChatProvider extends ChangeNotifier {
   }
 
 
-  void resetChat() {
+  void resetChat() async {
+    await DatabaseHelper().clearChatMessages();
     _messages.clear();
     _geminiService.resetChat();
     _isInitialized = false;
