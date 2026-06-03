@@ -1,12 +1,3 @@
-
-
-
-
-
-
-
-
-
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
@@ -26,22 +17,22 @@ exports.sendBroadcastNotification = onDocumentCreated("broadcasts/{docId}", asyn
     const type = data.type || "update";
 
     const payload = {
-    notification: {
-        title: title,
-        body: body,
-    },
-    data: {
-        type: type,
-        broadcastId: event.params.docId,
-        click_action: "FLUTTER_NOTIFICATION_CLICK",
-    },
-    topic: "all_users",
+        notification: {
+            title: title,
+            body: body,
+        },
+        data: {
+            type: type,
+            broadcastId: event.params.docId,
+            click_action: "FLUTTER_NOTIFICATION_CLICK",
+        },
+        topic: "all_users",
     };
 
     try {
-    await admin.messaging().send(payload);
+        await admin.messaging().send(payload);
     } catch (error) {
-    console.error("Error:", error);
+        console.error("Error:", error);
     }
 });
 
@@ -156,11 +147,11 @@ async function fetchFromApi(sourceName) {
 exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
     try {
         const now = admin.firestore.Timestamp.now();
-        
+
         // 1. Fetch Global Admin Settings for fallback timing
         const configDoc = await admin.firestore().collection("app_config").doc("settings").get();
         let defaultIntervalMs = 10800000; // Default 3 hours
-        
+
         if (configDoc.exists) {
             const configData = configDoc.data();
             defaultIntervalMs = configData.quote_interval_ms || (configData.insightIntervalHours * 3600000) || 10800000;
@@ -180,10 +171,10 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
         let quote = "Clarity comes when you stop seeking answers outside and start listening within.";
         let author = "Unknown";
         let source = "Unknown";
-        
+
         // 35% chance to choose a Chinese wisdom proverb, 65% chance to query public APIs
         const useChineseWisdom = Math.random() < 0.35;
-        
+
         if (useChineseWisdom) {
             console.log("Selecting quote from Curated Chinese Wisdom Pool...");
             const pick = CHINESE_WISDOM_POOL[Math.floor(Math.random() * CHINESE_WISDOM_POOL.length)];
@@ -193,7 +184,7 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
         } else {
             const apis = ["ZenQuotes", "FavQs", "TypeFit", "Forismatic", "Quotable", "DummyJSON", "BibleVerse"];
             const shuffledApis = apis.sort(() => Math.random() - 0.5);
-            
+
             let success = false;
             for (const apiName of shuffledApis) {
                 try {
@@ -209,19 +200,19 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
                     console.warn(`Failed to fetch from ${apiName}: ${error.message}. Trying next...`);
                 }
             }
-            
+
             if (!success) {
                 console.error("All Quote APIs failed, using local combined pool.");
                 const localBackupPool = [
                     ...CHINESE_WISDOM_POOL,
-                    {q: "The only way to do great work is to love what you do.", a: "Steve Jobs"},
-                    {q: "Success is not final, failure is not fatal.", a: "Winston Churchill"},
-                    {q: "Believe you can and you're halfway there.", a: "Theodore Roosevelt"},
-                    {q: "Your time is limited, so don't waste it.", a: "Steve Jobs"},
-                    {q: "The best way to predict your future is to create it.", a: "Peter Drucker"},
-                    {q: "Focus on being productive instead of busy.", a: "Tim Ferriss"},
-                    {q: "The mind is everything. What you think you become.", a: "Buddha"},
-                    {q: "Difficulties strengthen the mind, as labor does the body.", a: "Seneca"}
+                    { q: "The only way to do great work is to love what you do.", a: "Steve Jobs" },
+                    { q: "Success is not final, failure is not fatal.", a: "Winston Churchill" },
+                    { q: "Believe you can and you're halfway there.", a: "Theodore Roosevelt" },
+                    { q: "Your time is limited, so don't waste it.", a: "Steve Jobs" },
+                    { q: "The best way to predict your future is to create it.", a: "Peter Drucker" },
+                    { q: "Focus on being productive instead of busy.", a: "Tim Ferriss" },
+                    { q: "The mind is everything. What you think you become.", a: "Buddha" },
+                    { q: "Difficulties strengthen the mind, as labor does the body.", a: "Seneca" }
                 ];
                 const pick = localBackupPool[Math.floor(Math.random() * localBackupPool.length)];
                 quote = pick.q || pick.quote;
@@ -236,11 +227,11 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
             const userData = doc.data();
             const lastInsight = userData.lastInsightTime;
             const fcmToken = userData.fcmToken;
-            
+
             // Per-user interval in hours (convert to Ms)
             const userIntervalHours = userData.insightIntervalHours;
-            const userIntervalMs = (userIntervalHours && userIntervalHours > 0) 
-                ? (userIntervalHours * 3600000) 
+            const userIntervalMs = (userIntervalHours && userIntervalHours > 0)
+                ? (userIntervalHours * 3600000)
                 : defaultIntervalMs;
 
             let shouldSend = false;
