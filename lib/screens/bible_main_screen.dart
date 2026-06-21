@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:mindpilot/export.dart';
 
@@ -37,6 +38,12 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   int _selectionVersion = 0;
   final Set<String> _savedQuestions = {};
 
+  // Timed quiz state
+  bool _isTimed = false;
+  int _selectedTimeLimit = 10; // 5, 10, or 15 seconds
+  int _secondsRemainingForQuestion = 0;
+  Timer? _questionTimer;
+
   final TextEditingController _customReadController = TextEditingController();
 
   final List<String> _books = [
@@ -57,6 +64,7 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   void dispose() {
     _tabController.dispose();
     _customReadController.dispose();
+    _questionTimer?.cancel();
     super.dispose();
   }
 
@@ -72,6 +80,67 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
         _lastReadChapter = val.isNotEmpty ? val : null;
       });
     }
+  }
+
+  void _startQuestionTimer() {
+    _questionTimer?.cancel();
+    if (!_isTimed || _quizQuestions.isEmpty || _quizFinished) return;
+
+    setState(() {
+      _secondsRemainingForQuestion = _selectedTimeLimit;
+    });
+
+    _questionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_secondsRemainingForQuestion > 1) {
+        setState(() {
+          _secondsRemainingForQuestion--;
+        });
+      } else {
+        timer.cancel();
+        setState(() {
+          _secondsRemainingForQuestion = 0;
+        });
+        _handleTimeOut();
+      }
+    });
+  }
+
+  void _handleTimeOut() {
+    _questionTimer?.cancel();
+    setState(() {
+      _selectedAnswerIndex = -1; // -1 represents timeout
+      _isAnswerSubmitted = true;
+    });
+
+    // Automatically transition to next question after 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted && _isAnswerSubmitted && _isTimed) {
+        _nextQuestion();
+      }
+    });
+  }
+
+  void _selectAndSubmitTimedAnswer(int index) {
+    _questionTimer?.cancel();
+    setState(() {
+      _selectedAnswerIndex = index;
+      _isAnswerSubmitted = true;
+      final correctAnswer = _quizQuestions[_currentQuestionIndex]['answer'] as int;
+      if (_selectedAnswerIndex == correctAnswer) {
+        _score++;
+      }
+    });
+
+    // Automatically transition to next question after 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted && _isAnswerSubmitted && _isTimed) {
+        _nextQuestion();
+      }
+    });
   }
 
   Future<void> _saveCustomReadChapter() async {
@@ -404,47 +473,58 @@ Format the response beautifully in Markdown. Crucial: Make sure any quoted Bible
 
   Future<void> _generateQuiz() async {
     final isPro = context.read<AppAuthProvider>().isPro;
+    final isPremiumQuiz = _isTimed || _quizScope == 'Deep Learning & Application';
 
-    if (_quizScope == 'Deep Learning & Application') {
-      if (!isPro) {
+    if (!isPro && isPremiumQuiz) {
+      final adCount = await AppHelper.getAdUnlockCount();
+      if (adCount >= 3) {
+        if (mounted) {
+          AppHelper.showPaywall(context, feature: _isTimed ? 'Timed Quiz' : 'Deep Learning Quiz');
+        }
+        return;
+      }
+
+      if (mounted) {
         AppHelper.watchAdForAction(
           context,
-          promptText: 'Watch a video ad to unlock this Deep Learning & Application Quiz session.',
-          onReward: () {
+          promptText: 'Watch an ad to unlock premium features for this quiz session. ($adCount/3 daily unlocks used)',
+          onReward: () async {
+            await AppHelper.incrementAdUnlockCount();
             _startQuizGeneration();
           },
         );
+      }
+      return;
+    }
+
+    // Standard quiz limits for freemium users (3 free daily, then ads)
+    if (!isPro) {
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final lastDate = prefs.getString('QUIZ_FREE_LAST_DATE') ?? '';
+      int count = prefs.getInt('QUIZ_FREE_USED_COUNT') ?? 0;
+
+      if (lastDate != todayStr) {
+        count = 0;
+        await prefs.setString('QUIZ_FREE_LAST_DATE', todayStr);
+        await prefs.setInt('QUIZ_FREE_USED_COUNT', 0);
+      }
+
+      if (count >= 3) {
+        if (mounted) {
+          AppHelper.watchAdForAction(
+            context,
+            promptText: 'You have used your 3 free quiz sessions for today. Watch a video ad to unlock another session!',
+            onReward: () {
+              _startQuizGeneration();
+            },
+          );
+        }
         return;
       }
-    } else {
-      if (!isPro) {
-        final prefs = await SharedPreferences.getInstance();
-        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        final lastDate = prefs.getString('QUIZ_FREE_LAST_DATE') ?? '';
-        int count = prefs.getInt('QUIZ_FREE_USED_COUNT') ?? 0;
 
-        if (lastDate != todayStr) {
-          count = 0;
-          await prefs.setString('QUIZ_FREE_LAST_DATE', todayStr);
-          await prefs.setInt('QUIZ_FREE_USED_COUNT', 0);
-        }
-
-        if (count >= 3) {
-          if (mounted) {
-            AppHelper.watchAdForAction(
-              context,
-              promptText: 'You have used your 3 free quiz sessions for today. Watch a video ad to unlock another session!',
-              onReward: () {
-                _startQuizGeneration();
-              },
-            );
-          }
-          return;
-        }
-
-        // Increment count
-        await prefs.setInt('QUIZ_FREE_USED_COUNT', count + 1);
-      }
+      // Increment count
+      await prefs.setInt('QUIZ_FREE_USED_COUNT', count + 1);
     }
 
     _startQuizGeneration();
@@ -472,13 +552,19 @@ The questions should NOT be direct trivia or fact recall from the chapter (e.g.,
 Instead, generate **learnable, reflective, and application-oriented questions** that make the user think widely about the moral, philosophical, or practical life lessons of the chapter, and explain what they have learnt.
 The 4 options (answers) must fall around the practical application of those concepts, and the correct option should represent the most meaningful, constructive takeaway or life application.
 Ensure the "explanation" for each question explains the lesson clearly and how it relates to what they read.
+Ensure all questions generated are completely unique, deep, and never repetitive compared to standard prompts.
 """;
     } else if (_quizScope == 'Last Read Chapter' && _lastReadChapter != null) {
       targetContext = 'the Bible chapter "$_lastReadChapter"';
-      styleInstructions = "Generate standard comprehension and contextual questions from this chapter.";
+      styleInstructions = "Generate standard comprehension and contextual questions from this chapter. Avoid repeating questions; cover different verses and concepts in the chapter to make it highly unique.";
     } else {
       targetContext = 'general Bible knowledge (covering both Old and New Testaments)';
-      styleInstructions = "Generate standard Bible trivia and knowledge questions.";
+      styleInstructions = """
+Generate standard Bible trivia and knowledge questions.
+CRITICAL: To tap into the vast breadth of the entire Bible (capable of generating over 1 million unique questions), you MUST avoid repeating common, generic, or obvious trivia questions (e.g., do not ask 'Who built the ark?', 'Who was the first man?', 'Who was swallowed by a whale?', 'What is the first book of the Bible?', or other generic Sunday school questions).
+Instead, select widely diverse books, chapters, minor characters, obscure events, specific theological facts, prophecy details, historical context, and deep scriptural concepts from the Old and New Testaments.
+Every time you are called, randomize the target books and generate a completely fresh, unique, and deep set of questions to ensure a highly educational and non-repetitive learning experience.
+""";
     }
 
     final prompt = """
@@ -486,6 +572,12 @@ You are the **MindPilot Bible Quiz Generator**. Generate a JSON array of multipl
 The JSON array must contain exactly $_questionCount questions.
 
 $styleInstructions
+
+CRITICAL REQUIREMENT ON REPETITION: 
+- You MUST ensure all questions in this batch are completely unique and have absolutely no repetition.
+- Do NOT repeat questions from previous runs. Assume the user has played thousands of times. Avoid common, obvious questions.
+- Explore the deepest corners, obscure events, historical details, and rich theology of the text to ensure the questions are fresh and varied.
+- Avoid repeating structures, questions, or themes. Make every question distinct.
 
 Each question object in the array must have the following keys:
 - "question": The question text.
@@ -511,6 +603,7 @@ Return ONLY the raw JSON array. Do not include markdown code block formatting (n
         setState(() {
           _quizQuestions = List<Map<String, dynamic>>.from(decoded);
         });
+        _startQuestionTimer();
       }
     } catch (e) {
       // Fallback questions if AI fails
@@ -536,6 +629,7 @@ Return ONLY the raw JSON array. Do not include markdown code block formatting (n
           },
         ];
       });
+      _startQuestionTimer();
       if (mounted) {
         context.showInAppNotification('Dynamic quiz error. Loaded fallback Bible Quiz.', type: InAppNotificationType.info);
       }
@@ -630,11 +724,13 @@ $explanation
   }
 
   void _nextQuestion() {
+    _questionTimer?.cancel();
     setState(() {
       if (_currentQuestionIndex < _quizQuestions.length - 1) {
         _currentQuestionIndex++;
         _selectedAnswerIndex = null;
         _isAnswerSubmitted = false;
+        _startQuestionTimer();
       } else {
         _quizFinished = true;
         _completeQuizEngagement();
@@ -665,8 +761,10 @@ $explanation
   }
 
   void _confirmCancelQuiz() {
+    _questionTimer?.cancel();
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) {
         AppTheme theme = ctx.watch();
         return AlertDialog(
@@ -684,7 +782,10 @@ $explanation
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _startQuestionTimer();
+              },
               child: PrimaryText(
                 text: 'Keep Going',
                 color: theme.accentTxt.withOpacity(0.5),
@@ -1059,6 +1160,7 @@ $explanation
   }
 
   Widget _buildQuizTab(AppTheme theme) {
+    final isPro = context.watch<AppAuthProvider>().isPro;
     if (_isLoadingQuiz) {
       return Center(
         child: Padding(
@@ -1159,6 +1261,135 @@ $explanation
           12.verticalSpace,
           _scopeTile(theme, 'Deep Learning & Application', 'Critical thinking and life application questions based on: ${_lastReadChapter ?? "No chapter read yet"}'),
           
+          24.verticalSpace,
+          // Timed Quiz Settings (Premium Feature)
+          Row(
+            children: [
+              PrimaryText(
+                text: 'Timer Settings',
+                color: theme.accentTxt,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+              8.horizontalSpace,
+              const Icon(
+                Icons.star,
+                color: Color(0xFFF59E0B),
+                size: 14,
+              ),
+            ],
+          ),
+          12.verticalSpace,
+          GlassContainer(
+            padding: const EdgeInsets.all(16),
+            border: Border.all(color: Colors.white12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              PrimaryText(
+                                text: 'Timed Quiz',
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: theme.accentTxt,
+                              ),
+                              if (!isPro) ...[
+                                8.horizontalSpace,
+                                Icon(
+                                  Icons.lock_outline,
+                                  color: theme.accentTxt.withOpacity(0.5),
+                                  size: 14,
+                                ),
+                              ],
+                            ],
+                          ),
+                          4.verticalSpace,
+                          SecondaryText(
+                            text: 'Answer each question before time runs out',
+                            fontSize: 11,
+                            color: theme.accentTxt.withOpacity(0.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _isTimed,
+                      activeThumbColor: theme.primaryBase,
+                      activeTrackColor: theme.primaryBase.withOpacity(0.3),
+                      inactiveThumbColor: theme.accentTxt.withOpacity(0.4),
+                      inactiveTrackColor: Colors.white12,
+                      onChanged: (val) {
+                        final authStore = context.read<AppAuthProvider>();
+                        if (!authStore.isPro) {
+                          AppHelper.showPaywall(context, feature: 'Timed Quiz Mode');
+                          return;
+                        }
+                        setState(() {
+                          _isTimed = val;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                if (_isTimed && isPro) ...[
+                  16.verticalSpace,
+                  const Divider(color: Colors.white12, height: 1),
+                  16.verticalSpace,
+                  SecondaryText(
+                    text: 'Time Limit per Question',
+                    fontSize: 12,
+                    color: theme.accentTxt.withOpacity(0.7),
+                  ),
+                  12.verticalSpace,
+                  Row(
+                    children: [5, 10, 15].map((secs) {
+                      final isSelected = _selectedTimeLimit == secs;
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                _selectedTimeLimit = secs;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isSelected ? theme.primaryBase.withOpacity(0.1) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected ? theme.primaryBase : Colors.white12,
+                                  width: isSelected ? 1.5 : 1.0,
+                                ),
+                              ),
+                              child: Center(
+                                child: PrimaryText(
+                                  text: '$secs sec',
+                                  color: theme.accentTxt,
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
           24.verticalSpace,
           PrimaryText(
             text: 'Log Scripture Read Manually',
@@ -1348,6 +1579,26 @@ $explanation
               valueColor: AlwaysStoppedAnimation<Color>(theme.primaryBase),
             ),
           ),
+          if (_isTimed) ...[
+            16.verticalSpace,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.timer,
+                  color: _secondsRemainingForQuestion <= 3 ? theme.errorPrimary : theme.primaryBase,
+                  size: 20,
+                ),
+                8.horizontalSpace,
+                PrimaryText(
+                  text: '$_secondsRemainingForQuestion seconds remaining',
+                  color: _secondsRemainingForQuestion <= 3 ? theme.errorPrimary : theme.accentTxt,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ],
+            ),
+          ],
           32.verticalSpace,
 
           // Question Card
@@ -1456,7 +1707,11 @@ $explanation
                 ),
               ).rippleClick(() {
                 if (!_isAnswerSubmitted) {
-                  setState(() => _selectedAnswerIndex = index);
+                  if (_isTimed) {
+                    _selectAndSubmitTimedAnswer(index);
+                  } else {
+                    setState(() => _selectedAnswerIndex = index);
+                  }
                 }
               }),
             );
@@ -1501,13 +1756,17 @@ $explanation
                   Row(
                     children: [
                       Icon(
-                        _selectedAnswerIndex == correctAnswerIndex ? Icons.check_circle : Icons.error,
+                        _selectedAnswerIndex == correctAnswerIndex
+                            ? Icons.check_circle
+                            : (_selectedAnswerIndex == -1 ? Icons.timer_off : Icons.error),
                         color: _selectedAnswerIndex == correctAnswerIndex ? theme.successPrimary : theme.errorPrimary,
                         size: 20,
                       ),
                       8.horizontalSpace,
                       PrimaryText(
-                        text: _selectedAnswerIndex == correctAnswerIndex ? 'Correct!' : 'Incorrect',
+                        text: _selectedAnswerIndex == correctAnswerIndex
+                            ? 'Correct!'
+                            : (_selectedAnswerIndex == -1 ? "Time's Up!" : 'Incorrect'),
                         fontWeight: FontWeight.bold,
                         color: _selectedAnswerIndex == correctAnswerIndex ? theme.successPrimary : theme.errorPrimary,
                       ),
@@ -1641,6 +1900,7 @@ $explanation
                 child: CustomButton(
                   label: 'Close',
                   onPressed: () {
+                    _questionTimer?.cancel();
                     setState(() {
                       _quizQuestions = [];
                       _currentQuestionIndex = 0;

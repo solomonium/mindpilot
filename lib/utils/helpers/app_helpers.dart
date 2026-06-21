@@ -106,7 +106,48 @@ class AppHelper {
     }
   }
 
-  static void showPaywall(BuildContext context, {String? feature}) {
+  static Future<bool> canWatchAdForPremiumUnlock() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final lastDate = prefs.getString('DAILY_AD_UNLOCK_DATE') ?? '';
+    int count = prefs.getInt('DAILY_AD_UNLOCK_COUNT') ?? 0;
+
+    if (lastDate != today) {
+      count = 0;
+      await prefs.setString('DAILY_AD_UNLOCK_DATE', today);
+      await prefs.setInt('DAILY_AD_UNLOCK_COUNT', 0);
+    }
+
+    return count < 3;
+  }
+
+  static Future<void> incrementAdUnlockCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final lastDate = prefs.getString('DAILY_AD_UNLOCK_DATE') ?? '';
+    int count = prefs.getInt('DAILY_AD_UNLOCK_COUNT') ?? 0;
+
+    if (lastDate != today) {
+      count = 0;
+      await prefs.setString('DAILY_AD_UNLOCK_DATE', today);
+    }
+
+    await prefs.setInt('DAILY_AD_UNLOCK_COUNT', count + 1);
+  }
+
+  static Future<int> getAdUnlockCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final lastDate = prefs.getString('DAILY_AD_UNLOCK_DATE') ?? '';
+    int count = prefs.getInt('DAILY_AD_UNLOCK_COUNT') ?? 0;
+
+    if (lastDate != today) {
+      return 0;
+    }
+    return count;
+  }
+
+  static void showPaywall(BuildContext context, {String? feature, VoidCallback? onAdUnlocked}) {
     AnalyticsService.logPaywallShown(feature ?? 'general');
     AppTheme theme = context.read();
     showDialog(
@@ -205,36 +246,61 @@ class AppHelper {
                         context.push(const UpgradeScreen());
                       },
                     ),
-                    16.verticalSpace,
-                    SecondaryText(
-                      text: 'Monthly & Yearly plans available',
-                      fontSize: 11,
-                      color: Colors.white38,
+                    FutureBuilder<int>(
+                      future: getAdUnlockCount(),
+                      builder: (context, snapshot) {
+                        final adCount = snapshot.data ?? 0;
+                        final limitReached = adCount >= 3;
+
+                        return Column(
+                          children: [
+                            16.verticalSpace,
+                            SecondaryText(
+                              text: '— OR —',
+                              fontSize: 12,
+                              color: Colors.white54,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            16.verticalSpace,
+                            if (limitReached) ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: theme.errorPrimary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: theme.errorPrimary.withOpacity(0.2)),
+                                ),
+                                child: SecondaryText(
+                                  text: 'Daily ad unlocks limit reached (3/3 used). Upgrade to Pro for unlimited access!',
+                                  color: theme.accentTxt,
+                                  textAlign: TextAlign.center,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ] else ...[
+                              CustomButton(
+                                label: 'Watch Ad to Unlock',
+                                isGlass: true,
+                                prefixIcon: const Icon(
+                                  Icons.play_circle_fill,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  context.pop();
+                                  _watchAdForFeature(context, feature ?? 'feature', onAdUnlocked);
+                                },
+                              ),
+                              8.verticalSpace,
+                              SecondaryText(
+                                text: '($adCount/3 daily ad unlocks used)',
+                                fontSize: 11,
+                                color: Colors.white38,
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
-                    if (feature == 'Daily Explanation' ||
-                        feature == 'Unlimited AI Chat' ||
-                        feature == 'AI Decision Analysis') ...[
-                      16.verticalSpace,
-                      SecondaryText(
-                        text: '— OR —',
-                        fontSize: 12,
-                        color: Colors.white54,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      16.verticalSpace,
-                      CustomButton(
-                        label: 'Watch Ad for 1 Credit',
-                        isGlass: true,
-                        prefixIcon: const Icon(
-                          Icons.play_circle_fill,
-                          color: Colors.white,
-                        ),
-                        onPressed: () {
-                          context.pop();
-                          _watchAdForCredit(context, feature!);
-                        },
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -740,7 +806,7 @@ class AppHelper {
     );
   }
 
-  static void _watchAdForCredit(BuildContext context, String feature) {
+  static void _watchAdForFeature(BuildContext context, String feature, VoidCallback? onAdUnlocked) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -749,7 +815,13 @@ class AppHelper {
 
     AdService.instance.showRewardedAd(
       onUserEarnedReward: (ad, reward) async {
-        context.pop(); // Dismiss spinner
+        if (context.mounted) {
+          Navigator.pop(context); // Dismiss spinner
+        }
+        
+        await incrementAdUnlockCount();
+
+        if (!context.mounted) return;
 
         if (feature == 'Daily Explanation') {
           await context.read<AppAuthProvider>().rewardExplanationCount();
@@ -761,12 +833,10 @@ class AppHelper {
           }
         } else if (feature == 'Unlimited AI Chat') {
           context.read<ChatProvider>().rewardMessageCount();
-          if (context.mounted) {
-            context.showInAppNotification(
-              "Rewarded! You earned 1 more chat message.",
-              type: InAppNotificationType.success,
-            );
-          }
+          context.showInAppNotification(
+            "Rewarded! You earned 1 more chat message.",
+            type: InAppNotificationType.success,
+          );
         } else if (feature == 'AI Decision Analysis') {
           await context.read<AppAuthProvider>().rewardDecisionCredit();
           if (context.mounted) {
@@ -775,14 +845,25 @@ class AppHelper {
               type: InAppNotificationType.success,
             );
           }
+        } else {
+          context.showInAppNotification(
+            "Rewarded! Premium feature unlocked temporarily.",
+            type: InAppNotificationType.success,
+          );
+        }
+
+        if (onAdUnlocked != null) {
+          onAdUnlocked();
         }
       },
       onAdFailedToShow: () {
-        context.pop(); // Dismiss spinner
-        context.showInAppNotification(
-          "Ad not ready yet. Please try again in a few seconds.",
-          type: InAppNotificationType.error,
-        );
+        if (context.mounted) {
+          Navigator.pop(context); // Dismiss spinner
+          context.showInAppNotification(
+            "Ad not ready yet. Please try again in a few seconds.",
+            type: InAppNotificationType.error,
+          );
+        }
       },
     );
   }

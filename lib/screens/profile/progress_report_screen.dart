@@ -8,6 +8,8 @@ class ProgressReportScreen extends StatefulWidget {
 }
 
 class _ProgressReportScreenState extends State<ProgressReportScreen> {
+  bool _tempUnlocked = false;
+
   @override
   void initState() {
     super.initState();
@@ -21,7 +23,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     AppTheme theme = context.watch();
     return Consumer3<JournalProvider, TaskProvider, HomeProvider>(
       builder: (context, journal, taskStore, homeStore, _) {
-        final isPro = context.watch<AppAuthProvider>().isPro;
+        final isPro = context.watch<AppAuthProvider>().isPro || _tempUnlocked;
 
         // Calculate dynamic values
         final taskRate =
@@ -169,7 +171,15 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                             32.verticalSpace,
                             CustomButton(
                               label: 'Upgrade to Pro',
-                              onPressed: () => AppHelper.showPaywall(context, feature: 'Growth Analytics'),
+                              onPressed: () => AppHelper.showPaywall(
+                                context,
+                                feature: 'Growth Analytics',
+                                onAdUnlocked: () {
+                                  setState(() {
+                                    _tempUnlocked = true;
+                                  });
+                                },
+                              ),
                             ),
                           ],
                         ),

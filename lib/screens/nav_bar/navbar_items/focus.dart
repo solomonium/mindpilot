@@ -360,7 +360,13 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                 onTap: () {
                   if (soundIsPro && !isPro) {
                     Navigator.pop(context);
-                    AppHelper.showPaywall(context, feature: 'Premium Sounds');
+                    AppHelper.showPaywall(
+                      context,
+                      feature: 'Premium Sounds',
+                      onAdUnlocked: () {
+                        focusProvider.selectedSound = sound['name']!;
+                      },
+                    );
                   } else {
                     focusProvider.selectedSound = sound['name']!;
                     Navigator.pop(context);
@@ -436,7 +442,13 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                 onTap: () {
                   if (soundIsPro && !isPro) {
                     Navigator.pop(context);
-                    AppHelper.showPaywall(context, feature: 'Premium Ambient Music');
+                    AppHelper.showPaywall(
+                      context,
+                      feature: 'Premium Ambient Music',
+                      onAdUnlocked: () {
+                        focusProvider.selectedAmbient = sound['name']!;
+                      },
+                    );
                   } else {
                     focusProvider.selectedAmbient = sound['name']!;
                     Navigator.pop(context);
