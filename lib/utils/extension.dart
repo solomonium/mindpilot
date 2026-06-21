@@ -85,7 +85,6 @@ extension AssetsExtension on String {
     }
   }
 
-
   String capitalize() {
     if (isEmpty) return this;
     return "${this[0].toUpperCase()}${substring(1)}";
@@ -187,7 +186,7 @@ extension SizedContext on BuildContext {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -213,7 +212,7 @@ extension SizedContext on BuildContext {
                   ],
                   SecondaryText(
                     text: msg,
-                    color: textColor.withOpacity(0.9),
+                    color: textColor.withValues(alpha: 0.9),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -222,7 +221,7 @@ extension SizedContext on BuildContext {
             ),
             Icon(
               Icons.close,
-              color: textColor.withOpacity(0.5),
+              color: textColor.withValues(alpha: 0.5),
               size: 18,
             ).rippleClick(() {
               R.N.notifyKey.currentState?.dismiss();

@@ -147,7 +147,7 @@ class NotificationService {
 
     tz.initializeTimeZones();
     try {
-      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      final String timeZoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     } catch (e) {
       try {
@@ -500,7 +500,110 @@ class NotificationService {
           ),
         );
       }
+    } else if (payload == 'daily_mood_check_in') {
+      final context = R.N.navKey.currentContext;
+      if (context != null) {
+        context.push(const DailyMoodCheckInScreen());
+      }
+    } else if (payload == 'daily_bible_quiz') {
+      final context = R.N.navKey.currentContext;
+      if (context != null) {
+        context.read<HomeProvider>().navIndex = 2;
+      }
+    } else if (payload != null && payload.startsWith('meeting_rating|')) {
+      // payload format: meeting_rating|eventId
+      final context = R.N.navKey.currentContext;
+      if (context != null) {
+        final eventId = payload.split('|').length > 1 ? payload.split('|')[1] : '';
+        safePrint('Meeting rating requested for event: $eventId');
+        // Navigate to Daily Hub so user sees the meeting productivity section
+        context.read<HomeProvider>().navIndex = 0;
+      }
     }
+  }
+
+  // ─── Meeting Calendar Notifications ─────────────────────────────────────────
+
+  /// Schedule a reminder 10 minutes before a meeting starts.
+  Future<void> scheduleMeetingReminder({
+    required String eventId,
+    required String title,
+    required DateTime startTime,
+  }) async {
+    final reminderTime = startTime.subtract(const Duration(minutes: 10));
+    if (reminderTime.isBefore(DateTime.now())) return;
+
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String tz0 = (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(tz0));
+    }
+
+    const androidDetails = AndroidNotificationDetails(
+      'meeting_reminder_channel',
+      'Meeting Reminders',
+      channelDescription: 'Reminds you before a meeting starts',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    await _localNotifications.zonedSchedule(
+      id: eventId.hashCode.abs() % 100000,
+      title: '📅 Meeting in 10 min',
+      body: title,
+      scheduledDate: tz.TZDateTime.from(reminderTime, tz.local),
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: 'meeting_reminder',
+    );
+  }
+
+  /// Schedule a post-meeting productivity rating request 5 minutes after a meeting ends.
+  Future<void> scheduleMeetingRatingRequest({
+    required String eventId,
+    required String title,
+    required DateTime endTime,
+  }) async {
+    final ratingTime = endTime.add(const Duration(minutes: 5));
+    if (ratingTime.isBefore(DateTime.now())) return;
+
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String tz0 = (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(tz0));
+    }
+
+    const androidDetails = AndroidNotificationDetails(
+      'meeting_rating_channel',
+      'Meeting Productivity',
+      channelDescription: 'Asks how productive your meeting was',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    await _localNotifications.zonedSchedule(
+      id: (eventId.hashCode.abs() % 100000) + 200000,
+      title: '🚀 How was your meeting?',
+      body: 'Rate how productive "$title" was',
+      scheduledDate: tz.TZDateTime.from(ratingTime, tz.local),
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: 'meeting_rating|$eventId',
+    );
+  }
+
+  /// Cancel both reminder and rating notifications for a given event.
+  Future<void> cancelMeetingNotifications(String eventId) async {
+    await _localNotifications.cancel(id: eventId.hashCode.abs() % 100000);
+    await _localNotifications.cancel(id: (eventId.hashCode.abs() % 100000) + 200000);
   }
 
   Future<void> scheduleDailyReminder() async {
@@ -558,7 +661,7 @@ class NotificationService {
       tz.local;
     } catch (_) {
       tz.initializeTimeZones();
-      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      final String timeZoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     }
 
@@ -660,7 +763,7 @@ class NotificationService {
       tz.local;
     } catch (_) {
       tz.initializeTimeZones();
-      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      final String timeZoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     }
 
@@ -767,6 +870,114 @@ class NotificationService {
     await _localNotifications.cancel(id: 0);
   }
 
+  Future<void> scheduleStreakAtRiskReminder(int streak) async {
+    const androidDetails = AndroidNotificationDetails(
+      'streak_reminder_channel',
+      'Streak Reminders',
+      channelDescription: 'Reminds you to keep your streak alive',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await cancelStreakAtRiskReminder();
+
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String timeZoneName =
+          (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    }
+
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, 18);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    await _localNotifications.zonedSchedule(
+      id: 2,
+      title: 'Streak at risk 🔥',
+      body:
+          'Your $streak-day streak ends tonight. Complete a focus session, journal entry, or decision to keep it alive.',
+      scheduledDate: scheduled,
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: 'streak_at_risk',
+    );
+  }
+
+  Future<void> cancelStreakAtRiskReminder() async {
+    await _localNotifications.cancel(id: 2);
+  }
+
+  Future<void> scheduleMorningInsightReminder() async {
+    const androidDetails = AndroidNotificationDetails(
+      'morning_insight_channel',
+      'Morning Insights',
+      channelDescription: 'Daily morning clarity reminder',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await cancelMorningInsightReminder();
+
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String timeZoneName =
+          (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    }
+
+    await _localNotifications.zonedSchedule(
+      id: 3,
+      title: 'Good morning ☀️',
+      body: 'Your daily insight is waiting. Open MindPilot for clarity.',
+      scheduledDate: _nextInstanceOfMorning(),
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'morning_insight',
+    );
+  }
+
+  Future<void> cancelMorningInsightReminder() async {
+    await _localNotifications.cancel(id: 3);
+  }
+
+  tz.TZDateTime _nextInstanceOfMorning() {
+    try {
+      tz.local;
+    } catch (_) {
+      return tz.TZDateTime.now(tz.UTC).add(const Duration(hours: 8));
+    }
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      8,
+    );
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+
   Future<bool> isNotificationsEnabled() async {
     final settings = await _fcm.getNotificationSettings();
     final fcmAllowed =
@@ -821,5 +1032,131 @@ class NotificationService {
     }
 
     return isAuthorized;
+  }
+
+  Future<void> scheduleDailyMoodCheckInReminder() async {
+    const androidDetails = AndroidNotificationDetails(
+      'daily_mood_check_in_channel',
+      'Daily Mood Check-In',
+      channelDescription: 'Reminds you to check in and log your daily mood',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await cancelDailyMoodCheckInReminder();
+
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String timeZoneName =
+          (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    }
+
+    await _localNotifications.zonedSchedule(
+      id: 4,
+      title: 'Daily Mood Check-In 🧠',
+      body: 'How was your day? Tap to log your mood and get a daily tip.',
+      scheduledDate: _nextInstanceOfEightThirtyPM(),
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'daily_mood_check_in',
+    );
+  }
+
+  Future<void> cancelDailyMoodCheckInReminder() async {
+    await _localNotifications.cancel(id: 4);
+  }
+
+  tz.TZDateTime _nextInstanceOfEightThirtyPM() {
+    try {
+      tz.local;
+    } catch (_) {
+      return tz.TZDateTime.now(tz.UTC).add(const Duration(hours: 20, minutes: 30));
+    }
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      20,
+      30,
+    );
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+
+  Future<void> scheduleDailyBibleQuizReminder() async {
+    const androidDetails = AndroidNotificationDetails(
+      'daily_bible_quiz_channel',
+      'Daily Bible Quiz',
+      channelDescription: 'Reminds you to test your knowledge with a daily Bible Quiz',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await cancelDailyBibleQuizReminder();
+
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String timeZoneName =
+          (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    }
+
+    await _localNotifications.zonedSchedule(
+      id: 5,
+      title: 'Daily Bible Quiz 📖',
+      body: 'Ready to test your scripture knowledge? Start your daily quiz now!',
+      scheduledDate: _nextInstanceOfTenPM(),
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'daily_bible_quiz',
+    );
+  }
+
+  Future<void> cancelDailyBibleQuizReminder() async {
+    await _localNotifications.cancel(id: 5);
+  }
+
+  tz.TZDateTime _nextInstanceOfTenPM() {
+    try {
+      tz.local;
+    } catch (_) {
+      return tz.TZDateTime.now(tz.UTC).add(const Duration(hours: 22));
+    }
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      22,
+      0,
+    );
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
   }
 }

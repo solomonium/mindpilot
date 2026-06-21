@@ -11,25 +11,30 @@ class AuthService {
       // Ensure the plugin is initialized with correct server client ID, avoiding overriding platform client ID on iOS/Android
       await GoogleSignIn.instance.initialize(
         clientId: kIsWeb ? dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID'] : null,
-        serverClientId: dotenv.env['GOOGLE_SIGN_IN_SERVER_CLIENT_ID'] ?? '802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com',
+        serverClientId:
+            dotenv.env['GOOGLE_SIGN_IN_SERVER_CLIENT_ID'] ??
+            '802202587833-rqih2hp4dmur1lrqku0dq08bblf6ng6m.apps.googleusercontent.com',
       );
 
-      final GoogleSignInAccount? googleUser = await GoogleSignIn.instance.authenticate();
-      if (googleUser == null) return null;
+      final GoogleSignInAccount googleUser = await GoogleSignIn.instance
+          .authenticate();
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
       final String? idToken = googleAuth.idToken;
 
       // In version 7+, accessToken is handled separately via the authorizationClient
-      final authorization = await GoogleSignIn.instance.authorizationClient.authorizeScopes(['email', 'profile']);
-      final String? accessToken = authorization.accessToken;
+      final authorization = await GoogleSignIn.instance.authorizationClient
+          .authorizeScopes(['email', 'profile']);
+      final String accessToken = authorization.accessToken;
 
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: accessToken,
         idToken: idToken,
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final UserCredential userCredential = await _auth.signInWithCredential(
+        credential,
+      );
       final User? user = userCredential.user;
 
       if (user != null) {
@@ -58,7 +63,9 @@ class AuthService {
 
       // Cache the full name immediately before signing in (since authStateChanges fires instantly)
       if (credential.givenName != null || credential.familyName != null) {
-        lastAppleFullName = '${credential.givenName ?? ''} ${credential.familyName ?? ''}'.trim();
+        lastAppleFullName =
+            '${credential.givenName ?? ''} ${credential.familyName ?? ''}'
+                .trim();
       }
 
       final oauthCredential = OAuthProvider("apple.com").credential(
@@ -66,7 +73,9 @@ class AuthService {
         accessToken: credential.authorizationCode,
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(oauthCredential);
+      final UserCredential userCredential = await _auth.signInWithCredential(
+        oauthCredential,
+      );
       final User? user = userCredential.user;
 
       safePrint('🍏 Successful Apple Sign-In! Raw Credential details:');
@@ -75,7 +84,9 @@ class AuthService {
       safePrint('  Family Name: ${credential.familyName}');
       safePrint('  Email: ${credential.email}');
       safePrint('  Identity Token length: ${credential.identityToken?.length}');
-      safePrint('  Authorization Code length: ${credential.authorizationCode.length}');
+      safePrint(
+        '  Authorization Code length: ${credential.authorizationCode.length}',
+      );
 
       if (user != null) {
         safePrint('🎉 Firebase User details:');
@@ -85,7 +96,9 @@ class AuthService {
         safePrint('  Photo URL: ${user.photoURL}');
       }
 
-      if (user != null && lastAppleFullName != null && lastAppleFullName!.isNotEmpty) {
+      if (user != null &&
+          lastAppleFullName != null &&
+          lastAppleFullName!.isNotEmpty) {
         try {
           await user.updateDisplayName(lastAppleFullName);
           await user.reload();

@@ -1,20 +1,39 @@
 import 'package:mindpilot/export.dart';
 
-class ProgressReportScreen extends StatelessWidget {
+class ProgressReportScreen extends StatefulWidget {
   const ProgressReportScreen({super.key});
+
+  @override
+  State<ProgressReportScreen> createState() => _ProgressReportScreenState();
+}
+
+class _ProgressReportScreenState extends State<ProgressReportScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HomeProvider>().loadWeeklyStats();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    return Consumer2<JournalProvider, TaskProvider>(
-      builder: (context, journal, taskStore, _) {
+    return Consumer3<JournalProvider, TaskProvider, HomeProvider>(
+      builder: (context, journal, taskStore, homeStore, _) {
         final isPro = context.watch<AppAuthProvider>().isPro;
 
         // Calculate dynamic values
         final taskRate =
             taskStore.totalCount > 0 ? taskStore.completedCount / taskStore.totalCount : 0.0;
         final focusScore = (journal.totalFocusMinutes / 120).clamp(0.0, 1.0); // Goal: 2 hours
-        final overallGrowth = ((taskRate * 0.6) + (focusScore * 0.4)) * 100;
+        
+        final double overallGrowth;
+        if (homeStore.weeklyQuizzes > 0) {
+          overallGrowth = ((taskRate * 0.4) + (focusScore * 0.3) + ((homeStore.bibleKnowledgeScore / 100) * 0.3)) * 100;
+        } else {
+          overallGrowth = ((taskRate * 0.6) + (focusScore * 0.4)) * 100;
+        }
 
         // Focus areas
         final decisionScore = (journal.entries.length / 10).clamp(0.0, 1.0); // Goal: 10 decisions
@@ -50,7 +69,6 @@ class ProgressReportScreen extends StatelessWidget {
                 color: theme.accentTxt,
               ).rippleClick(() {
                 final user = context.read<AppAuthProvider>().user;
-                final homeStore = context.read<HomeProvider>();
                 final downloadUrl = ConfigService().updateUrl;
                 ShareService.captureAndShare(
                   context,
@@ -103,31 +121,28 @@ class ProgressReportScreen extends StatelessWidget {
                       color: theme.accentTxt,
                     ),
                     16.verticalSpace,
-                    Consumer<HomeProvider>(
-                      builder: (context, homeStore, _) {
-                        return GlassContainer(
-                          padding: const EdgeInsets.all(16),
-                          gradient: theme.glassGradient,
-                          child: Column(
+                    GlassContainer(
+                      padding: const EdgeInsets.all(16),
+                      gradient: theme.glassGradient,
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _reportItem(context, 'Tasks Done', homeStore.weeklyTasks.toString(), Icons.check_circle, Colors.green),
-                                  _reportItem(context, 'Focus Time', '${homeStore.weeklyFocusMinutes}m', Icons.timer, Colors.blue),
-                                  _reportItem(context, 'Journals', homeStore.weeklyJournalEntries.toString(), Icons.book, Colors.purple),
-                                ],
-                              ),
-                              16.verticalSpace,
-                              SecondaryText(
-                                text: 'Total progress in the last 7 days.',
-                                fontSize: 11,
-                                color: theme.accentTxt.withOpacity(0.5),
-                              ),
+                              _reportItem(context, 'Tasks Done', homeStore.weeklyTasks.toString(), Icons.check_circle, Colors.green),
+                              _reportItem(context, 'Focus Time', '${homeStore.weeklyFocusMinutes}m', Icons.timer, Colors.blue),
+                              _reportItem(context, 'Journals', homeStore.weeklyJournalEntries.toString(), Icons.book, Colors.purple),
+                              _reportItem(context, 'Bible Quizzes', homeStore.weeklyQuizzes.toString(), Icons.quiz, Colors.orange),
                             ],
                           ),
-                        );
-                      },
+                          16.verticalSpace,
+                          SecondaryText(
+                            text: 'Total progress in the last 7 days.',
+                            fontSize: 11,
+                            color: theme.accentTxt.withOpacity(0.5),
+                          ),
+                        ],
+                      ),
                     ),
                     32.verticalSpace,
 
@@ -208,6 +223,10 @@ class ProgressReportScreen extends StatelessWidget {
                           context, 'Mindfulness', wellbeingScore, '${(wellbeingScore * 100).toInt()}%'),
                       _focusArea(
                           context, 'Consistency', consistencyScore, '${(consistencyScore * 100).toInt()}%'),
+                      _focusArea(
+                          context, 'Bible Knowledge', homeStore.bibleKnowledgeScore / 100, '${homeStore.bibleKnowledgeScore.toInt()}%'),
+                      _focusArea(
+                          context, 'Bible Growth', homeStore.bibleGrowthScore / 100, '${homeStore.bibleGrowthScore.toInt()}%'),
                       32.verticalSpace,
                       PrimaryText(
                           text: 'Pro Insights',
@@ -230,6 +249,14 @@ class ProgressReportScreen extends StatelessWidget {
                             ? 'Total focus time: ${journal.totalFocusMinutes} minutes.'
                             : 'Use Focus Session to improve concentration.',
                         const Color(0xFF10B981),
+                      ),
+                      _insightItem(
+                        context,
+                        Icons.menu_book_outlined,
+                        homeStore.weeklyQuizzes > 0
+                            ? 'Your Bible Knowledge is at ${homeStore.bibleKnowledgeScore.toInt()}% this week. Growth level is at ${homeStore.bibleGrowthScore.toInt()}%.'
+                            : 'Take a daily Bible Quiz to start tracking your knowledge and spiritual growth.',
+                        const Color(0xFFF59E0B),
                       ),
                     ],
                   ],

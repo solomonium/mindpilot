@@ -1,6 +1,4 @@
 import 'package:mindpilot/export.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PersonalizationScreen extends StatefulWidget {
   const PersonalizationScreen({super.key});
@@ -61,7 +59,10 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
   void _loadExistingPreferences() async {
     final auth = FirebaseAuth.instance.currentUser;
     if (auth != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(auth.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(auth.uid)
+          .get();
       final existing = List<String>.from(doc.data()?['personalization'] ?? []);
       if (existing.isNotEmpty) {
         setState(() {
@@ -74,7 +75,6 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -121,11 +121,16 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
                   ),
                   8.verticalSpace,
                   SecondaryText(
-                    text: 'Please select at least one area to help us tailor your experience.',
+                    text:
+                        'Please select at least one area to help us tailor your experience.',
                     textAlign: TextAlign.center,
-                    color: selectedGoals.isEmpty ? theme.errorPrimary.withOpacity(0.8) : theme.accentTxt.withOpacity(0.7),
+                    color: selectedGoals.isEmpty
+                        ? theme.errorPrimary.withOpacity(0.8)
+                        : theme.accentTxt.withOpacity(0.7),
                     fontSize: 12,
-                    fontWeight: selectedGoals.isEmpty ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: selectedGoals.isEmpty
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                   20.verticalSpace,
                   Expanded(
@@ -155,10 +160,14 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
                       if (selectedGoals.isNotEmpty) {
                         _finishPersonalization();
                       } else {
-                        context.showInAppNotification('Please select at least one focus area to continue.');
+                        context.showInAppNotification(
+                          'Please select at least one focus area to continue.',
+                        );
                       }
                     },
-                    backgroundColor: selectedGoals.isEmpty ? theme.primaryBase.withOpacity(0.3) : theme.primaryBase,
+                    backgroundColor: selectedGoals.isEmpty
+                        ? theme.primaryBase.withOpacity(0.3)
+                        : theme.primaryBase,
                   ),
                   40.verticalSpace,
                 ],
@@ -175,13 +184,16 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
     try {
       final auth = FirebaseAuth.instance.currentUser;
       if (auth != null && !isSkip) {
-        final selectedTitles = selectedGoals.map((index) => goals[index]['title'] as String).toList();
+        final selectedTitles = selectedGoals
+            .map((index) => goals[index]['title'] as String)
+            .toList();
         await FirebaseFirestore.instance.collection('users').doc(auth.uid).set({
           'personalization': selectedTitles,
           'hasCompletedSetup': true,
         }, SetOptions(merge: true));
+        await AnalyticsService.logPersonalizationCompleted(selectedTitles);
       }
-      
+
       if (mounted) {
         context.pushOff(const MainScreen());
       }
@@ -193,14 +205,19 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
     if (mounted) setState(() => _isSaving = false);
   }
 
-  Widget _goalTile(Map<String, dynamic> goal, bool isSelected, VoidCallback onTap) {
-
+  Widget _goalTile(
+    Map<String, dynamic> goal,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
     AppTheme theme = context.watch();
     return GlassContainer(
       padding: const EdgeInsets.all(16),
       gradient: isSelected ? null : theme.glassGradient,
       color: isSelected ? theme.primaryBase.withOpacity(0.2) : null,
-      border: isSelected ? Border.all(color: theme.primaryBase, width: 2) : null,
+      border: isSelected
+          ? Border.all(color: theme.primaryBase, width: 2)
+          : null,
       child: Row(
         children: [
           Container(
@@ -217,13 +234,13 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 PrimaryText(
-                  text: goal['title'], 
-                  fontSize: 16, 
+                  text: goal['title'],
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: theme.accentTxt,
                 ),
                 SecondaryText(
-                  text: goal['subtitle'], 
+                  text: goal['subtitle'],
                   fontSize: 12,
                   color: theme.accentTxt.withOpacity(0.6),
                 ),

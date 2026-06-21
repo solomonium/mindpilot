@@ -55,7 +55,18 @@ class _GlowingChatFabState extends State<GlowingChatFab>
     return ScaleTransition(
       scale: _animation,
       child: GestureDetector(
-        onTap: () => context.push(const AiChatScreen()),
+        onTap: () {
+          final notifStore = context.read<NotificationProvider>();
+          String? prompt;
+          if (notifStore.insightExplanation != null) {
+            prompt = notifStore.insightExplanation;
+          } else if (notifStore.dailyInsight.isNotEmpty &&
+              notifStore.dailyInsight != '...') {
+            prompt =
+                "Help me understand today's insight: \"${notifStore.dailyInsight}\"";
+          }
+          context.push(AiChatScreen(initialMessage: prompt));
+        },
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -107,8 +118,9 @@ class _GlowingChatFabState extends State<GlowingChatFab>
 
                 // Don't show the badge if it's already expanded or if there's no insight
                 if (notifStore.dailyInsight.isEmpty ||
-                    notifStore.dailyInsight == '...')
+                    notifStore.dailyInsight == '...') {
                   return const SizedBox();
+                }
 
                 return Positioned(
                   top: 0,
@@ -118,9 +130,19 @@ class _GlowingChatFabState extends State<GlowingChatFab>
                       if (notifStore.isFetchingExplanation) return;
 
                       if (!isPro && authStore.explanationCount >= 3) {
-                        AppHelper.showPaywall(
+                        AppHelper.watchAdForAction(
                           context,
-                          feature: 'Daily Explanation',
+                          promptText: 'You have used your 3 free explanations for today. Watch a video ad to get 1 more explanation credit!',
+                          onReward: () async {
+                            await authStore.rewardExplanationCount();
+                            await notifStore.fetchInsightExplanation();
+                            if (context.mounted &&
+                                notifStore.fetchError == null &&
+                                notifStore.insightExplanation != null &&
+                                !isPro) {
+                              await authStore.incrementExplanationCount();
+                            }
+                          },
                         );
                         return;
                       }

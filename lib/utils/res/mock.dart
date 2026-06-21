@@ -9,8 +9,8 @@ class Mock {
   static List<Map<String, dynamic>> navItems() => [
     {"icon": Icons.home_outlined, "label": "Home", 'setIndex': 0},
     {"icon": Icons.timer_outlined, "label": "Focus", 'setIndex': 1},
-    {"icon": Icons.psychology, "label": "Decision", 'setIndex': 2},
-    {"icon": Icons.book_outlined, "label": "Journal", 'setIndex': 3},
+    {"icon": Icons.menu_book_outlined, "label": "Bible", 'setIndex': 2},
+    {"icon": Icons.psychology_outlined, "label": "Decision", 'setIndex': 3},
     {"icon": Icons.person_outline, "label": "Profile", 'setIndex': 4},
   ];
 }

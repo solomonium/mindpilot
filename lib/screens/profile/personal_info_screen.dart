@@ -1,5 +1,4 @@
 import 'package:mindpilot/export.dart';
-import 'package:flutter/services.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:intl_phone_field/country_picker_dialog.dart';
 
@@ -7,7 +6,8 @@ class PersonalInformationScreen extends StatefulWidget {
   const PersonalInformationScreen({super.key});
 
   @override
-  State<PersonalInformationScreen> createState() => _PersonalInformationScreenState();
+  State<PersonalInformationScreen> createState() =>
+      _PersonalInformationScreenState();
 }
 
 class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
@@ -29,13 +29,16 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
 
     final email = auth.email ?? user?.email;
     final emailPrefix = (email != null && email.contains('@'))
-        ? (email.contains('privaterelay.appleid.com') ? 'User' : email.split('@').first.capitalize())
+        ? (email.contains('privaterelay.appleid.com')
+              ? 'User'
+              : email.split('@').first.capitalize())
         : 'User';
 
     String displayNameToUse = 'User';
     if (auth.displayName != null && auth.displayName!.trim().isNotEmpty) {
       displayNameToUse = auth.displayName!;
-    } else if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
+    } else if (user?.displayName != null &&
+        user!.displayName!.trim().isNotEmpty) {
       displayNameToUse = user.displayName!;
     } else if (emailPrefix.trim().isNotEmpty) {
       displayNameToUse = emailPrefix;
@@ -45,7 +48,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
 
     String rawPhone = auth.phoneNumber ?? '';
     _phoneController = TextEditingController();
-    
+
     // Attempt to extract country code and dial code if they exist
     if (rawPhone.isNotEmpty) {
       if (rawPhone.startsWith('+234')) {
@@ -96,8 +99,6 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     super.dispose();
   }
 
-
-
   Future<void> _saveChanges() async {
     FocusScope.of(context).unfocus();
     setState(() => _isSaving = true);
@@ -106,17 +107,21 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       if (cleanPhone.startsWith('0')) {
         cleanPhone = cleanPhone.substring(1);
       }
-      
-      String completePhone = cleanPhone.isEmpty ? '' : '$_selectedDialCode$cleanPhone';
+
+      String completePhone = cleanPhone.isEmpty
+          ? ''
+          : '$_selectedDialCode$cleanPhone';
 
       await context.read<AppAuthProvider>().updateUserProfile(
-            displayName: _nameController.text.trim(),
-            phoneNumber: completePhone,
-            country: _selectedCountryName,
-          );
+        displayName: _nameController.text.trim(),
+        phoneNumber: completePhone,
+        country: _selectedCountryName,
+      );
       if (mounted) {
-        context.showInAppNotification('Profile updated successfully!',
-            type: InAppNotificationType.success);
+        context.showInAppNotification(
+          'Profile updated successfully!',
+          type: InAppNotificationType.success,
+        );
         setState(() {
           _isEditingPhone = false;
           _isEditingName = false;
@@ -137,13 +142,16 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
 
     final email = auth.email ?? user?.email;
     final emailPrefix = (email != null && email.contains('@'))
-        ? (email.contains('privaterelay.appleid.com') ? 'User' : email.split('@').first.capitalize())
+        ? (email.contains('privaterelay.appleid.com')
+              ? 'User'
+              : email.split('@').first.capitalize())
         : 'User';
 
     String displayNameToUse = 'User';
     if (auth.displayName != null && auth.displayName!.trim().isNotEmpty) {
       displayNameToUse = auth.displayName!;
-    } else if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
+    } else if (user?.displayName != null &&
+        user!.displayName!.trim().isNotEmpty) {
       displayNameToUse = user.displayName!;
     } else if (emailPrefix.trim().isNotEmpty) {
       displayNameToUse = emailPrefix;
@@ -155,11 +163,15 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: PrimaryText(
-            text: 'Personal Information',
-            color: theme.accentTxt,
-            fontSize: 18,
-            fontWeight: FontWeight.bold),
-        leading: Icon(Icons.arrow_back_ios, color: theme.accentTxt).clickable(() => context.pop()),
+          text: 'Personal Information',
+          color: theme.accentTxt,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+        leading: Icon(
+          Icons.arrow_back_ios,
+          color: theme.accentTxt,
+        ).clickable(() => context.pop()),
       ),
       body: Stack(
         children: [
@@ -176,8 +188,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    theme.brandDark.withOpacity(0.4),
-                    theme.brandDark.withOpacity(0.8),
+                    theme.brandDark.withValues(alpha: 0.4),
+                    theme.brandDark.withValues(alpha: 0.8),
                     theme.brandDark,
                   ],
                 ),
@@ -194,10 +206,12 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                     height: 100,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: theme.accentTxt.withOpacity(0.1),
+                      color: theme.accentTxt.withValues(alpha: 0.1),
                       image: user?.photoURL != null
                           ? DecorationImage(
-                              image: NetworkImage(user!.photoURL!), fit: BoxFit.cover)
+                              image: NetworkImage(user!.photoURL!),
+                              fit: BoxFit.cover,
+                            )
                           : null,
                     ),
                     child: user?.photoURL == null
@@ -209,7 +223,11 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                                     fontSize: 28,
                                     fontWeight: FontWeight.bold,
                                   )
-                                : Icon(Icons.person, color: theme.accentTxt, size: 40),
+                                : Icon(
+                                    Icons.person,
+                                    color: theme.accentTxt,
+                                    size: 40,
+                                  ),
                           )
                         : null,
                   ),
@@ -220,22 +238,24 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                   'Full Name',
                   _nameController,
                   isEditing: _isEditingName,
-                  onEditTap: () => setState(() => _isEditingName = !_isEditingName),
+                  onEditTap: () =>
+                      setState(() => _isEditingName = !_isEditingName),
                 ),
                 _infoTile(
-                  context, 
-                  'Email Address', 
+                  context,
+                  'Email Address',
                   (auth.email != null && auth.email!.trim().isNotEmpty)
                       ? auth.email!
                       : (user?.email ?? 'user@example.com'),
-                  isEditable: false
+                  isEditable: false,
                 ),
                 _editableInfoTile(
                   context,
                   'Phone Number',
                   _phoneController,
                   isEditing: _isEditingPhone,
-                  onEditTap: () => setState(() => _isEditingPhone = !_isEditingPhone),
+                  onEditTap: () =>
+                      setState(() => _isEditingPhone = !_isEditingPhone),
                 ),
 
                 32.verticalSpace,
@@ -254,7 +274,12 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     );
   }
 
-  Widget _infoTile(BuildContext context, String label, String value, {bool isEditable = true}) {
+  Widget _infoTile(
+    BuildContext context,
+    String label,
+    String value, {
+    bool isEditable = true,
+  }) {
     AppTheme theme = context.watch();
     return GlassContainer(
       margin: const EdgeInsets.only(bottom: 16),
@@ -263,14 +288,23 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SecondaryText(text: label, fontSize: 12, color: theme.accentTxt.withOpacity(0.7)),
+          SecondaryText(
+            text: label,
+            fontSize: 12,
+            color: theme.accentTxt.withValues(alpha: 0.7),
+          ),
           8.verticalSpace,
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               PrimaryText(
-                  text: value, fontSize: 15, fontWeight: FontWeight.w600, color: theme.accentTxt),
-              if (isEditable) Icon(Icons.edit_outlined, color: theme.accentTxt, size: 18),
+                text: value,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: theme.accentTxt,
+              ),
+              if (isEditable)
+                Icon(Icons.edit_outlined, color: theme.accentTxt, size: 18),
             ],
           ),
         ],
@@ -278,8 +312,13 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     );
   }
 
-  Widget _editableInfoTile(BuildContext context, String label, TextEditingController controller,
-      {required bool isEditing, required VoidCallback onEditTap}) {
+  Widget _editableInfoTile(
+    BuildContext context,
+    String label,
+    TextEditingController controller, {
+    required bool isEditing,
+    required VoidCallback onEditTap,
+  }) {
     AppTheme theme = context.watch();
     final isPhone = label.toLowerCase().contains('phone');
     return GlassContainer(
@@ -289,7 +328,11 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SecondaryText(text: label, fontSize: 12, color: theme.accentTxt.withOpacity(0.7)),
+          SecondaryText(
+            text: label,
+            fontSize: 12,
+            color: theme.accentTxt.withValues(alpha: 0.7),
+          ),
           8.verticalSpace,
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -297,81 +340,111 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
               Expanded(
                 child: isEditing
                     ? (isPhone
-                        ? IntlPhoneField(
-                            controller: controller,
-                            initialCountryCode: _initialCountryCode,
-                            dropdownTextStyle: TextStyle(color: theme.accentTxt),
-                            dropdownIcon: Icon(Icons.arrow_drop_down, color: theme.accentTxt),
-                            style: GoogleFonts.inter(
-                              color: theme.accentTxt,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            pickerDialogStyle: PickerDialogStyle(
-                              backgroundColor: theme.brandDark,
-                              countryCodeStyle: GoogleFonts.inter(color: theme.accentTxt, fontSize: 14),
-                              countryNameStyle: GoogleFonts.inter(color: theme.accentTxt, fontSize: 14),
-                              searchFieldInputDecoration: InputDecoration(
-                                labelText: 'Search Country',
-                                labelStyle: TextStyle(color: theme.accentTxt.withOpacity(0.54)),
-                                hintText: 'Search Country',
-                                hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.3)),
-                                border: OutlineInputBorder(
-                                  borderSide: BorderSide(color: theme.accentTxt.withOpacity(0.2)),
+                          ? IntlPhoneField(
+                              controller: controller,
+                              initialCountryCode: _initialCountryCode,
+                              dropdownTextStyle: TextStyle(
+                                color: theme.accentTxt,
+                              ),
+                              dropdownIcon: Icon(
+                                Icons.arrow_drop_down,
+                                color: theme.accentTxt,
+                              ),
+                              style: GoogleFonts.inter(
+                                color: theme.accentTxt,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              pickerDialogStyle: PickerDialogStyle(
+                                backgroundColor: theme.brandDark,
+                                countryCodeStyle: GoogleFonts.inter(
+                                  color: theme.accentTxt,
+                                  fontSize: 14,
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(color: theme.primaryBase),
+                                countryNameStyle: GoogleFonts.inter(
+                                  color: theme.accentTxt,
+                                  fontSize: 14,
+                                ),
+                                searchFieldInputDecoration: InputDecoration(
+                                  labelText: 'Search Country',
+                                  labelStyle: TextStyle(
+                                    color: theme.accentTxt.withValues(
+                                      alpha: 0.54,
+                                    ),
+                                  ),
+                                  hintText: 'Search Country',
+                                  hintStyle: TextStyle(
+                                    color: theme.accentTxt.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: theme.accentTxt.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: theme.primaryBase,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Enter $label',
-                              hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.3)),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            onCountryChanged: (country) {
-                              _selectedDialCode = '+${country.dialCode}';
-                              _selectedCountryName = country.name;
-                              _initialCountryCode = country.code;
-                            },
-                          )
-                        : TextField(
-                            controller: controller,
-                            autofocus: true,
-                            style: GoogleFonts.inter(
-                              color: theme.accentTxt,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Enter $label',
-                              hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.3)),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ))
+                              decoration: InputDecoration(
+                                hintText: 'Enter $label',
+                                hintStyle: TextStyle(
+                                  color: theme.accentTxt.withValues(alpha: 0.3),
+                                ),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onCountryChanged: (country) {
+                                _selectedDialCode = '+${country.dialCode}';
+                                _selectedCountryName = country.name;
+                                _initialCountryCode = country.code;
+                              },
+                            )
+                          : TextField(
+                              controller: controller,
+                              autofocus: true,
+                              style: GoogleFonts.inter(
+                                color: theme.accentTxt,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Enter $label',
+                                hintStyle: TextStyle(
+                                  color: theme.accentTxt.withValues(alpha: 0.3),
+                                ),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ))
                     : PrimaryText(
                         text: controller.text.isEmpty
                             ? 'Not set'
                             : (isPhone
-                                ? '$_selectedDialCode${controller.text}'
-                                : controller.text),
+                                  ? '$_selectedDialCode${controller.text}'
+                                  : controller.text),
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: theme.accentTxt),
+                        color: theme.accentTxt,
+                      ),
               ),
-              Icon(isEditing ? Icons.check_circle_outline : Icons.edit_outlined,
-                      color: isEditing ? theme.primaryBase : theme.accentTxt, size: 20)
-                  .rippleClick(onEditTap),
+              Icon(
+                isEditing ? Icons.check_circle_outline : Icons.edit_outlined,
+                color: isEditing ? theme.primaryBase : theme.accentTxt,
+                size: 20,
+              ).rippleClick(onEditTap),
             ],
           ),
         ],
       ),
     );
   }
-
-
 }

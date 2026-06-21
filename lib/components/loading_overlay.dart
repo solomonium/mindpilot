@@ -19,7 +19,7 @@ class LoadingOverlay extends StatelessWidget {
         child,
         if (isLoading)
           Container(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             child: Center(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
@@ -28,12 +28,16 @@ class LoadingOverlay extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(30),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
                     ),
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(theme.accentTxt),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        theme.accentTxt,
+                      ),
                     ),
                   ),
                 ),

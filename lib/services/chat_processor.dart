@@ -225,6 +225,13 @@ Start by directly presenting your decision/recommendation for the user on this c
 
 ---
 
+### ⚠️ **Cognitive Bias Checklist**
+Examine the user's situation and check if their thinking shows any cognitive biases (e.g., Sunk Cost Fallacy, Catastrophizing, Confirmation Bias, Loss Aversion, Black-and-White Thinking, Emotional Reasoning, Overgeneralization, etc.). If any biases are found, list them as:
+- **[Bias Name]**: Explanation of how the user's input reflects this bias, and a brief tip to counter it.
+If no cognitive biases are detected in their input, state "No significant cognitive biases detected."
+
+---
+
 ### 📊 **Framework Analysis**
 Now analyze the decision using the requested framework details:
 - **Emotional State**: Reflect on their current feelings/emotions and importance level.

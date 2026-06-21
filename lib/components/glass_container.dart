@@ -34,7 +34,8 @@ class GlassContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    final effectiveRadius = customBorderRadius ?? BorderRadius.circular(borderRadius);
+    final effectiveRadius =
+        customBorderRadius ?? BorderRadius.circular(borderRadius);
 
     return Container(
       margin: margin,
@@ -48,19 +49,24 @@ class GlassContainer extends StatelessWidget {
             height: height,
             decoration: BoxDecoration(
               borderRadius: effectiveRadius,
-              border: border ?? Border.all(
-                color: theme.accentTxt.withOpacity(0.2),
-                width: 1.5,
-              ),
+              border:
+                  border ??
+                  Border.all(
+                    color: theme.accentTxt.withValues(alpha: 0.2),
+                    width: 1.5,
+                  ),
               color: color,
-              gradient: color != null ? null : (gradient ?? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  theme.accentTxt.withOpacity(opacity * 2),
-                  theme.accentTxt.withOpacity(opacity),
-                ],
-              )),
+              gradient: color != null
+                  ? null
+                  : (gradient ??
+                        LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            theme.accentTxt.withValues(alpha: opacity * 2),
+                            theme.accentTxt.withValues(alpha: opacity),
+                          ],
+                        )),
             ),
             child: child,
           ),

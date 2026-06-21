@@ -1,5 +1,4 @@
 import 'package:mindpilot/export.dart';
-import 'package:app_settings/app_settings.dart';
 
 class AppPreferencesScreen extends StatefulWidget {
   final bool onlyNotifications;
@@ -39,7 +38,10 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
           fontWeight: FontWeight.bold,
           color: theme.accentTxt,
         ),
-        leading: Icon(Icons.arrow_back_ios, color: theme.accentTxt).clickable(() => context.pop()),
+        leading: Icon(
+          Icons.arrow_back_ios,
+          color: theme.accentTxt,
+        ).clickable(() => context.pop()),
       ),
       body: Stack(
         children: [
@@ -77,8 +79,18 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                     color: theme.accentTxt,
                   ),
                   16.verticalSpace,
-                  _themeOption(context, R.S.lightMode, ThemeType.light, Icons.light_mode_outlined),
-                  _themeOption(context, R.S.darkMode, ThemeType.dark, Icons.dark_mode_outlined),
+                  _themeOption(
+                    context,
+                    R.S.lightMode,
+                    ThemeType.light,
+                    Icons.light_mode_outlined,
+                  ),
+                  _themeOption(
+                    context,
+                    R.S.darkMode,
+                    ThemeType.dark,
+                    Icons.dark_mode_outlined,
+                  ),
                   _themeOption(
                     context,
                     R.S.systemDefault,
@@ -100,7 +112,8 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                   appProvider.pushNotificationsEnabled,
                   (v) async {
                     if (v) {
-                      final granted = await NotificationService().requestPermissions();
+                      final granted = await NotificationService()
+                          .requestPermissions();
                       if (!granted) {
                         _showPermissionDialog();
                       }
@@ -120,6 +133,22 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                   appProvider.dailyReminderEnabled,
                   (v) {
                     appProvider.dailyReminderEnabled = v;
+                  },
+                ),
+                _switchTile(
+                  context,
+                  'Daily Mood Check-In',
+                  appProvider.dailyMoodCheckInEnabled,
+                  (v) {
+                    appProvider.dailyMoodCheckInEnabled = v;
+                  },
+                ),
+                _switchTile(
+                  context,
+                  'Daily Bible Quiz',
+                  appProvider.dailyBibleQuizReminderEnabled,
+                  (v) {
+                    appProvider.dailyBibleQuizReminderEnabled = v;
                   },
                 ),
                 _switchTile(context, R.S.emailNotifications, false, (v) {}),
@@ -188,15 +217,22 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: theme.brandDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: PrimaryText(text: 'Notifications Disabled', color: theme.accentTxt),
+        title: PrimaryText(
+          text: 'Notifications Disabled',
+          color: theme.accentTxt,
+        ),
         content: SecondaryText(
-          text: 'To receive alerts and sounds, please enable notifications in your device settings.',
+          text:
+              'To receive alerts and sounds, please enable notifications in your device settings.',
           color: theme.accentTxt.withOpacity(0.7),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: SecondaryText(text: 'Cancel', color: theme.accentTxt.withOpacity(0.5)),
+            child: SecondaryText(
+              text: 'Cancel',
+              color: theme.accentTxt.withOpacity(0.5),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -210,7 +246,12 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
     );
   }
 
-  Widget _themeOption(BuildContext context, String title, ThemeType type, IconData icon) {
+  Widget _themeOption(
+    BuildContext context,
+    String title,
+    ThemeType type,
+    IconData icon,
+  ) {
     AppTheme theme = context.watch();
     final appProvider = context.watch<AppProvider>();
     bool isSelected = appProvider.theme == type;
@@ -224,7 +265,13 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
           : Border.all(color: theme.accentTxt.withOpacity(0.1), width: 1.5),
       child: Row(
         children: [
-          Icon(icon, color: isSelected ? theme.primaryBase : theme.accentTxt.withOpacity(0.7), size: 24),
+          Icon(
+            icon,
+            color: isSelected
+                ? theme.primaryBase
+                : theme.accentTxt.withOpacity(0.7),
+            size: 24,
+          ),
           16.horizontalSpace,
           Expanded(
             child: PrimaryText(
@@ -234,7 +281,8 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
               color: theme.accentTxt,
             ),
           ),
-          if (isSelected) Icon(Icons.check_circle, color: theme.primaryBase, size: 20),
+          if (isSelected)
+            Icon(Icons.check_circle, color: theme.primaryBase, size: 20),
         ],
       ),
     ).clickable(() {
@@ -242,7 +290,12 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
     });
   }
 
-  Widget _switchTile(BuildContext context, String label, bool value, Function(bool) onChanged) {
+  Widget _switchTile(
+    BuildContext context,
+    String label,
+    bool value,
+    Function(bool) onChanged,
+  ) {
     AppTheme theme = context.watch();
     return GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),

@@ -8,6 +8,13 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ShareService {
+  static Future<void> shareText(String text, {String? subject}) async {
+    await Share.share(
+      text,
+      subject: subject,
+    );
+  }
+
   static Future<void> captureAndShare(
     BuildContext context, {
     required Widget widget,
@@ -15,8 +22,9 @@ class ShareService {
     String? subject,
   }) async {
     if (!await AppHelper.isOnline()) {
-      if (context.mounted)
+      if (context.mounted) {
         context.showInAppNotification('Network required to share.');
+      }
       return;
     }
 

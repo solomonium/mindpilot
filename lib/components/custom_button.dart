@@ -43,7 +43,6 @@ class CustomButton extends StatefulWidget {
 class _CustomButtonState extends State<CustomButton> {
   final FocusNode _focusNode = FocusNode();
   bool _isFocused = false;
-  bool _isDebouncing = false;
 
   @override
   void initState() {
@@ -59,19 +58,6 @@ class _CustomButtonState extends State<CustomButton> {
   void dispose() {
     _focusNode.dispose();
     super.dispose();
-  }
-
-  void _handleOnPressed() {
-    if (!_isDebouncing) {
-      _isDebouncing = true;
-      widget.onPressed?.call();
-
-      Timer(const Duration(seconds: 5), () {
-        if (mounted) {
-          _isDebouncing = false;
-        }
-      });
-    }
   }
 
   @override
@@ -90,9 +76,7 @@ class _CustomButtonState extends State<CustomButton> {
         width: finalWidth,
         child: OutlinedButton(
           focusNode: _focusNode,
-          onPressed: widget.loading
-              ? null
-              : (widget.onPressed != null ? _handleOnPressed : null),
+          onPressed: widget.loading ? null : widget.onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: borderCol,
             side: BorderSide(color: borderCol, width: 1.5),
@@ -147,9 +131,7 @@ class _CustomButtonState extends State<CustomButton> {
           width: finalWidth,
           child: ElevatedButton(
             focusNode: _focusNode,
-            onPressed: widget.loading
-                ? null
-                : (widget.onPressed != null ? _handleOnPressed : null),
+            onPressed: widget.loading ? null : widget.onPressed,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.transparent,
               foregroundColor: textCol,
@@ -200,9 +182,7 @@ class _CustomButtonState extends State<CustomButton> {
       width: finalWidth,
       child: ElevatedButton(
         focusNode: _focusNode,
-        onPressed: widget.loading
-            ? null
-            : (widget.onPressed != null ? _handleOnPressed : null),
+        onPressed: widget.loading ? null : widget.onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: bgCol,
           foregroundColor: textCol,

@@ -25,8 +25,8 @@ class ProfileScreen extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    theme.brandDark.withOpacity(0.4),
-                    theme.brandDark.withOpacity(0.8),
+                    theme.brandDark.withValues(alpha: 0.4),
+                    theme.brandDark.withValues(alpha: 0.8),
                     theme.brandDark,
                   ],
                 ),
@@ -38,82 +38,161 @@ class ProfileScreen extends StatelessWidget {
               _header(context),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
+                  padding: const EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 20,
+                    bottom: 120,
+                  ),
                   children: [
                     if (!context.watch<AppAuthProvider>().isPro)
                       _upgradeBanner(context, theme),
                     if (context.watch<AppAuthProvider>().isAdmin)
-                      _menuItem(context, Icons.admin_panel_settings_outlined, 'Admin Privileges', isSpecial: true, onTap: () {
-                        context.push(const AdminDashboardScreen());
-                      }),
-                    _menuItem(context, Icons.person_outline, 'Personal Information', onTap: () {
-                      context.push(const PersonalInformationScreen());
-                    }),
+                      _menuItem(
+                        context,
+                        Icons.admin_panel_settings_outlined,
+                        'Admin Privileges',
+                        isSpecial: true,
+                        onTap: () {
+                          context.push(const AdminDashboardScreen());
+                        },
+                      ),
+                    _menuItem(
+                      context,
+                      Icons.person_outline,
+                      'Personal Information',
+                      onTap: () {
+                        context.push(const PersonalInformationScreen());
+                      },
+                    ),
 
+                    _menuItem(
+                      context,
+                      Icons.trending_up,
+                      'My Progress',
+                      onTap: () {
+                        context.push(const ProgressReportScreen());
+                      },
+                    ),
+                    _menuItem(
+                      context,
+                      Icons.card_giftcard,
+                      'Invite Friends',
+                      onTap: () {
+                        context.push(const ReferralScreen());
+                      },
+                    ),
+                    _menuItem(
+                      context,
+                      Icons.psychology_outlined,
+                      'Refine Personalization',
+                      onTap: () {
+                        context.push(const PersonalizationScreen());
+                      },
+                    ),
+                    _menuItem(
+                      context,
+                      Icons.settings_outlined,
+                      'App Preferences',
+                      onTap: () {
+                        context.push(const AppPreferencesScreen());
+                      },
+                    ),
 
-                    _menuItem(context, Icons.trending_up, 'My Progress', onTap: () {
-                      context.push(const ProgressReportScreen());
-                    }),
-                    _menuItem(context, Icons.psychology_outlined, 'Refine Personalization', onTap: () {
-                      context.push(const PersonalizationScreen());
-                    }),
-                    _menuItem(context, Icons.settings_outlined, 'App Preferences', onTap: () {
-                      context.push(const AppPreferencesScreen());
-                    }),
+                    _menuItem(
+                      context,
+                      Icons.psychology_outlined,
+                      'AI Preferences',
+                      onTap: () {
+                        context.push(const AiPreferencesScreen());
+                      },
+                    ),
 
-                    _menuItem(context, Icons.psychology_outlined, 'AI Preferences', onTap: () {
-                      context.push(const AiPreferencesScreen());
-                    }),
+                    _menuItem(
+                      context,
+                      Icons.notifications_none,
+                      'Reminders',
+                      onTap: () {
+                        context.push(
+                          const AppPreferencesScreen(onlyNotifications: true),
+                        );
+                      },
+                    ),
+                    _menuItem(
+                      context,
+                      Icons.lock_outline,
+                      'Privacy & Security',
+                      onTap: () {
+                        context.push(const PrivacyScreen());
+                      },
+                    ),
+                    _menuItem(
+                      context,
+                      Icons.help_outline,
+                      'Help & Support',
+                      onTap: () {
+                        context.push(const SupportScreen());
+                      },
+                    ),
+                    _menuItem(
+                      context,
+                      Icons.share_outlined,
+                      'Share App',
+                      onTap: () async {
+                        final shareUrl = ConfigService().shareUrl;
+                        final shareText =
+                            "Hey! I've been using MindPilot to sharpen my focus, organize my thoughts, and clear my mind. 🧠✨\n\nWhat is MindPilot?\nIt's a premium, secure productivity and wellness assistant designed to:\n• Clear mental clutter with secure cognitive journaling\n• Improve concentration and stay on track with custom looping alarms\n• Work through complex life decisions with the Decision Analyzer\n• Provide daily, personalized AI-driven cognitive insights\n\nI really think it will help you boost your focus, reduce distractions, and achieve your goals. Check it out here:\n👉 $shareUrl";
 
-
-                    _menuItem(context, Icons.notifications_none, 'Reminders', onTap: () {
-                      context.push(const AppPreferencesScreen(onlyNotifications: true));
-                    }),
-                    _menuItem(context, Icons.lock_outline, 'Privacy & Security', onTap: () {
-                      context.push(const PrivacyScreen());
-                    }),
-                    _menuItem(context, Icons.help_outline, 'Help & Support', onTap: () {
-                      context.push(const SupportScreen());
-                    }),
-                    _menuItem(context, Icons.share_outlined, 'Share App', onTap: () async {
-                      final shareUrl = ConfigService().shareUrl;
-                      final shareText = "Hey! I've been using MindPilot to sharpen my focus, organize my thoughts, and clear my mind. 🧠✨\n\nWhat is MindPilot?\nIt's a premium, secure productivity and wellness assistant designed to:\n• Clear mental clutter with secure cognitive journaling\n• Improve concentration and stay on track with custom looping alarms\n• Work through complex life decisions with the Decision Analyzer\n• Provide daily, personalized AI-driven cognitive insights\n\nI really think it will help you boost your focus, reduce distractions, and achieve your goals. Check it out here:\n👉 $shareUrl";
-
-                      try {
-                        await Clipboard.setData(ClipboardData(text: shareText));
-                        if (context.mounted) {
-                          context.showInAppNotification(
-                            'App invite copied to clipboard! You can paste it into your post.',
-                            type: InAppNotificationType.info,
+                        try {
+                          await Clipboard.setData(
+                            ClipboardData(text: shareText),
                           );
-                        }
-                      } catch (_) {}
+                          if (context.mounted) {
+                            context.showInAppNotification(
+                              'App invite copied to clipboard! You can paste it into your post.',
+                              type: InAppNotificationType.info,
+                            );
+                          }
+                        } catch (_) {}
 
-                      await Share.share(
-                        shareText,
-                        subject: 'Level up your focus with MindPilot 🧠',
-                        sharePositionOrigin: AppHelper.getSharePositionOrigin(context),
-                      );
-                    }),
-                    _menuItem(context, Icons.logout, 'Log Out', onTap: () {
-                      _showLogoutConfirmation(context);
-                    }),
-                    _menuItem(context, Icons.delete_forever_outlined, 'Delete Account', onTap: () {
-                      _showDeleteConfirmation(context);
-                    }),
+                        await Share.share(
+                          shareText,
+                          subject: 'Level up your focus with MindPilot 🧠',
+                          sharePositionOrigin: AppHelper.getSharePositionOrigin(
+                            context,
+                          ),
+                        );
+                      },
+                    ),
+                    _menuItem(
+                      context,
+                      Icons.logout,
+                      'Log Out',
+                      onTap: () {
+                        _showLogoutConfirmation(context);
+                      },
+                    ),
+                    _menuItem(
+                      context,
+                      Icons.delete_forever_outlined,
+                      'Delete Account',
+                      onTap: () {
+                        _showDeleteConfirmation(context);
+                      },
+                    ),
                     40.verticalSpace,
                     Center(
                       child: Column(
                         children: [
                           SecondaryText(
                             text: 'Developed by SolteQ Innovations Ltd',
-                            color: theme.accentTxt.withOpacity(0.5),
+                            color: theme.accentTxt.withValues(alpha: 0.5),
                             fontSize: 12,
                           ),
                           4.verticalSpace,
-                           SecondaryText(
+                          SecondaryText(
                             text: 'v${ConfigService().currentAppVersion}',
-                            color: theme.accentTxt.withOpacity(0.3),
+                            color: theme.accentTxt.withValues(alpha: 0.3),
                             fontSize: 10,
                           ),
                         ],
@@ -139,13 +218,17 @@ class ProfileScreen extends StatelessWidget {
 
     final email = authProvider.email ?? user?.email;
     final emailPrefix = (email != null && email.contains('@'))
-        ? (email.contains('privaterelay.appleid.com') ? 'User' : email.split('@').first.capitalize())
+        ? (email.contains('privaterelay.appleid.com')
+              ? 'User'
+              : email.split('@').first.capitalize())
         : 'User';
 
     String displayNameToUse = 'User';
-    if (authProvider.displayName != null && authProvider.displayName!.trim().isNotEmpty) {
+    if (authProvider.displayName != null &&
+        authProvider.displayName!.trim().isNotEmpty) {
       displayNameToUse = authProvider.displayName!;
-    } else if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
+    } else if (user?.displayName != null &&
+        user!.displayName!.trim().isNotEmpty) {
       displayNameToUse = user.displayName!;
     } else if (emailPrefix.trim().isNotEmpty) {
       displayNameToUse = emailPrefix;
@@ -159,16 +242,26 @@ class ProfileScreen extends StatelessWidget {
         bottomRight: Radius.circular(30),
       ),
       gradient: theme.glassGradient,
-      border: Border(bottom: BorderSide(color: theme.accentTxt.withOpacity(0.1), width: 1)),
+      border: Border(
+        bottom: BorderSide(
+          color: theme.accentTxt.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: theme.accentTxt.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: theme.accentTxt.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
             child: CircleAvatar(
               radius: 45,
-              backgroundColor: theme.primaryBase.withOpacity(0.1),
-              backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+              backgroundColor: theme.primaryBase.withValues(alpha: 0.1),
+              backgroundImage: user?.photoURL != null
+                  ? NetworkImage(user!.photoURL!)
+                  : null,
               child: user?.photoURL == null
                   ? Center(
                       child: displayNameToUse.getInitials().isNotEmpty
@@ -178,43 +271,55 @@ class ProfileScreen extends StatelessWidget {
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                             )
-                          : Icon(Icons.person, color: theme.accentTxt, size: 40),
+                          : Icon(
+                              Icons.person,
+                              color: theme.accentTxt,
+                              size: 40,
+                            ),
                     )
                   : null,
             ),
           ),
           16.verticalSpace,
           PrimaryText(
-              text: displayNameToUse,
-              color: theme.accentTxt,
-              fontSize: 20,
-              fontWeight: FontWeight.bold),
+            text: displayNameToUse,
+            color: theme.accentTxt,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
           4.verticalSpace,
           SecondaryText(
-              text: (authProvider.email != null && authProvider.email!.trim().isNotEmpty)
-                  ? authProvider.email!
-                  : (user?.email ?? 'user@example.com'),
-              color: theme.accentTxt.withOpacity(0.7),
-              fontSize: 13),
+            text:
+                (authProvider.email != null &&
+                    authProvider.email!.trim().isNotEmpty)
+                ? authProvider.email!
+                : (user?.email ?? 'user@example.com'),
+            color: theme.accentTxt.withValues(alpha: 0.7),
+            fontSize: 13,
+          ),
           16.verticalSpace,
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration:
-                BoxDecoration(color: theme.accentTxt.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: theme.accentTxt.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isPro ? Icons.star : Icons.person_outline, 
-                  color: isPro ? const Color(0xFFF59E0B) : theme.accentTxt.withOpacity(0.5), 
-                  size: 16
+                  isPro ? Icons.star : Icons.person_outline,
+                  color: isPro
+                      ? const Color(0xFFF59E0B)
+                      : theme.accentTxt.withValues(alpha: 0.5),
+                  size: 16,
                 ),
                 8.horizontalSpace,
                 PrimaryText(
-                  text: authProvider.userType, 
-                  color: theme.accentTxt, 
-                  fontSize: 12, 
-                  fontWeight: FontWeight.bold
+                  text: authProvider.userType,
+                  color: theme.accentTxt,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
               ],
             ),
@@ -231,12 +336,22 @@ class ProfileScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         backgroundColor: theme.brandDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: PrimaryText(text: 'Log Out', color: theme.accentTxt, fontWeight: FontWeight.bold),
-        content: SecondaryText(text: 'Are you sure you want to log out of MindPilot?', color: theme.accentTxt.withOpacity(0.8)),
+        title: PrimaryText(
+          text: 'Log Out',
+          color: theme.accentTxt,
+          fontWeight: FontWeight.bold,
+        ),
+        content: SecondaryText(
+          text: 'Are you sure you want to log out of MindPilot?',
+          color: theme.accentTxt.withValues(alpha: 0.8),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: SecondaryText(text: 'Cancel', color: theme.accentTxt.withOpacity(0.5)),
+            child: SecondaryText(
+              text: 'Cancel',
+              color: theme.accentTxt.withValues(alpha: 0.5),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -246,7 +361,11 @@ class ProfileScreen extends StatelessWidget {
                 context.pushOff(const LoginScreen());
               }
             },
-            child: const PrimaryText(text: 'Log Out', color: Color(0xffEF4444), fontWeight: FontWeight.bold),
+            child: const PrimaryText(
+              text: 'Log Out',
+              color: Color(0xffEF4444),
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -266,15 +385,16 @@ class ProfileScreen extends StatelessWidget {
           fontWeight: FontWeight.bold,
         ),
         content: SecondaryText(
-          text: 'Are you sure you want to permanently delete your MindPilot account? This action is irreversible and all your data (journals, tasks, and profile details) will be permanently erased.',
-          color: theme.accentTxt.withOpacity(0.8),
+          text:
+              'Are you sure you want to permanently delete your MindPilot account? This action is irreversible and all your data (journals, tasks, and profile details) will be permanently erased.',
+          color: theme.accentTxt.withValues(alpha: 0.8),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: SecondaryText(
               text: 'Cancel',
-              color: theme.accentTxt.withOpacity(0.5),
+              color: theme.accentTxt.withValues(alpha: 0.5),
             ),
           ),
           TextButton(
@@ -295,13 +415,21 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _menuItem(BuildContext context, IconData icon, String title,
-      {bool isLast = false, bool isSpecial = false, VoidCallback? onTap}) {
-
+  Widget _menuItem(
+    BuildContext context,
+    IconData icon,
+    String title, {
+    bool isSpecial = false,
+    VoidCallback? onTap,
+  }) {
     AppTheme theme = context.watch<AppTheme>();
     final isDestructive = title == 'Log Out' || title == 'Delete Account';
-    final iconColor = isDestructive ? const Color(0xffEF4444) : theme.accentTxt.withOpacity(0.8);
-    final titleColor = isDestructive ? const Color(0xffEF4444) : theme.accentTxt;
+    final iconColor = isDestructive
+        ? const Color(0xffEF4444)
+        : theme.accentTxt.withValues(alpha: 0.8);
+    final titleColor = isDestructive
+        ? const Color(0xffEF4444)
+        : theme.accentTxt;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -315,9 +443,17 @@ class ProfileScreen extends StatelessWidget {
               Icon(icon, color: iconColor, size: 22),
               16.horizontalSpace,
               Expanded(
-                  child: PrimaryText(
-                      text: title, fontSize: 15, fontWeight: FontWeight.w500, color: titleColor)),
-              Icon(Icons.chevron_right, color: theme.accentTxt.withOpacity(0.3)),
+                child: PrimaryText(
+                  text: title,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: titleColor,
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.accentTxt.withValues(alpha: 0.3),
+              ),
             ],
           ),
         ).rippleClick(onTap),
@@ -337,7 +473,6 @@ class ProfileScreen extends StatelessWidget {
           ),
       ],
     );
-
   }
 
   Widget _upgradeBanner(BuildContext context, AppTheme theme) {
@@ -355,7 +490,7 @@ class ProfileScreen extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: theme.primaryBase.withOpacity(0.3),
+            color: theme.primaryBase.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -373,14 +508,10 @@ class ProfileScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.stars,
-                    color: Colors.white,
-                    size: 28,
-                  ),
+                  child: const Icon(Icons.stars, color: Colors.white, size: 28),
                 ),
                 20.horizontalSpace,
                 Expanded(
@@ -395,18 +526,15 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       4.verticalSpace,
                       SecondaryText(
-                        text: 'Unlock unlimited AI, advanced growth stats & premium themes.',
-                        color: Colors.white.withOpacity(0.85),
+                        text:
+                            'Unlock unlimited AI, advanced growth stats & premium themes.',
+                        color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 12,
                       ),
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: Colors.white,
-                  size: 24,
-                ),
+                const Icon(Icons.chevron_right, color: Colors.white, size: 24),
               ],
             ),
           ),

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:mindpilot/export.dart';
 
 class FocusSessionScreen extends StatefulWidget {
@@ -64,9 +63,9 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
-    final isPro = context.watch<AppAuthProvider>().isPro;
     final focusProvider = context.watch<FocusProvider>();
-    double progress = focusProvider.secondsRemaining / (focusProvider.selectedMinutes * 60);
+    double progress =
+        focusProvider.secondsRemaining / (focusProvider.selectedMinutes * 60);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -114,18 +113,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                         ),
                         const Spacer(),
                         Icon(Icons.history, color: theme.accentTxt).rippleClick(
-                          () {
-                            if (isPro) {
-                              context.showInAppNotification(
-                                'Coming soon: Detailed focus history!',
-                              );
-                            } else {
-                              AppHelper.showPaywall(
-                                context,
-                                feature: 'Focus History',
-                              );
-                            }
-                          },
+                          () => context.push(const FocusHistoryScreen()),
                         ),
                       ],
                     ),
@@ -136,7 +124,8 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                       widget.scheduledStartTime != null) ...[
                     const SizedBox(height: 20),
                     PrimaryText(
-                      text: 'Starting in ${_formatTime(focusProvider.secondsToStart)}',
+                      text:
+                          'Starting in ${_formatTime(focusProvider.secondsToStart)}',
                       color: theme.accentTxt.withOpacity(0.8),
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -162,12 +151,40 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                                 text: 'Sound:',
                                 color: theme.accentTxt.withOpacity(0.7),
                               ),
-                              PrimaryText(
-                                text: focusProvider.selectedSound,
-                                color: theme.primaryBase,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ).clickable(() => _showSoundPicker(context, focusProvider)),
+                              Flexible(
+                                fit: FlexFit.loose,
+                                child: PrimaryText(
+                                  text: focusProvider.selectedSound,
+                                  color: theme.primaryBase,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  textOverflow: TextOverflow.ellipsis,
+                                ).clickable(
+                                  () => _showSoundPicker(context, focusProvider),
+                                ),
+                              ),
+                            ],
+                          ),
+                          12.verticalSpace,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              SecondaryText(
+                                text: 'Ambient Music:',
+                                color: theme.accentTxt.withOpacity(0.7),
+                              ),
+                              Flexible(
+                                fit: FlexFit.loose,
+                                child: PrimaryText(
+                                  text: focusProvider.selectedAmbient,
+                                  color: theme.primaryBase,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  textOverflow: TextOverflow.ellipsis,
+                                ).clickable(
+                                  () => _showAmbientPicker(context, focusProvider),
+                                ),
+                              ),
                             ],
                           ),
                           16.verticalSpace,
@@ -204,16 +221,25 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                   if (!focusProvider.isRunning) ...[
                     12.verticalSpace,
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.orange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.3),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.airplanemode_active, size: 14, color: Colors.orange),
+                          const Icon(
+                            Icons.airplanemode_active,
+                            size: 14,
+                            color: Colors.orange,
+                          ),
                           8.horizontalSpace,
                           const SecondaryText(
                             text: 'Toggle Airplane Mode',
@@ -228,31 +254,38 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                         'Opening settings. Please toggle Airplane Mode for zero distractions.',
                         type: InAppNotificationType.info,
                       );
-                      AppSettings.openAppSettings(type: AppSettingsType.wireless);
+                      AppSettings.openAppSettings(
+                        type: AppSettingsType.wireless,
+                      );
                     }),
                   ],
                   12.verticalSpace,
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: GlassContainer(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      gradient: theme.glassGradient,
-                      border: Border.all(
-                        color: focusProvider.isRunning
-                            ? theme.errorPrimary
-                            : theme.primaryBase,
-                        width: 2,
-                      ),
-                      child: Center(
-                        child: PrimaryText(
-                          text: focusProvider.isRunning
-                              ? 'Stop Focus Session'
-                              : 'Start Focus Session',
-                          color: theme.accentTxt,
-                          fontWeight: FontWeight.bold,
+                    child:
+                        GlassContainer(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          gradient: theme.glassGradient,
+                          border: Border.all(
+                            color: focusProvider.isRunning
+                                ? theme.errorPrimary
+                                : theme.primaryBase,
+                            width: 2,
+                          ),
+                          child: Center(
+                            child: PrimaryText(
+                              text: focusProvider.isRunning
+                                  ? 'Stop Focus Session'
+                                  : 'Start Focus Session',
+                              color: theme.accentTxt,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ).rippleClick(
+                          focusProvider.isRunning
+                              ? focusProvider.stopTimer
+                              : _onStartTimerTap,
                         ),
-                      ),
-                    ).rippleClick(focusProvider.isRunning ? focusProvider.stopTimer : _onStartTimerTap),
                   ),
                   12.verticalSpace,
                   _sessionTypes(theme, focusProvider),
@@ -304,10 +337,12 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                 ),
                 title: Row(
                   children: [
-                    PrimaryText(
-                      text: sound['name']!,
-                      color: theme.accentTxt,
-                      fontSize: 15,
+                    Expanded(
+                      child: PrimaryText(
+                        text: sound['name']!,
+                        color: theme.accentTxt,
+                        fontSize: 15,
+                      ),
                     ),
                     if (soundIsPro) ...[
                       8.horizontalSpace,
@@ -340,7 +375,87 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
     );
   }
 
-  Widget _timerCircle(AppTheme theme, double progress, FocusProvider focusProvider) {
+  void _showAmbientPicker(BuildContext context, FocusProvider focusProvider) {
+    AppTheme theme = context.read();
+    final isPro = context.read<AppAuthProvider>().isPro;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.brandDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            PrimaryText(
+              text: 'Choose Ambient Music',
+              color: theme.accentTxt,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+            20.verticalSpace,
+            ...focusProvider.ambientSounds.map((sound) {
+              bool soundIsPro = sound['isPro'] == 'true';
+              bool isSelected = focusProvider.selectedAmbient == sound['name'];
+
+              return ListTile(
+                leading: Icon(
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: isSelected
+                      ? theme.primaryBase
+                      : theme.accentTxt.withOpacity(0.3),
+                ),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: PrimaryText(
+                        text: sound['name']!,
+                        color: theme.accentTxt,
+                        fontSize: 15,
+                      ),
+                    ),
+                    if (soundIsPro) ...[
+                      8.horizontalSpace,
+                      const Icon(
+                        Icons.star,
+                        color: Color(0xFFF59E0B),
+                        size: 14,
+                      ),
+                    ],
+                  ],
+                ),
+                trailing: soundIsPro && !isPro
+                    ? const Icon(Icons.lock_outline, size: 18)
+                    : null,
+                onTap: () {
+                  if (soundIsPro && !isPro) {
+                    Navigator.pop(context);
+                    AppHelper.showPaywall(context, feature: 'Premium Ambient Music');
+                  } else {
+                    focusProvider.selectedAmbient = sound['name']!;
+                    Navigator.pop(context);
+                  }
+                },
+              );
+            }),
+            20.verticalSpace,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _timerCircle(
+    AppTheme theme,
+    double progress,
+    FocusProvider focusProvider,
+  ) {
     return Container(
       width: 200,
       height: 200,
@@ -387,7 +502,13 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _typeItem(theme, Icons.access_time, 'Pomodoro', focusProvider.selectedMinutes == 25, focusProvider),
+        _typeItem(
+          theme,
+          Icons.access_time,
+          'Pomodoro',
+          focusProvider.selectedMinutes == 25,
+          focusProvider,
+        ),
         24.horizontalSpace,
         _typeItem(
           theme,

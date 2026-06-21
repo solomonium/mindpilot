@@ -65,7 +65,7 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
             if (_selectedTextColor == color ||
                 (isReset && _selectedTextColor == null))
               BoxShadow(
-                color: color.withOpacity(0.4),
+                color: color.withValues(alpha: 0.4),
                 blurRadius: 8,
                 spreadRadius: 1,
               ),
@@ -109,8 +109,8 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    theme.brandDark.withOpacity(0.4),
-                    theme.brandDark.withOpacity(0.8),
+                    theme.brandDark.withValues(alpha: 0.4),
+                    theme.brandDark.withValues(alpha: 0.8),
                     theme.brandDark,
                   ],
                 ),
@@ -129,13 +129,13 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                       children: [
                         Icon(
                           Icons.book_outlined,
-                          color: theme.accentTxt.withOpacity(0.3),
+                          color: theme.accentTxt.withValues(alpha: 0.3),
                           size: 60,
                         ),
                         16.verticalSpace,
                         SecondaryText(
                           text: R.S.noEntries,
-                          color: theme.accentTxt.withOpacity(0.5),
+                          color: theme.accentTxt.withValues(alpha: 0.5),
                         ),
                       ],
                     ),
@@ -153,7 +153,7 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                         children: [
                           SecondaryText(
                             text: R.S.textColor,
-                            color: theme.accentTxt.withOpacity(0.7),
+                            color: theme.accentTxt.withValues(alpha: 0.7),
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -178,7 +178,12 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                     ),
                     Expanded(
                       child: ListView.builder(
-                        padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
+                        padding: const EdgeInsets.only(
+                          left: 20,
+                          right: 20,
+                          top: 20,
+                          bottom: 120,
+                        ),
                         itemCount: entries.length,
                         itemBuilder: (context, index) {
                           final entry = entries[index];
@@ -190,7 +195,9 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                               padding: const EdgeInsets.only(right: 20),
                               margin: const EdgeInsets.only(bottom: 16),
                               decoration: BoxDecoration(
-                                color: theme.errorPrimary.withOpacity(0.2),
+                                color: theme.errorPrimary.withValues(
+                                  alpha: 0.2,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Icon(
@@ -209,7 +216,9 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                                   ),
                                   content: SecondaryText(
                                     text: R.S.deleteConfirm,
-                                    color: theme.accentTxt.withOpacity(0.7),
+                                    color: theme.accentTxt.withValues(
+                                      alpha: 0.7,
+                                    ),
                                   ),
                                   actions: [
                                     TextButton(
@@ -217,7 +226,9 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                                           Navigator.pop(context, false),
                                       child: SecondaryText(
                                         text: R.S.cancel,
-                                        color: theme.accentTxt.withOpacity(0.5),
+                                        color: theme.accentTxt.withValues(
+                                          alpha: 0.5,
+                                        ),
                                       ),
                                     ),
                                     TextButton(
@@ -259,7 +270,7 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                         text: R.S.journalTip,
                         fontSize: 10,
                         textAlign: TextAlign.center,
-                        color: theme.accentTxt.withOpacity(0.4),
+                        color: theme.accentTxt.withValues(alpha: 0.4),
                       ),
                     ),
                   ],
@@ -288,14 +299,14 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           iconColor: theme.accentTxt,
-          collapsedIconColor: theme.accentTxt.withOpacity(0.5),
+          collapsedIconColor: theme.accentTxt.withValues(alpha: 0.5),
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               SecondaryText(
                 text: date,
                 fontSize: 12,
-                color: theme.accentTxt.withOpacity(0.6),
+                color: theme.accentTxt.withValues(alpha: 0.6),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -303,20 +314,20 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.accentTxt.withOpacity(0.1),
+                  color: theme.accentTxt.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: SecondaryText(
                   text: mood,
                   fontSize: 10,
-                  color: theme.accentTxt.withOpacity(0.8),
+                  color: theme.accentTxt.withValues(alpha: 0.8),
                 ),
               ),
             ],
           ),
           trailing: Icon(
             Icons.share,
-            color: theme.accentTxt.withOpacity(0.5),
+            color: theme.accentTxt.withValues(alpha: 0.5),
             size: 20,
           ).rippleClick(() => _showShareOptions(context, date, text, title)),
           subtitle: Padding(
@@ -406,7 +417,7 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                       child: SecondaryText(
                         text: "Time: $time",
                         fontSize: 10,
-                        color: theme.accentTxt.withOpacity(0.5),
+                        color: theme.accentTxt.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -487,16 +498,16 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.accentTxt.withOpacity(0.05),
+        color: theme.accentTxt.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+        border: Border.all(color: theme.accentTxt.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: theme.primaryBase.withOpacity(0.1),
+              color: theme.primaryBase.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: theme.primaryBase, size: 24),
@@ -514,13 +525,16 @@ class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
                 ),
                 SecondaryText(
                   text: subtitle,
-                  color: theme.accentTxt.withOpacity(0.6),
+                  color: theme.accentTxt.withValues(alpha: 0.6),
                   fontSize: 12,
                 ),
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: theme.accentTxt.withOpacity(0.3)),
+          Icon(
+            Icons.chevron_right,
+            color: theme.accentTxt.withValues(alpha: 0.3),
+          ),
         ],
       ),
     ).rippleClick(onTap);
@@ -562,7 +576,8 @@ Think clearly. Live intentionally.
 ----------------------------
 """;
 
-    final shareText = "$receipt\n\nMindPilot is a premium cognitive productivity assistant that helps you organize your thoughts, sharpen focus, and achieve goals.\nDownload MindPilot here: $shareUrl";
+    final shareText =
+        "$receipt\n\nMindPilot is a premium cognitive productivity assistant that helps you organize your thoughts, sharpen focus, and achieve goals.\nDownload MindPilot here: $shareUrl";
     try {
       await Clipboard.setData(ClipboardData(text: shareText));
       if (context.mounted) {
@@ -675,7 +690,8 @@ Think clearly. Live intentionally.
       );
       await file.writeAsBytes(await pdf.save());
 
-      final shareText = "Sharing my journal entry from MindPilot, the premium secure cognitive productivity assistant. Download it here to organize your thoughts and sharpen your focus: $shareUrl";
+      final shareText =
+          "Sharing my journal entry from MindPilot, the premium secure cognitive productivity assistant. Download it here to organize your thoughts and sharpen your focus: $shareUrl";
       try {
         await Clipboard.setData(ClipboardData(text: shareText));
         if (context.mounted) {

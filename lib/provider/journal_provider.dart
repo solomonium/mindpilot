@@ -64,12 +64,6 @@ class JournalProvider extends ChangeNotifier {
     final now = DateTime.now();
     final date = DateFormat('MMM dd, yyyy').format(now);
     final time = DateFormat('hh:mm a').format(now);
-    
-    if (!await AppHelper.isOnline()) {
-      final context = R.N.navKey.currentContext;
-      if (context != null) context.showInAppNotification('Network required to save entries.');
-      return;
-    }
 
     final Map<String, dynamic> entryMap = {
       'date': date,
@@ -80,9 +74,12 @@ class JournalProvider extends ChangeNotifier {
     };
     
     final id = await _dbHelper.insertEntry(entryMap);
-    
     entryMap['id'] = id;
-    await SyncService().pushJournalToFirestore(entryMap);
+
+    final online = await AppHelper.isOnline();
+    if (online) {
+      await SyncService().pushJournalToFirestore(entryMap);
+    }
     
     _entries.insert(0, JournalEntry(
       id: id,
@@ -92,6 +89,15 @@ class JournalProvider extends ChangeNotifier {
       mood: mood ?? 'Neutral 😐',
       title: title,
     ));
+
+    await EngagementService().recordAction(EngagementAction.journalEntry);
+    if (!await EngagementService().hasCompletedFirstSession()) {
+      await EngagementService().markFirstSessionComplete('journal');
+      final ctx = R.N.navKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        ctx.read<AppAuthProvider>().markFirstSessionComplete();
+      }
+    }
     
     notifyListeners();
   }
@@ -102,7 +108,10 @@ class JournalProvider extends ChangeNotifier {
   }
 
   Future<void> loadInitialData() async {
-    await SyncService().syncJournalsFromFirestore();
+    if (await AppHelper.isOnline()) {
+      await SyncService().syncJournalsFromFirestore();
+      await SyncService().syncPendingJournals();
+    }
     await loadEntries();
     await loadFocusTime();
   }

@@ -78,6 +78,11 @@ class _DecisionAnalyzerScreenState extends State<DecisionAnalyzerScreen> {
     
     if (response != null) {
       await auth.useDecisionCredit();
+      await EngagementService().recordAction(EngagementAction.decisionAnalyzed);
+      if (!auth.hasCompletedFirstSession) {
+        await EngagementService().markFirstSessionComplete('decision');
+        auth.markFirstSessionComplete();
+      }
     }
 
     setState(() => _isLoading = false);

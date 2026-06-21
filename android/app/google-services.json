@@ -39,6 +39,14 @@
           }
         },
         {
+          "client_id": "802202587833-oh9i9qo1n1i28fg684265t2f191m21ek.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mindpilot.app",
+            "certificate_hash": "503cc0ed235aacdb0c454b669775d11c6016ef72"
+          }
+        },
+        {
           "client_id": "802202587833-qbbadhr3oqoot1ev3ic8aa24ujd9v1ms.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

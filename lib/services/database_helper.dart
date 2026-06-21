@@ -22,7 +22,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'mindpilot_journal.db');
     return await openDatabase(
       path,
-      version: 13,
+      version: 15,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -130,6 +130,39 @@ class DatabaseHelper {
         debugPrint('Migration Error: $e');
       }
     }
+    if (oldVersion < 14) {
+      try {
+        await db.execute('''
+          CREATE TABLE bible_quizzes(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            chapter TEXT,
+            score INTEGER,
+            total_questions INTEGER,
+            quiz_type TEXT
+          )
+        ''');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
+      }
+    }
+    if (oldVersion < 15) {
+      try {
+        await db.execute('''
+          CREATE TABLE meeting_ratings(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT,
+            title TEXT,
+            scheduled_at TEXT,
+            rating INTEGER,
+            notes TEXT,
+            rated_at TEXT
+          )
+        ''');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
+      }
+    }
   }
 
 
@@ -187,6 +220,27 @@ class DatabaseHelper {
         timestamp TEXT
       )
     ''');
+    await db.execute('''
+      CREATE TABLE bible_quizzes(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT,
+        chapter TEXT,
+        score INTEGER,
+        total_questions INTEGER,
+        quiz_type TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE meeting_ratings(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id TEXT,
+        title TEXT,
+        scheduled_at TEXT,
+        rating INTEGER,
+        notes TEXT,
+        rated_at TEXT
+      )
+    ''');
   }
 
   Future<int> insertEntry(Map<String, dynamic> entry) async {
@@ -242,6 +296,15 @@ class DatabaseHelper {
       [dateIso]
     );
     return (result.first['total'] as int?) ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentFocusSessions({int limit = 30}) async {
+    Database db = await database;
+    return await db.query(
+      'focus_sessions',
+      orderBy: 'date DESC',
+      limit: limit,
+    );
   }
   
   Future<int> insertTask(Map<String, dynamic> task) async {
@@ -341,6 +404,35 @@ class DatabaseHelper {
     await db.delete('chat_messages');
   }
 
+  Future<int> insertQuizResult(Map<String, dynamic> quiz) async {
+    Database db = await database;
+    return await db.insert('bible_quizzes', quiz);
+  }
+
+  Future<List<Map<String, dynamic>>> getQuizResults() async {
+    Database db = await database;
+    return await db.query('bible_quizzes', orderBy: 'id DESC');
+  }
+
+  Future<List<Map<String, dynamic>>> getQuizResultsSince(String dateIso) async {
+    Database db = await database;
+    return await db.query(
+      'bible_quizzes',
+      where: 'date >= ?',
+      whereArgs: [dateIso],
+      orderBy: 'date DESC',
+    );
+  }
+
+  Future<int> getQuizCountSince(String dateIso) async {
+    Database db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM bible_quizzes WHERE date >= ?',
+      [dateIso]
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
   Future<void> clearAll() async {
     Database db = await database;
     await db.delete('journal_entries');
@@ -348,5 +440,43 @@ class DatabaseHelper {
     await db.delete('tasks');
     await db.delete('notifications');
     await db.delete('chat_messages');
+    await db.delete('bible_quizzes');
+    await db.delete('meeting_ratings');
+  }
+
+  // ─── Meeting Rating Helpers ───────────────────────────────────────────────
+
+  Future<int> insertMeetingRating(Map<String, dynamic> rating) async {
+    Database db = await database;
+    // Upsert: delete existing rating for same event_id first
+    final eventId = rating['event_id'] as String?;
+    if (eventId != null) {
+      await db.delete('meeting_ratings',
+          where: 'event_id = ?', whereArgs: [eventId]);
+    }
+    return await db.insert('meeting_ratings', rating);
+  }
+
+  Future<List<Map<String, dynamic>>> getMeetingRatingsForDate(
+      String datePrefix) async {
+    Database db = await database;
+    return await db.query(
+      'meeting_ratings',
+      where: 'scheduled_at LIKE ?',
+      whereArgs: ['$datePrefix%'],
+      orderBy: 'scheduled_at ASC',
+    );
+  }
+
+  Future<Map<String, dynamic>?> getMeetingRatingByEventId(
+      String eventId) async {
+    Database db = await database;
+    final results = await db.query(
+      'meeting_ratings',
+      where: 'event_id = ?',
+      whereArgs: [eventId],
+      limit: 1,
+    );
+    return results.isNotEmpty ? results.first : null;
   }
 }

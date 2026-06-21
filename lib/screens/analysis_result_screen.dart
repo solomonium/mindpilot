@@ -58,8 +58,9 @@ Continue the analysis naturally.
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         context.showInAppNotification("Error continuing analysis: $e");
+      }
     } finally {
       if (mounted) setState(() => _isContinuing = false);
     }
@@ -149,21 +150,16 @@ Continue the analysis naturally.
         centerTitle: true,
         leading: Padding(
           padding: const EdgeInsets.only(left: 16),
-          child: Icon(
-            Icons.chevron_left,
-            color: theme.accentTxt,
-          ),
+          child: Icon(Icons.chevron_left, color: theme.accentTxt),
         ).rippleClick(() => context.pop()),
         actions: [
-          Icon(
-            Icons.share_outlined,
-            color: theme.accentTxt,
-          ).rippleClick(() {
+          Icon(Icons.share_outlined, color: theme.accentTxt).rippleClick(() {
             final user = context.read<AppAuthProvider>().user;
             final downloadUrl = ConfigService().updateUrl;
             ShareService.captureAndShare(
               context,
-              text: "Making tough choices with clarity! 🧠 Just analyzed a major decision with MindPilot and the path forward is clear. Stop overthinking and start acting.\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Decisions #Clarity",
+              text:
+                  "Making tough choices with clarity! 🧠 Just analyzed a major decision with MindPilot and the path forward is clear. Stop overthinking and start acting.\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Decisions #Clarity",
               widget: ShareableCard(
                 mode: ShareableCardMode.insight,
                 insightTitle: widget.title ?? 'Decision Analysis',

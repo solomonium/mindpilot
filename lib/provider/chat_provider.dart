@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mindpilot/export.dart';
 
 class ChatProvider extends ChangeNotifier {
@@ -28,20 +27,20 @@ class ChatProvider extends ChangeNotifier {
 
   void initChat() async {
     if (_isInitialized) return;
-    
+
     final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
     final models = await _geminiService.listModels(apiKey);
     if (models.isNotEmpty) {
       _availableModels.clear();
       _availableModels.addAll(models);
-      
+
       if (!_availableModels.contains(_selectedModel)) {
         _selectedModel = _availableModels.first;
       }
     }
 
     _geminiService.init(apiKey, modelName: _selectedModel);
-    
+
     // Load existing chat history from SQLite!
     final savedMessages = await DatabaseHelper().getChatMessages();
     _messages.clear();
@@ -57,27 +56,25 @@ class ChatProvider extends ChangeNotifier {
       // Add first greeting to database and memory
       final user = FirebaseAuth.instance.currentUser;
       final name = user?.displayName?.getFirstName();
-      final greeting = name != null ? "Hello $name! I'm your MindPilot assistant. How can I help you today?" : "Hello! I'm your MindPilot assistant. How can I help you today?";
+      final greeting = name != null
+          ? "Hello $name! I'm your MindPilot assistant. How can I help you today?"
+          : "Hello! I'm your MindPilot assistant. How can I help you today?";
       final timestamp = DateTime.now().toIso8601String();
-      
+
       await DatabaseHelper().insertChatMessage({
         'text': greeting,
         'isMe': 0,
         'timestamp': timestamp,
       });
 
-      _messages.add({
-        "text": greeting,
-        "isMe": false,
-        "timestamp": timestamp,
-      });
+      _messages.add({"text": greeting, "isMe": false, "timestamp": timestamp});
     }
-    
+
     // Load daily count from prefs
     final prefs = await SharedPreferences.getInstance();
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final lastChatDate = prefs.getString('LAST_CHAT_DATE') ?? '';
-    
+
     if (lastChatDate != today) {
       _dailyMessageCount = 0;
       await prefs.setString('LAST_CHAT_DATE', today);
@@ -121,12 +118,8 @@ class ChatProvider extends ChangeNotifier {
       'timestamp': timestamp,
     });
 
-    _messages.add({
-      "text": text,
-      "isMe": isMe,
-      "timestamp": timestamp,
-    });
-    
+    _messages.add({"text": text, "isMe": isMe, "timestamp": timestamp});
+
     // Automatically alternate model for the next request
     if (isMe && _availableModels.isNotEmpty) {
       _modelIndex = (_modelIndex + 1) % _availableModels.length;
@@ -139,14 +132,12 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-
   void updateModel(String modelName) {
     _selectedModel = modelName;
     final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
     _geminiService.init(apiKey, modelName: _selectedModel);
     notifyListeners();
   }
-
 
   void resetChat() async {
     await DatabaseHelper().clearChatMessages();

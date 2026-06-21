@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mindpilot/export.dart';
 
 class SyncService {
@@ -22,7 +20,10 @@ class SyncService {
           .get();
 
       final localTasks = await _dbHelper.getTasks();
-      final localRemoteIds = localTasks.map((t) => t['remoteId'] as String?).whereType<String>().toSet();
+      final localRemoteIds = localTasks
+          .map((t) => t['remoteId'] as String?)
+          .whereType<String>()
+          .toSet();
 
       for (var doc in snapshot.docs) {
         final data = doc.data();
@@ -44,7 +45,8 @@ class SyncService {
       }
     } catch (e) {
       safePrint('Sync Error: $e');
-      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
+      if (e.toString().contains('network') ||
+          e.toString().contains('unavailable')) {
         _notifyOffline();
       }
     }
@@ -62,7 +64,10 @@ class SyncService {
           .get();
 
       final localJournals = await _dbHelper.getEntries();
-      final localRemoteIds = localJournals.map((j) => j['remoteId'] as String?).whereType<String>().toSet();
+      final localRemoteIds = localJournals
+          .map((j) => j['remoteId'] as String?)
+          .whereType<String>()
+          .toSet();
 
       for (var doc in snapshot.docs) {
         final data = doc.data();
@@ -81,7 +86,8 @@ class SyncService {
       }
     } catch (e) {
       safePrint('Sync Error: $e');
-      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
+      if (e.toString().contains('network') ||
+          e.toString().contains('unavailable')) {
         _notifyOffline();
       }
     }
@@ -106,7 +112,7 @@ class SyncService {
             .doc(user.uid)
             .collection('tasks')
             .add(taskMap);
-        
+
         final localId = taskMap['id'];
         if (localId != null) {
           await _dbHelper.updateTask(localId, {'remoteId': docRef.id});
@@ -114,7 +120,8 @@ class SyncService {
       }
     } catch (e) {
       safePrint('Push Error: $e');
-      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
+      if (e.toString().contains('network') ||
+          e.toString().contains('unavailable')) {
         _notifyOffline();
       }
     }
@@ -139,7 +146,7 @@ class SyncService {
             .doc(user.uid)
             .collection('journals')
             .add(journalMap);
-        
+
         final localId = journalMap['id'];
         if (localId != null) {
           await _dbHelper.updateJournalRemoteId(localId, docRef.id);
@@ -177,6 +184,23 @@ class SyncService {
           .delete();
     } catch (e) {
       safePrint('Delete Error: $e');
+    }
+  }
+
+  Future<void> syncPendingJournals() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final localJournals = await _dbHelper.getEntries();
+      for (final entry in localJournals) {
+        if (entry['remoteId'] == null) {
+          final map = Map<String, dynamic>.from(entry);
+          await pushJournalToFirestore(map);
+        }
+      }
+    } catch (e) {
+      safePrint('Pending journal sync error: $e');
     }
   }
 

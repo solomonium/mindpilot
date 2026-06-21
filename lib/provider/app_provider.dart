@@ -60,35 +60,56 @@ class AppProvider extends BaseProvider {
     }
   }
 
+  bool _dailyMoodCheckInEnabled = true;
+  bool get dailyMoodCheckInEnabled => _dailyMoodCheckInEnabled;
+
+  set dailyMoodCheckInEnabled(bool val) {
+    _dailyMoodCheckInEnabled = val;
+    SharedPrefs.setBool('DAILY_MOOD_CHECK_IN_ENABLED', val);
+    notifyListeners();
+    if (val) {
+      NotificationService().scheduleDailyMoodCheckInReminder();
+    } else {
+      NotificationService().cancelDailyMoodCheckInReminder();
+    }
+  }
+
+  bool _dailyBibleQuizReminderEnabled = true;
+  bool get dailyBibleQuizReminderEnabled => _dailyBibleQuizReminderEnabled;
+
+  set dailyBibleQuizReminderEnabled(bool val) {
+    _dailyBibleQuizReminderEnabled = val;
+    SharedPrefs.setBool('DAILY_BIBLE_QUIZ_REMINDER_ENABLED', val);
+    notifyListeners();
+    if (val) {
+      NotificationService().scheduleDailyBibleQuizReminder();
+    } else {
+      NotificationService().cancelDailyBibleQuizReminder();
+    }
+  }
+
   int _streak = 0;
   int get streak => _streak;
+  bool _engagedToday = false;
+  bool get engagedToday => _engagedToday;
+
+  void applyEngagementSync({required int streak}) {
+    _streak = streak;
+    _engagedToday = true;
+    notifyListeners();
+  }
+
+  Future<void> syncEngagementFromCloud() async {
+    final data = await EngagementService().loadEngagementData();
+    _streak = data['streak'] as int? ?? 0;
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _engagedToday = (data['lastEngagementDate'] as String? ?? '') == today;
+    notifyListeners();
+    await EngagementService().scheduleStreakAtRiskReminder(_streak);
+  }
 
   Future<void> updateStreak() async {
-    final lastActiveStr = await SharedPrefs.getString('LAST_ACTIVE_DATE');
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    if (lastActiveStr.isEmpty) {
-      _streak = 1;
-    } else {
-      final lastActive = DateTime.tryParse(lastActiveStr) ?? today;
-      final difference = today.difference(lastActive).inDays;
-
-      if (difference == 1) {
-        final current = await SharedPrefs.getInt('STREAK_COUNT') ?? 0;
-        _streak = current + 1;
-      } else if (difference > 1) {
-        _streak = 1;
-      } else {
-        _streak = await SharedPrefs.getInt('STREAK_COUNT') ?? 1;
-      }
-    }
-
-    if (lastActiveStr != today.toIso8601String()) {
-      await SharedPrefs.setInt('STREAK_COUNT', _streak);
-      await SharedPrefs.setString('LAST_ACTIVE_DATE', today.toIso8601String());
-    }
-    notifyListeners();
+    await syncEngagementFromCloud();
   }
 
   Future<void> init() async {
@@ -104,7 +125,18 @@ class AppProvider extends BaseProvider {
         await SharedPrefs.getBool('PUSH_NOTIFICATIONS_ENABLED') ?? false;
     _dailyReminderEnabled =
         await SharedPrefs.getBool('DAILY_REMINDER_ENABLED') ?? true;
-    await updateStreak();
+    _dailyMoodCheckInEnabled =
+        await SharedPrefs.getBool('DAILY_MOOD_CHECK_IN_ENABLED') ?? true;
+    if (_dailyMoodCheckInEnabled) {
+      NotificationService().scheduleDailyMoodCheckInReminder();
+    }
+    _dailyBibleQuizReminderEnabled =
+        await SharedPrefs.getBool('DAILY_BIBLE_QUIZ_REMINDER_ENABLED') ?? true;
+    if (_dailyBibleQuizReminderEnabled) {
+      NotificationService().scheduleDailyBibleQuizReminder();
+    }
+    await syncEngagementFromCloud();
+    await EngagementService().recordLastAppOpen();
     notifyListeners();
   }
 }

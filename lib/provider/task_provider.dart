@@ -180,6 +180,10 @@ class TaskProvider extends ChangeNotifier {
     
     SyncService().pushTaskToFirestore(updatedTask.toMap());
     
+    if (nowDone) {
+      await EngagementService().recordAction(EngagementAction.taskCompleted);
+    }
+
     await loadTasks();
   }
 

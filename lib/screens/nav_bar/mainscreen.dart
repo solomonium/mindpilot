@@ -25,7 +25,31 @@ class _MainScreenState extends State<MainScreen> {
       _checkAndPromptPermissions();
       _listenForFeedbackToggle();
       _handlePendingNotification();
+      _maybeShowChatFabTooltip();
     });
+  }
+
+  Future<void> _maybeShowChatFabTooltip() async {
+    final shown = await SharedPrefs.getBool('CHAT_FAB_TOOLTIP_SHOWN') ?? false;
+    if (shown || !mounted) return;
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    await SharedPrefs.setBool('CHAT_FAB_TOOLTIP_SHOWN', true);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Tap ASK anytime for personalized AI guidance'),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Got it',
+          onPressed: () {},
+        ),
+      ),
+    );
   }
 
   void _handlePendingNotification() {
@@ -51,13 +75,17 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     if (Platform.isAndroid) {
+      final alreadyPrompted =
+          await SharedPrefs.getBool('FULL_SCREEN_PROMPT_SHOWN') ?? false;
+      if (alreadyPrompted) return;
+
       bool hasFullScreen = await notificationService.canUseFullScreenIntent();
 
       if (!hasFullScreen) {
         if (!mounted) return;
         showDialog(
           context: context,
-          barrierDismissible: false,
+          barrierDismissible: true,
           builder: (BuildContext context) {
             return StatefulBuilder(
               builder: (context, setState) {
@@ -130,9 +158,13 @@ class _MainScreenState extends State<MainScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    hasFullScreen ? 'Permission granted' : 'Allows alarm to wake screen',
+                                    hasFullScreen
+                                        ? 'Permission granted'
+                                        : 'Allows alarm to wake screen',
                                     style: TextStyle(
-                                      color: hasFullScreen ? Colors.greenAccent : const Color(0xFFB8B5D0),
+                                      color: hasFullScreen
+                                          ? Colors.greenAccent
+                                          : const Color(0xFFB8B5D0),
                                       fontSize: 11.5,
                                     ),
                                   ),
@@ -140,7 +172,11 @@ class _MainScreenState extends State<MainScreen> {
                               ),
                             ),
                             if (hasFullScreen)
-                              const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 24)
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: Colors.greenAccent,
+                                size: 24,
+                              )
                             else
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
@@ -150,12 +186,19 @@ class _MainScreenState extends State<MainScreen> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
                                 ),
                                 onPressed: () async {
-                                  await notificationService.openFullScreenIntentSettings();
-                                  await Future.delayed(const Duration(milliseconds: 1000));
-                                  final res = await notificationService.canUseFullScreenIntent();
+                                  await notificationService
+                                      .openFullScreenIntentSettings();
+                                  await Future.delayed(
+                                    const Duration(milliseconds: 1000),
+                                  );
+                                  final res = await notificationService
+                                      .canUseFullScreenIntent();
                                   setState(() {
                                     hasFullScreen = res;
                                   });
@@ -177,7 +220,8 @@ class _MainScreenState extends State<MainScreen> {
                   actionsAlignment: MainAxisAlignment.spaceBetween,
                   actions: [
                     TextButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        await SharedPrefs.setBool('FULL_SCREEN_PROMPT_SHOWN', true);
                         Navigator.of(context).pop();
                       },
                       child: const Text(
@@ -196,16 +240,21 @@ class _MainScreenState extends State<MainScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 12,
+                        ),
                       ),
                       onPressed: () async {
-                        final screenRes = await notificationService.canUseFullScreenIntent();
-                        
+                        final screenRes = await notificationService
+                            .canUseFullScreenIntent();
+
                         setState(() {
                           hasFullScreen = screenRes;
                         });
 
                         if (hasFullScreen) {
+                          await SharedPrefs.setBool('FULL_SCREEN_PROMPT_SHOWN', true);
                           if (context.mounted) {
                             Navigator.of(context).pop();
                             context.showInAppNotification(
@@ -247,18 +296,18 @@ class _MainScreenState extends State<MainScreen> {
         .doc('settings')
         .snapshots()
         .listen((snapshot) {
-      if (!snapshot.exists || !mounted) return;
-      final data = snapshot.data() as Map<String, dynamic>?;
-      final showFeedback = data?['showFeedbackCard'] ?? false;
+          if (!snapshot.exists || !mounted) return;
+          final data = snapshot.data();
+          final showFeedback = data?['showFeedbackCard'] ?? false;
 
-      // Only trigger on a false -> true transition
-      if (showFeedback && !_lastFeedbackFlag) {
-        _lastFeedbackFlag = true;
-        AppHelper.showFeedbackPrompt(context);
-      } else {
-        _lastFeedbackFlag = showFeedback;
-      }
-    });
+          // Only trigger on a false -> true transition
+          if (showFeedback && !_lastFeedbackFlag) {
+            _lastFeedbackFlag = true;
+            AppHelper.showFeedbackPrompt(context);
+          } else {
+            _lastFeedbackFlag = showFeedback;
+          }
+        });
   }
 
   @override
@@ -292,8 +341,8 @@ class _MainScreenState extends State<MainScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        theme.brandDark.withOpacity(0.2),
-                        theme.brandDark.withOpacity(0.6),
+                        theme.brandDark.withValues(alpha: 0.2),
+                        theme.brandDark.withValues(alpha: 0.6),
                         theme.brandDark,
                       ],
                     ),
@@ -303,15 +352,15 @@ class _MainScreenState extends State<MainScreen> {
               Scaffold(
                 backgroundColor: Colors.transparent,
                 extendBody: true,
-                floatingActionButton: const GlowingChatFab(),
+                floatingActionButton: store.navIndex == 0 ? const GlowingChatFab() : null,
                 bottomNavigationBar: const BottomNav(),
                 body: IndexedStack(
                   index: store.navIndex,
                   children: const [
                     HomeScreen(),
                     FocusSessionScreen(),
+                    BibleMainScreen(),
                     DecisionAnalyzerScreen(),
-                    JournalEntriesScreen(),
                     ProfileScreen(),
                   ],
                 ),

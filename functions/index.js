@@ -42,7 +42,6 @@ const CHINESE_WISDOM_POOL = [
     { q: "The man who moves a mountain begins by carrying away small stones.", a: "Confucius" },
     { q: "Do not fear going forward slowly; fear only standing still.", a: "Chinese Proverb" },
     { q: "He who asks is a fool for five minutes, but he who does not ask remains a fool forever.", a: "Chinese Proverb" },
-    { q: "Be not afraid of growing slowly, be afraid only of standing still.", a: "Chinese Proverb" },
     { q: "Opportunities multiply as they are seized.", a: "Sun Tzu" },
     { q: "If you are planning for a year, sow rice; if you are planning for a decade, plant trees; if you are planning for a lifetime, educate people.", a: "Chinese Proverb" },
     { q: "To know the road ahead, ask those coming back.", a: "Chinese Proverb" },
@@ -64,7 +63,26 @@ const CHINESE_WISDOM_POOL = [
     { q: "Silence is a true friend who never betrays.", a: "Confucius" },
     { q: "The journey is the reward.", a: "Taoist Saying" },
     { q: "When you drink the water, remember the spring.", a: "Chinese Proverb" },
-    { q: "Sorrow is the child of too much joy.", a: "Chinese Proverb" }
+    { q: "Sorrow is the child of too much joy.", a: "Chinese Proverb" },
+    { q: "Better to light a candle than to curse the darkness.", a: "Chinese Proverb" },
+    { q: "An inch of time is an inch of gold, but you cannot buy that inch of time with an inch of gold.", a: "Chinese Proverb" },
+    { q: "All things are difficult before they are easy.", a: "Chinese Proverb" },
+    { q: "One generation plants the trees; another gets the shade.", a: "Chinese Proverb" },
+    { q: "Deep doubts lead to deep wisdom; small doubts lead to small wisdom.", a: "Chinese Proverb" },
+    { q: "Flow with whatever may happen, and let your mind be free.", a: "Zhuangzi" },
+    { q: "Governing a great nation is like cooking a small fish.", a: "Lao Tzu" },
+    { q: "To realize that you do not understand is a virtue; not to realize that you do not understand is a defect.", a: "Lao Tzu" },
+    { q: "The willow bends in the wind but does not break.", a: "Chinese Proverb" },
+    { q: "He who climbs the ladder must begin at the bottom.", a: "Chinese Proverb" },
+    { q: "A clear conscience never fears midnight knocking.", a: "Chinese Proverb" },
+    { q: "A gentleman is easy of mind, while the small man is always full of anxiety.", a: "Confucius" },
+    { q: "Virtue is not left to stand alone. He who practices it will have neighbors.", a: "Confucius" },
+    { q: "He who thinks too much about every step he takes will always remain on one leg.", a: "Chinese Proverb" },
+    { q: "A single conversation across the table with a wise man is worth a month's study of books.", a: "Chinese Proverb" },
+    { q: "If you do not change direction, you may end up where you are heading.", a: "Lao Tzu" },
+    { q: "The water that bears the boat is the same that swallows it up.", a: "Xun Kuang" },
+    { q: "To chop trees without sharpening your axe is a waste of time.", a: "Chinese Proverb" },
+    { q: "A fall into a ditch makes you wiser.", a: "Chinese Proverb" }
 ];
 
 // Helper to fetch from one of the 6 public free APIs
@@ -371,6 +389,159 @@ exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
         console.log(`Processed ${promises.length} super admin registration alerts.`);
     } catch (e) {
         console.error("onUserCreated Error:", e);
+    }
+});
+
+async function sendPersonalizedPush(userDoc, title, body, type) {
+    const userData = userDoc.data();
+    const fcmToken = userData.fcmToken;
+    if (!fcmToken) return false;
+
+    const payload = {
+        notification: { title, body },
+        data: {
+            type,
+            title,
+            body,
+            click_action: "FLUTTER_NOTIFICATION_CLICK",
+        },
+        android: {
+            priority: "high",
+            notification: {
+                channelId: "mindpilot_notifications",
+                priority: "high",
+            },
+        },
+        apns: {
+            payload: {
+                aps: { contentAvailable: true, sound: "default" },
+            },
+        },
+        token: fcmToken,
+    };
+
+    await admin.messaging().send(payload);
+    return true;
+}
+
+function getGoalBasedWinBackMessage(personalization) {
+    const goals = Array.isArray(personalization) ? personalization : [];
+    const primary = goals[0] || "";
+
+    if (primary.includes("Decision")) {
+        return "Ready for a clarity check? Analyze one decision today.";
+    }
+    if (primary.includes("Productive")) {
+        return "Your focus session is waiting. Even 5 minutes counts.";
+    }
+    if (primary.includes("Wellbeing") || primary.includes("Growth")) {
+        return "How are you feeling? A quick journal entry helps.";
+    }
+    return "Your clarity journey continues. Open MindPilot for today's insight.";
+}
+
+exports.sendWinBackNotifications = onSchedule("every 24 hours", async () => {
+    try {
+        const now = admin.firestore.Timestamp.now();
+        const twoDaysAgo = admin.firestore.Timestamp.fromMillis(
+            now.toMillis() - (2 * 24 * 60 * 60 * 1000)
+        );
+        const threeDaysAgo = admin.firestore.Timestamp.fromMillis(
+            now.toMillis() - (3 * 24 * 60 * 60 * 1000)
+        );
+
+        const usersSnap = await admin.firestore()
+            .collection("users")
+            .where("fcmToken", "!=", "")
+            .get();
+
+        const promises = [];
+
+        for (const doc of usersSnap.docs) {
+            const data = doc.data();
+            const lastOpen = data.lastAppOpen;
+            const lastEngagement = data.lastEngagementDate;
+            const streak = data.streak || 0;
+            const personalization = data.personalization || [];
+
+            if (!lastOpen) continue;
+
+            const inactiveMs = now.toMillis() - lastOpen.toMillis();
+
+            if (inactiveMs >= 2 * 24 * 60 * 60 * 1000 &&
+                inactiveMs < 3 * 24 * 60 * 60 * 1000) {
+                const today = new Date().toISOString().slice(0, 10);
+                if (lastEngagement !== today && streak > 0) {
+                    promises.push(
+                        sendPersonalizedPush(
+                            doc,
+                            "Streak at risk 🔥",
+                            `Your ${streak}-day streak needs one focus session, journal, or decision today.`,
+                            "winback_streak"
+                        ).catch((err) => console.error(`Winback streak error ${doc.id}:`, err))
+                    );
+                    continue;
+                }
+
+                promises.push(
+                    sendPersonalizedPush(
+                        doc,
+                        "We miss you on MindPilot",
+                        getGoalBasedWinBackMessage(personalization),
+                        "winback"
+                    ).catch((err) => console.error(`Winback error ${doc.id}:`, err))
+                );
+            }
+
+            if (lastOpen.toMillis() <= threeDaysAgo.toMillis()) {
+                promises.push(
+                    sendPersonalizedPush(
+                        doc,
+                        "Your clarity journey awaits",
+                        getGoalBasedWinBackMessage(personalization),
+                        "winback_long"
+                    ).catch((err) => console.error(`Long winback error ${doc.id}:`, err))
+                );
+            }
+        }
+
+        await Promise.all(promises);
+        console.log(`Processed ${promises.length} win-back notifications.`);
+    } catch (e) {
+        console.error("sendWinBackNotifications Error:", e);
+    }
+});
+
+exports.sendWeeklySummary = onSchedule("0 18 * * 0", async () => {
+    try {
+        const usersSnap = await admin.firestore()
+            .collection("users")
+            .where("fcmToken", "!=", "")
+            .get();
+
+        const promises = [];
+        for (const doc of usersSnap.docs) {
+            const data = doc.data();
+            const streak = data.streak || 0;
+            const xp = data.xp || 0;
+            const level = data.level || 1;
+
+            promises.push(
+                sendPersonalizedPush(
+                    doc,
+                    "Weekly clarity report 📊",
+                    streak > 0
+                        ? `Level ${level} • ${streak}-day streak • ${xp} XP. See your growth in MindPilot.`
+                        : `You're at Level ${level}. Start a session this week to build momentum.`,
+                    "weekly_summary"
+                ).catch((err) => console.error(`Weekly summary error ${doc.id}:`, err))
+            );
+        }
+
+        await Promise.all(promises);
+        console.log(`Sent ${promises.length} weekly summary notifications.`);
+    } catch (e) {
+        console.error("sendWeeklySummary Error:", e);
     }
 });
 

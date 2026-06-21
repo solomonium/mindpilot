@@ -104,6 +104,13 @@ class AdService {
   }) async {
     if (_rewardedAd == null) {
       safePrint('AdService: Rewarded ad not ready, trying to load...');
+      if (kDebugMode) {
+        safePrint('AdService: [Debug Mode] Ad not loaded. Simulating successful ad reward callback...');
+        // Brief delay to simulate ad loading/dismissing experience
+        await Future.delayed(const Duration(milliseconds: 800));
+        onUserEarnedReward(null as dynamic, null as dynamic);
+        return;
+      }
       onAdFailedToShow();
       loadRewardedAd();
       return;
@@ -113,6 +120,11 @@ class AdService {
       await _rewardedAd!.show(onUserEarnedReward: onUserEarnedReward);
     } catch (e) {
       safePrint('AdService: Error during showing: $e');
+      if (kDebugMode) {
+        safePrint('AdService: [Debug Mode] Show error: $e. Simulating successful ad reward callback...');
+        onUserEarnedReward(null as dynamic, null as dynamic);
+        return;
+      }
       onAdFailedToShow();
     }
   }

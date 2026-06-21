@@ -39,7 +39,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final config = ConfigService();
     _phoneController.text = config.supportPhone;
     _versionController.text = config.latestVersion;
-    _intervalController.text = (config.quoteIntervalMs / 60000).round().toString();
+    _intervalController.text = (config.quoteIntervalMs / 60000)
+        .round()
+        .toString();
     _updateUrlController.text = config.updateUrl;
     _forceUpdateValue = config.forceUpdate;
     _fetchTotalUsers();
@@ -47,9 +49,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _fetchTotalUsers() async {
     try {
-      final countSnapshot = await FirebaseFirestore.instance.collection('users').count().get();
+      final countSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .count()
+          .get();
       final count = countSnapshot.count ?? 0;
-      
+
       setState(() {
         _totalUsers = count;
         _isLoadingUsersCount = false;
@@ -62,9 +67,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         await FirebaseFirestore.instance
             .collection('app_config')
             .doc('settings')
-            .set({
-              'authenticated_users_count': count,
-            }, SetOptions(merge: true));
+            .set({'authenticated_users_count': count}, SetOptions(merge: true));
         await config.fetchRemoteConfig();
         if (mounted) {
           setState(() {});
@@ -272,7 +275,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (existingQuery.docs.isNotEmpty) {
         final doc = existingQuery.docs.first;
         final lastCreated = doc.data()['createdAt'] as Timestamp?;
-        
+
         // Prevent rapid double-sends within a 1-minute window
         if (lastCreated != null) {
           final difference = DateTime.now().difference(lastCreated.toDate());
@@ -292,9 +295,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         await FirebaseFirestore.instance
             .collection('broadcasts')
             .doc(doc.id)
-            .update({
-              'createdAt': FieldValue.serverTimestamp(),
-            });
+            .update({'createdAt': FieldValue.serverTimestamp()});
       } else {
         // Create a new document if it does not exist
         await FirebaseFirestore.instance.collection('broadcasts').add({
@@ -316,7 +317,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
     setState(() => _isBroadcasting = false);
   }
-
 
   Widget _userManagementCard(BuildContext context) {
     AppTheme theme = context.watch<AppTheme>();
@@ -416,8 +416,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _foundUserType = doc.data()['userType'] ?? 'Freemium';
         });
       } else {
-        if (mounted)
+        if (mounted) {
           context.showInAppNotification('User not found in database.');
+        }
       }
     } catch (e) {
       if (mounted) context.showInAppNotification('Error: $e');
@@ -465,8 +466,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _configItem('Registered Users (Firestore)', _isLoadingUsersCount ? 'Loading...' : '$_totalUsers'),
-          _configItem('Total Authenticated (Config)', config.authenticatedUsersCount.toString()),
+          _configItem(
+            'Registered Users (Firestore)',
+            _isLoadingUsersCount ? 'Loading...' : '$_totalUsers',
+          ),
+          _configItem(
+            'Total Authenticated (Config)',
+            config.authenticatedUsersCount.toString(),
+          ),
           _configItem('Version', config.latestVersion),
           _configItem(
             'Interval (mins)',
@@ -542,7 +549,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     setState(() {
                       _phoneController.text = config.supportPhone;
                       _versionController.text = config.latestVersion;
-                      _intervalController.text = (config.quoteIntervalMs / 60000).round().toString();
+                      _intervalController.text =
+                          (config.quoteIntervalMs / 60000).round().toString();
                       _updateUrlController.text = config.updateUrl;
                       _forceUpdateValue = config.forceUpdate;
                     });
@@ -628,7 +636,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             'quote_interval_ms': intervalMs,
             'update_url': updateUrl,
             'force_update': _forceUpdateValue,
-            'authenticated_users_count': _totalUsers, // Maintain/sync the accurate total user count automatically
+            'authenticated_users_count':
+                _totalUsers, // Maintain/sync the accurate total user count automatically
             'updatedAt': FieldValue.serverTimestamp(),
           });
 
@@ -730,8 +739,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('admins').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData)
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
+        }
 
         final admins = snapshot.data!.docs
             .map((doc) => doc['email'] as String)
@@ -801,9 +811,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isInsight ? theme.primaryBase.withOpacity(0.2) : theme.accentTxt.withOpacity(0.1),
+        color: isInsight
+            ? theme.primaryBase.withOpacity(0.2)
+            : theme.accentTxt.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isInsight ? theme.primaryBase.withOpacity(0.3) : theme.accentTxt.withOpacity(0.1)),
+        border: Border.all(
+          color: isInsight
+              ? theme.primaryBase.withOpacity(0.3)
+              : theme.accentTxt.withOpacity(0.1),
+        ),
       ),
       child: SecondaryText(
         text: label,
@@ -826,10 +842,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         setState(() => _selectedBroadcastType = value);
         if (value == 'insight') {
           _broadcastTitleController.text = 'Daily Reflection';
-          _broadcastBodyController.text = 'Growth begins where your comfort zone ends. Push yourself today!';
+          _broadcastBodyController.text =
+              'Growth begins where your comfort zone ends. Push yourself today!';
         } else {
           _broadcastTitleController.text = 'Daily Reflection';
-          _broadcastBodyController.text = 'Take a moment to reflect on your achievements today. You are making great progress!';
+          _broadcastBodyController.text =
+              'Take a moment to reflect on your achievements today. You are making great progress!';
         }
       },
       child: Container(
@@ -838,7 +856,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         decoration: BoxDecoration(
           color: isSelected ? theme.primaryBase : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isSelected ? theme.primaryBase : theme.accentTxt.withOpacity(0.2)),
+          border: Border.all(
+            color: isSelected
+                ? theme.primaryBase
+                : theme.accentTxt.withOpacity(0.2),
+          ),
         ),
         child: SecondaryText(
           text: label,
@@ -859,7 +881,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SecondaryText(
-            text: 'Instantly trigger a feedback card for all active users. Toggle ON to show the feedback prompt app-wide.',
+            text:
+                'Instantly trigger a feedback card for all active users. Toggle ON to show the feedback prompt app-wide.',
             color: theme.accentTxt.withOpacity(0.7),
             fontSize: 13,
           ),
@@ -883,13 +906,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Icon(
                         isEnabled ? Icons.feedback : Icons.feedback_outlined,
-                        color: isEnabled ? theme.successPrimary : theme.accentTxt.withOpacity(0.5),
+                        color: isEnabled
+                            ? theme.successPrimary
+                            : theme.accentTxt.withOpacity(0.5),
                         size: 22,
                       ),
                       12.horizontalSpace,
                       PrimaryText(
-                        text: isEnabled ? 'Feedback Card Active' : 'Feedback Card Off',
-                        color: isEnabled ? theme.successPrimary : theme.accentTxt.withOpacity(0.7),
+                        text: isEnabled
+                            ? 'Feedback Card Active'
+                            : 'Feedback Card Off',
+                        color: isEnabled
+                            ? theme.successPrimary
+                            : theme.accentTxt.withOpacity(0.7),
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
@@ -903,10 +932,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         await FirebaseFirestore.instance
                             .collection('app_config')
                             .doc('settings')
-                            .set(
-                              {'showFeedbackCard': val},
-                              SetOptions(merge: true),
-                            );
+                            .set({
+                              'showFeedbackCard': val,
+                            }, SetOptions(merge: true));
                         if (mounted) {
                           context.showInAppNotification(
                             val

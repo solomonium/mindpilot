@@ -21,6 +21,9 @@ class HomeProvider extends BaseProvider {
   int weeklyTasks = 0;
   int weeklyFocusMinutes = 0;
   int weeklyJournalEntries = 0;
+  int weeklyQuizzes = 0;
+  double bibleKnowledgeScore = 0.0;
+  double bibleGrowthScore = 0.0;
   bool isLoadingStats = false;
 
   Future<void> loadWeeklyStats() async {
@@ -34,6 +37,28 @@ class HomeProvider extends BaseProvider {
     weeklyTasks = await db.getTasksCompletedSince(dateIso);
     weeklyFocusMinutes = await db.getFocusMinutesSince(dateIso);
     weeklyJournalEntries = await db.getJournalCountSince(dateIso);
+
+    try {
+      final quizzes = await db.getQuizResultsSince(dateIso);
+      weeklyQuizzes = quizzes.length;
+      if (quizzes.isNotEmpty) {
+        int totalScore = 0;
+        int totalQuestions = 0;
+        for (final q in quizzes) {
+          totalScore += (q['score'] as int? ?? 0);
+          totalQuestions += (q['total_questions'] as int? ?? 0);
+        }
+        bibleKnowledgeScore = totalQuestions > 0 ? (totalScore / totalQuestions) * 100 : 0.0;
+        bibleGrowthScore = (weeklyQuizzes * 20.0).clamp(0.0, 100.0);
+      } else {
+        bibleKnowledgeScore = 0.0;
+        bibleGrowthScore = 0.0;
+      }
+    } catch (_) {
+      weeklyQuizzes = 0;
+      bibleKnowledgeScore = 0.0;
+      bibleGrowthScore = 0.0;
+    }
 
     isLoadingStats = false;
     notifyListeners();

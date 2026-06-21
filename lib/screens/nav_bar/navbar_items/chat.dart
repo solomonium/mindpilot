@@ -2,7 +2,9 @@ import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
 
 class AiChatScreen extends StatefulWidget {
-  const AiChatScreen({super.key});
+  final String? initialMessage;
+
+  const AiChatScreen({super.key, this.initialMessage});
 
   @override
   State<AiChatScreen> createState() => _AiChatScreenState();
@@ -20,6 +22,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
     AppHelper.setScreenshotProtection(true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChatProvider>().initChat();
+      if (widget.initialMessage != null &&
+          widget.initialMessage!.trim().isNotEmpty) {
+        _messageController.text = widget.initialMessage!.trim();
+      }
     });
   }
 
@@ -77,6 +83,7 @@ User: $text
 
       if (mounted) {
         chatStore.incrementMessageCount();
+        await EngagementService().recordAction(EngagementAction.chatMessage);
         chatStore.addMessage(
           response ?? "I'm sorry, I couldn't process that.",
           false,
@@ -122,7 +129,7 @@ User: $text
               SecondaryText(
                 text:
                     '${chatStore.freemiumLimit - chatStore.dailyMessageCount} messages left today',
-                color: theme.accentTxt.withOpacity(0.5),
+                color: theme.accentTxt.withValues(alpha: 0.5),
                 fontSize: 10,
               ),
           ],
@@ -155,13 +162,13 @@ User: $text
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                color: theme.primaryBase.withOpacity(0.05),
+                color: theme.primaryBase.withValues(alpha: 0.05),
                 child: Center(
                   child: SecondaryText(
                     text:
                         '💡 Tip: Tap the color circles above a message to change its text color.',
                     fontSize: 10,
-                    color: theme.accentTxt.withOpacity(0.6),
+                    color: theme.accentTxt.withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -235,7 +242,7 @@ User: $text
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const SizedBox(
@@ -257,7 +264,7 @@ User: $text
     AppTheme theme = context.watch();
     return Icon(
       Icons.copy_rounded,
-      color: theme.accentTxt.withOpacity(0.4),
+      color: theme.accentTxt.withValues(alpha: 0.4),
       size: 16,
     ).rippleClick(() async {
       final isPro = context.read<AppAuthProvider>().isPro;
@@ -301,15 +308,15 @@ User: $text
         margin: const EdgeInsets.symmetric(vertical: 16),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: theme.accentTxt.withOpacity(0.06),
+          color: theme.accentTxt.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.accentTxt.withOpacity(0.06)),
+          border: Border.all(color: theme.accentTxt.withValues(alpha: 0.06)),
         ),
         child: SecondaryText(
           text: text,
           fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: theme.accentTxt.withOpacity(0.5),
+          color: theme.accentTxt.withValues(alpha: 0.5),
         ),
       ),
     );
@@ -367,7 +374,7 @@ User: $text
                           SecondaryText(
                             text: timeStr,
                             fontSize: 10,
-                            color: theme.accentTxt.withOpacity(0.4),
+                            color: theme.accentTxt.withValues(alpha: 0.4),
                           ),
                         ],
                       ],
@@ -390,7 +397,7 @@ User: $text
               child: SecondaryText(
                 text: timeStr,
                 fontSize: 10,
-                color: theme.accentTxt.withOpacity(0.4),
+                color: theme.accentTxt.withValues(alpha: 0.4),
               ),
             ),
           Container(
@@ -402,7 +409,7 @@ User: $text
             decoration: BoxDecoration(
               color: isMe
                   ? theme.primaryBase
-                  : theme.accentTxt.withOpacity(0.1),
+                  : theme.accentTxt.withValues(alpha: 0.1),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(16),
                 topRight: const Radius.circular(16),
@@ -411,7 +418,7 @@ User: $text
               ),
               border: isMe
                   ? null
-                  : Border.all(color: theme.accentTxt.withOpacity(0.1)),
+                  : Border.all(color: theme.accentTxt.withValues(alpha: 0.1)),
             ),
             child: Stack(
               children: [
@@ -449,7 +456,7 @@ User: $text
                         fontWeight: FontWeight.bold,
                       ),
                       tableBorder: TableBorder.all(
-                        color: textColor.withOpacity(0.2),
+                        color: textColor.withValues(alpha: 0.2),
                       ),
                     ),
                   ),
@@ -467,7 +474,7 @@ User: $text
     final isPro = context.read<AppAuthProvider>().isPro;
     return Icon(
       Icons.share_outlined,
-      color: theme.accentTxt.withOpacity(0.4),
+      color: theme.accentTxt.withValues(alpha: 0.4),
       size: 16,
     ).rippleClick(() {
       if (!isPro) {
@@ -560,9 +567,11 @@ User: $text
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: theme.accentTxt.withOpacity(0.05),
+                    color: theme.accentTxt.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+                    border: Border.all(
+                      color: theme.accentTxt.withValues(alpha: 0.1),
+                    ),
                   ),
                   child: TextField(
                     controller: _messageController,
@@ -577,7 +586,7 @@ User: $text
                           : 'Upgrade to send more messages',
                       border: InputBorder.none,
                       hintStyle: TextStyle(
-                        color: theme.accentTxt.withOpacity(0.5),
+                        color: theme.accentTxt.withValues(alpha: 0.5),
                         fontSize: 16,
                       ),
                     ),
@@ -592,7 +601,7 @@ User: $text
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: theme.primaryBase.withOpacity(0.3),
+                      color: theme.primaryBase.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -612,14 +621,14 @@ User: $text
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.accentTxt.withOpacity(0.05),
+        color: theme.accentTxt.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+        border: Border.all(color: theme.accentTxt.withValues(alpha: 0.1)),
       ),
       child: SecondaryText(
         text: text,
         fontSize: 12,
-        color: theme.accentTxt.withOpacity(0.8),
+        color: theme.accentTxt.withValues(alpha: 0.8),
       ),
     ).rippleClick(() {
       setState(() {

@@ -23,19 +23,19 @@ class BottomNav extends StatelessWidget {
           decoration: BoxDecoration(
             // High sheer frosted glass with a premium subtle purple-tinted base matching the active primary color
             color: theme.isDark
-                ? theme.brandDark.withOpacity(0.5)
-                : theme.primaryBase.withOpacity(0.07),
+                ? theme.brandDark.withValues(alpha: 0.5)
+                : theme.primaryBase.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(40),
             border: Border.all(
-              color: theme.primaryBase.withOpacity(
-                0.35,
+              color: theme.primaryBase.withValues(
+                alpha: 0.35,
               ), // More prominent purple-like border
               width: 1.4,
             ),
             boxShadow: [
               BoxShadow(
-                color: theme.primaryBase.withOpacity(
-                  0.18,
+                color: theme.primaryBase.withValues(
+                  alpha: 0.18,
                 ), // Richer glowing shadow matching your purple-like color
                 blurRadius: 25,
                 spreadRadius: 2,
@@ -113,19 +113,19 @@ class _NavItem extends StatelessWidget {
                 gradient: LinearGradient(
                   colors: [
                     theme.primaryBase,
-                    theme.primaryBase.withOpacity(0.85),
+                    theme.primaryBase.withValues(alpha: 0.85),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.35),
+                  color: Colors.white.withValues(alpha: 0.35),
                   width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: theme.primaryBase.withOpacity(
-                      isSelected ? 0.5 : 0.3,
+                    color: theme.primaryBase.withValues(
+                      alpha: isSelected ? 0.5 : 0.3,
                     ),
                     blurRadius: isSelected ? 12 : 8,
                     spreadRadius: isSelected ? 2 : 1,
@@ -184,14 +184,14 @@ class _NavItem extends StatelessWidget {
                           icon,
                           color: isSelected
                               ? theme.primaryBase
-                              : theme.secondaryTxt.withOpacity(0.75),
+                              : theme.secondaryTxt.withValues(alpha: 0.75),
                           size: 24,
                         )
                       : SvgPicture.asset(
                           icon,
                           color: isSelected
                               ? theme.primaryBase
-                              : theme.secondaryTxt.withOpacity(0.75),
+                              : theme.secondaryTxt.withValues(alpha: 0.75),
                           width: 24,
                           height: 24,
                         ),
@@ -201,7 +201,7 @@ class _NavItem extends StatelessWidget {
                   text: title,
                   color: isSelected
                       ? theme.primaryBase
-                      : theme.secondaryTxt.withOpacity(0.75),
+                      : theme.secondaryTxt.withValues(alpha: 0.75),
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),

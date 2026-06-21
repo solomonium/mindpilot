@@ -74,7 +74,8 @@ class PaymentService {
     isPurchasing.value = true;
     purchasedOrRestored.value = null;
     try {
-      CustomerInfo customerInfo = await Purchases.purchasePackage(package);
+      PurchaseResult result = await Purchases.purchasePackage(package);
+      CustomerInfo customerInfo = result.customerInfo;
       final bool active = customerInfo.entitlements.all[entitlementId]?.isActive == true;
       if (active) {
         await _deliverProAccess(true);
@@ -104,7 +105,8 @@ class PaymentService {
     isPurchasing.value = true;
     purchasedOrRestored.value = null;
     try {
-      CustomerInfo customerInfo = await Purchases.purchaseStoreProduct(product);
+      PurchaseResult result = await Purchases.purchaseStoreProduct(product);
+      CustomerInfo customerInfo = result.customerInfo;
       final bool active =
           customerInfo.entitlements.all[entitlementId]?.isActive == true;
       if (active) {

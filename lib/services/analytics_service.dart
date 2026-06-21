@@ -42,4 +42,77 @@ class AnalyticsService {
       parameters: {'model': model},
     );
   }
+
+  static Future<void> logPersonalizationCompleted(List<String> goals) async {
+    await _analytics.logEvent(
+      name: 'personalization_completed',
+      parameters: {'goals': goals.join('|'), 'goal_count': goals.length},
+    );
+  }
+
+  static Future<void> logFirstSessionComplete(String sessionType) async {
+    await _analytics.logEvent(
+      name: 'first_session_complete',
+      parameters: {'session_type': sessionType},
+    );
+  }
+
+  static Future<void> logEngagementAction(
+    String action, {
+    required int xpGain,
+    required int streak,
+    required int level,
+  }) async {
+    await _analytics.logEvent(
+      name: 'engagement_action',
+      parameters: {
+        'action': action,
+        'xp_gain': xpGain,
+        'streak': streak,
+        'level': level,
+      },
+    );
+  }
+
+  static Future<void> logStreakDay(int streak) async {
+    await _analytics.logEvent(
+      name: 'streak_day',
+      parameters: {'streak_count': streak},
+    );
+  }
+
+  static Future<void> logLevelUp(int level) async {
+    await _analytics.logEvent(
+      name: 'level_up',
+      parameters: {'level': level},
+    );
+  }
+
+  static Future<void> logPaywallShown(String feature) async {
+    await _analytics.logEvent(
+      name: 'paywall_shown',
+      parameters: {'feature': feature},
+    );
+  }
+
+  static Future<void> logShareCard(String mode) async {
+    await _analytics.logEvent(
+      name: 'share_card_created',
+      parameters: {'mode': mode},
+    );
+  }
+
+  static Future<void> logReferralApplied(String code) async {
+    await _analytics.logEvent(
+      name: 'referral_applied',
+      parameters: {'code': code},
+    );
+  }
+
+  static Future<void> logNotificationOpened(String type) async {
+    await _analytics.logEvent(
+      name: 'notification_opened',
+      parameters: {'type': type},
+    );
+  }
 }

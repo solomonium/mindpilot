@@ -11,11 +11,18 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isInsightExpanded = false;
   String? _lastAutoExpandedContent;
 
+  // Google Calendar state
+  List<CalendarEvent> _calendarEvents = [];
+  bool _isLoadingCalendar = false;
+  bool _calendarError = false;
+  bool _calendarConnected = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<HomeProvider>().loadWeeklyStats();
+      await NotificationService().scheduleMorningInsightReminder();
 
       await ConfigService().fetchRemoteConfig();
 
@@ -31,7 +38,68 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
       }
+
+      // Auto-fetch calendar silently for Google users
+      if (GoogleCalendarService().isGoogleUser) {
+        _fetchCalendarEvents(requestPermission: false);
+      }
     });
+  }
+
+  Future<void> _fetchCalendarEvents({bool requestPermission = true}) async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingCalendar = true;
+      _calendarError = false;
+    });
+    try {
+      if (!requestPermission) {
+        final isConnected = await GoogleCalendarService().isCalendarConnected;
+        if (!isConnected) {
+          if (mounted) {
+            setState(() {
+              _calendarEvents = [];
+              _calendarConnected = false;
+              _isLoadingCalendar = false;
+            });
+          }
+          return;
+        }
+      }
+
+      final events = await GoogleCalendarService().fetchUpcomingEvents(
+        requestPermission: requestPermission,
+      );
+      // Schedule notifications for each upcoming event
+      for (final e in events) {
+        if (e.isUpcoming) {
+          await NotificationService().scheduleMeetingReminder(
+            eventId: e.id,
+            title: e.title,
+            startTime: e.startTime,
+          );
+          await NotificationService().scheduleMeetingRatingRequest(
+            eventId: e.id,
+            title: e.title,
+            endTime: e.endTime,
+          );
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _calendarEvents = events;
+          _calendarConnected = true;
+          _isLoadingCalendar = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _calendarError = true;
+          _isLoadingCalendar = false;
+        });
+      }
+    }
   }
 
   @override
@@ -120,24 +188,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 12,
                             color: theme.accentTxt.withOpacity(0.7),
                           ),
-                          if (isPro) ...[
-                            4.verticalSpace,
-                            Consumer<AppProvider>(
-                              builder: (context, appStore, _) {
-                                return Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.local_fire_department,
-                                      color: Colors.orange,
-                                      size: 14,
-                                    ),
-                                    4.horizontalSpace,
-                                    SecondaryText(
-                                      text: '${appStore.streak} Day Streak',
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange,
-                                    ),
+                          4.verticalSpace,
+                          Consumer<AppProvider>(
+                            builder: (context, appStore, _) {
+                              return Row(
+                                children: [
+                                  const Icon(
+                                    Icons.local_fire_department,
+                                    color: Colors.orange,
+                                    size: 14,
+                                  ),
+                                  4.horizontalSpace,
+                                  SecondaryText(
+                                    text: appStore.streak > 0
+                                        ? '${appStore.streak} Day Streak'
+                                        : 'Start your streak today',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange,
+                                  ),
+                                  if (isPro && appStore.streak > 0) ...[
                                     8.horizontalSpace,
                                     Icon(
                                       Icons.share_outlined,
@@ -151,15 +221,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                         widget: ShareableCard(
                                           mode: ShareableCardMode.streak,
                                           streak: appStore.streak,
-                                          userName: user?.displayName,
+                                          userName: displayNameToUse,
                                         ),
                                       );
+                                      AnalyticsService.logShareCard('streak');
                                     }),
                                   ],
-                                );
-                              },
-                            ),
-                          ],
+                                ],
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ],
@@ -219,7 +290,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              25.verticalSpace,
+              16.verticalSpace,
+              LevelProgressBar(xp: authStore.xp, level: authStore.level),
+              16.verticalSpace,
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
@@ -473,9 +546,38 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ).rippleClick(() async {
                                 if (!isPro && authStore.explanationCount >= 3) {
-                                  AppHelper.showPaywall(
+                                  AppHelper.watchAdForAction(
                                     context,
-                                    feature: 'Daily Explanation',
+                                    promptText: 'You have used your 3 free explanations for today. Watch a video ad to get 1 more explanation credit!',
+                                    onReward: () async {
+                                      await authStore.rewardExplanationCount();
+                                      if (mounted) {
+                                        // Start fetching
+                                        final wasFetched = await context
+                                            .read<NotificationProvider>()
+                                            .fetchInsightExplanation();
+                                        
+                                        // Only increment count if a NEW explanation was actually fetched
+                                        if (mounted && 
+                                            wasFetched &&
+                                            context.read<NotificationProvider>().fetchError == null &&
+                                            !isPro) {
+                                          await authStore.incrementExplanationCount();
+                                        }
+
+                                        // Expand once done if no error
+                                        if (mounted &&
+                                            context
+                                                    .read<NotificationProvider>()
+                                                    .fetchError ==
+                                                null) {
+                                          setState(() => _isInsightExpanded = true);
+                                          await EngagementService().recordAction(
+                                            EngagementAction.insightExplained,
+                                          );
+                                        }
+                                      }
+                                    },
                                   );
                                 } else {
                                   // Start fetching
@@ -498,6 +600,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                               .fetchError ==
                                           null) {
                                     setState(() => _isInsightExpanded = true);
+                                    await EngagementService().recordAction(
+                                      EngagementAction.insightExplained,
+                                    );
                                   }
                                 }
                               });
@@ -510,6 +615,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               20.verticalSpace,
+
+              // ─── Google Calendar Card (Google users only) ───────────────
+              // if (GoogleCalendarService().isGoogleUser) ...[
+              //   _buildCalendarCard(context, theme),
+              //   20.verticalSpace,
+              // ],
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -522,43 +634,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               16.verticalSpace,
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _actionCard(
-                        context,
-                        R.S.decisionAnalyzer,
-                        'Make better choices',
-                        Icons.psychology,
-                        theme.primaryBase,
-                      ),
-                    ),
-                    12.horizontalSpace,
-                    Expanded(
-                      child: _actionCard(
-                        context,
-                        R.S.focusSession,
-                        'Improve focus',
-                        Icons.timer_outlined,
-                        theme.successPrimary,
-                      ),
-                    ),
-                    12.horizontalSpace,
-                    Expanded(
-                      child: _actionCard(
-                        context,
-                        R.S.createTask,
-                        'Set new goals',
-                        Icons.add_task,
-                        theme.errorPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              16.verticalSpace,
+              _buildGoalBasedQuickActions(context, theme, authStore.personalization),
+              20.verticalSpace,
+              _buildDailyHubRow(context, theme, authStore),
+              20.verticalSpace,
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -585,9 +664,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
                         String tasksText =
                             '${taskStore.completedCount}/${taskStore.totalCount}';
-                        int points =
-                            (taskStore.completedCount * 10) + (totalMinutes ~/ 5);
-                        String achievement = 'Level ${1 + (points ~/ 50)}';
+                        String achievement = 'Level ${authStore.level}';
 
                         final downloadUrl = ConfigService().updateUrl;
                         ShareService.captureAndShare(
@@ -634,10 +711,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   String tasksText =
                       '${taskStore.completedCount}/${taskStore.totalCount}';
-
-                  int points =
-                      (taskStore.completedCount * 10) + (totalMinutes ~/ 5);
-                  String achievement = 'Level ${1 + (points ~/ 50)}';
+                  String achievement = 'Level ${authStore.level}';
 
                   return Row(
                     children: [
@@ -773,6 +847,183 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildDailyHubRow(BuildContext context, AppTheme theme, AppAuthProvider authStore) {
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      gradient: theme.glassGradient,
+      border: Border.all(color: theme.primaryBase.withOpacity(0.25)),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.primaryBase.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.auto_awesome, color: theme.primaryBase, size: 20),
+          ),
+          12.horizontalSpace,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PrimaryText(
+                  text: 'Daily Hub',
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: theme.accentTxt,
+                ),
+                4.verticalSpace,
+                SecondaryText(
+                  text: 'Complete your daily pack, first win tasks, and get AI guidance',
+                  fontSize: 11,
+                  color: theme.accentTxt.withOpacity(0.6),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_ios, color: theme.primaryBase, size: 16),
+        ],
+      ),
+    ).rippleClick(() {
+      context.push(const DailyHubScreen());
+    });
+  }
+
+  Widget _buildGoalBasedQuickActions(
+    BuildContext context,
+    AppTheme theme,
+    List<String> personalization,
+  ) {
+    final selected = [
+      {
+        'key': 'bible_quiz',
+        'title': 'Bible Quiz',
+        'subtitle': 'Learn & test knowledge',
+        'icon': Icons.quiz_outlined,
+        'color': const Color(0xFFF59E0B),
+        'nav': -2,
+      },
+      {
+        'key': 'focus',
+        'title': R.S.focusSession,
+        'subtitle': 'Improve focus',
+        'icon': Icons.timer_outlined,
+        'color': theme.successPrimary,
+        'nav': 1,
+      },
+      {
+        'key': 'decision',
+        'title': R.S.decisionAnalyzer,
+        'subtitle': 'Make better choices',
+        'icon': Icons.psychology,
+        'color': theme.primaryBase,
+        'nav': 3,
+      },
+      {
+        'key': 'task',
+        'title': R.S.createTask,
+        'subtitle': 'Set new goals',
+        'icon': Icons.add_task,
+        'color': theme.errorPrimary,
+        'nav': -1,
+      },
+      {
+        'key': 'journal',
+        'title': 'Journal',
+        'subtitle': 'Write daily reflections',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFF8B5CF6),
+        'nav': -3,
+      },
+    ];
+
+    void handleTap(int nav) {
+      if (nav >= 0) {
+        context.read<HomeProvider>().navIndex = nav;
+      } else if (nav == -1) {
+        context.push(const TaskCreationScreen());
+      } else if (nav == -2) {
+        context.push(const BibleMainScreen());
+      } else if (nav == -3) {
+        context.push(const JournalEntriesScreen());
+      }
+    }
+
+    return Column(
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _actionCard(
+                  context,
+                  selected[0]['title'] as String,
+                  selected[0]['subtitle'] as String,
+                  selected[0]['icon'] as IconData,
+                  selected[0]['color'] as Color,
+                  onTap: () => handleTap(selected[0]['nav'] as int),
+                ),
+              ),
+              12.horizontalSpace,
+              Expanded(
+                child: _actionCard(
+                  context,
+                  selected[1]['title'] as String,
+                  selected[1]['subtitle'] as String,
+                  selected[1]['icon'] as IconData,
+                  selected[1]['color'] as Color,
+                  onTap: () => handleTap(selected[1]['nav'] as int),
+                ),
+              ),
+            ],
+          ),
+        ),
+        12.verticalSpace,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _actionCard(
+                  context,
+                  selected[2]['title'] as String,
+                  selected[2]['subtitle'] as String,
+                  selected[2]['icon'] as IconData,
+                  selected[2]['color'] as Color,
+                  onTap: () => handleTap(selected[2]['nav'] as int),
+                ),
+              ),
+              12.horizontalSpace,
+              Expanded(
+                child: _actionCard(
+                  context,
+                  selected[3]['title'] as String,
+                  selected[3]['subtitle'] as String,
+                  selected[3]['icon'] as IconData,
+                  selected[3]['color'] as Color,
+                  onTap: () => handleTap(selected[3]['nav'] as int),
+                ),
+              ),
+            ],
+          ),
+        ),
+        12.verticalSpace,
+        _horizontalActionCard(
+          context,
+          selected[4]['title'] as String,
+          selected[4]['subtitle'] as String,
+          selected[4]['icon'] as IconData,
+          selected[4]['color'] as Color,
+          onTap: () => handleTap(selected[4]['nav'] as int),
+        ),
+      ],
+    );
+  }
+
+
+
   Widget _buildHighlightedText(String text, Color baseColor) {
     List<TextSpan> spans = [];
     final RegExp regExp = RegExp(r'\*\*(.*?)\*\*|\*(.*?)\*');
@@ -867,50 +1118,129 @@ class _HomeScreenState extends State<HomeScreen> {
     String title,
     String subtitle,
     IconData icon,
-    Color color,
-  ) {
+    Color color, {
+    VoidCallback? onTap,
+  }) {
     AppTheme theme = context.watch();
     return GlassContainer(
       padding: const EdgeInsets.all(12),
       gradient: theme.glassGradient,
       border: Border.all(
-        color: theme.primaryBase.withOpacity(0.3),
+        color: color.withOpacity(0.25),
         width: 1,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: theme.accentTxt.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        height: 100,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-            child: Icon(icon, color: theme.accentTxt, size: 20),
-          ),
-          12.verticalSpace,
-          PrimaryText(
-            text: title,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: theme.accentTxt,
-          ),
-          4.verticalSpace,
-          SecondaryText(
-            text: subtitle,
-            fontSize: 10,
-            color: theme.accentTxt.withOpacity(0.7),
-            maxLines: 2,
-          ),
-        ],
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PrimaryText(
+                  text: title,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: theme.accentTxt,
+                  maxLines: 1,
+                  textOverflow: TextOverflow.ellipsis,
+                ),
+                4.verticalSpace,
+                SecondaryText(
+                  text: subtitle,
+                  fontSize: 10,
+                  color: theme.accentTxt.withOpacity(0.55),
+                  maxLines: 1,
+                  textOverflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     ).rippleClick(() {
+      if (onTap != null) {
+        onTap();
+        return;
+      }
       if (title == R.S.decisionAnalyzer) {
-        context.read<HomeProvider>().navIndex = 2;
+        context.read<HomeProvider>().navIndex = 3;
       } else if (title == R.S.focusSession) {
         context.read<HomeProvider>().navIndex = 1;
       } else if (title == R.S.createTask) {
         context.push(const TaskCreationScreen());
+      } else if (title == 'Journal') {
+        context.push(const JournalEntriesScreen());
+      }
+    });
+  }
+
+  Widget _horizontalActionCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    AppTheme theme = context.watch();
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      gradient: theme.glassGradient,
+      border: Border.all(
+        color: color.withOpacity(0.25),
+        width: 1,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          16.horizontalSpace,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PrimaryText(
+                  text: title,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: theme.accentTxt,
+                ),
+                4.verticalSpace,
+                SecondaryText(
+                  text: subtitle,
+                  fontSize: 10,
+                  color: theme.accentTxt.withOpacity(0.55),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_ios, color: color.withOpacity(0.7), size: 14),
+        ],
+      ),
+    ).rippleClick(() {
+      if (onTap != null) {
+        onTap();
+        return;
+      }
+      if (title == 'Bible Quiz') {
+        context.push(const BibleMainScreen());
       }
     });
   }
@@ -943,6 +1273,223 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCalendarCard(BuildContext context, AppTheme theme) {
+    return GlassContainer(
+      padding: const EdgeInsets.all(20),
+      gradient: theme.glassGradient,
+      border: Border.all(color: theme.primaryBase.withOpacity(0.25)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: theme.primaryGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.calendar_today,
+                    color: Colors.white, size: 16),
+              ),
+              12.horizontalSpace,
+              Expanded(
+                child: PrimaryText(
+                  text: "Today's Meetings",
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: theme.accentTxt,
+                ),
+              ),
+              if (_calendarConnected)
+                GestureDetector(
+                  onTap: _fetchCalendarEvents,
+                  child: Icon(Icons.refresh,
+                      color: theme.accentTxt.withOpacity(0.4), size: 18),
+                ),
+            ],
+          ),
+          16.verticalSpace,
+          if (_isLoadingCalendar)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(theme.primaryBase),
+                  ),
+                ),
+              ),
+            )
+          else if (!_calendarConnected)
+            Column(
+              children: [
+                SecondaryText(
+                  text:
+                      'Connect your Google Calendar to see today\'s meetings and get productivity reminders.',
+                  fontSize: 12,
+                  color: theme.accentTxt.withOpacity(0.6),
+                ),
+                16.verticalSpace,
+                GestureDetector(
+                  onTap: _fetchCalendarEvents,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: theme.primaryGradient,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today,
+                            color: Colors.white, size: 16),
+                        8.horizontalSpace,
+                        const Text(
+                          'Connect Calendar',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else if (_calendarEvents.isEmpty)
+            SecondaryText(
+              text: 'No more meetings scheduled for today 🎉',
+              fontSize: 12,
+              color: theme.accentTxt.withOpacity(0.6),
+            )
+          else
+            ...(_calendarEvents.take(3).map((event) {
+              final start = DateFormat('h:mm a').format(event.startTime);
+              final end = DateFormat('h:mm a').format(event.endTime);
+              final isPast = event.endTime.isBefore(DateTime.now());
+              final isNow = event.isOngoing;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isNow
+                      ? theme.primaryBase.withOpacity(0.08)
+                      : theme.accentTxt.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isNow
+                        ? theme.primaryBase.withOpacity(0.35)
+                        : Colors.white12,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SecondaryText(
+                          text: start,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isNow
+                              ? theme.primaryBase
+                              : theme.accentTxt.withOpacity(0.5),
+                        ),
+                        SecondaryText(
+                          text: end,
+                          fontSize: 10,
+                          color: theme.accentTxt.withOpacity(0.35),
+                        ),
+                      ],
+                    ),
+                    12.horizontalSpace,
+                    if (isNow)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: theme.primaryBase.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: SecondaryText(
+                          text: 'LIVE',
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: theme.primaryBase,
+                        ),
+                      ),
+                    if (isNow) 8.horizontalSpace,
+                    Expanded(
+                      child: PrimaryText(
+                        text: event.title,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: theme.accentTxt.withOpacity(isPast ? 0.5 : 0.9),
+                        textOverflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
+                    ),
+                    8.horizontalSpace,
+                    // Meeting link button
+                    if (event.hasMeetingLink && !isPast)
+                      GestureDetector(
+                        onTap: () async {
+                          final uri = Uri.tryParse(event.meetingLink!);
+                          if (uri != null) await launchUrl(uri);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: theme.primaryBase.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.videocam,
+                              color: theme.primaryBase, size: 16),
+                        ),
+                      ),
+                    // Rate button for past meetings
+                    if (isPast) ...[
+                      8.horizontalSpace,
+                      GestureDetector(
+                        onTap: () => MeetingRatingSheet.show(
+                          context,
+                          event: event,
+                          onRated: () => setState(() {}),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: SecondaryText(
+                            text: 'Rate',
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFF59E0B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            })),
+        ],
+      ),
     );
   }
 }

@@ -1,32 +1,48 @@
 import 'package:mindpilot/export.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SupportScreen extends StatelessWidget {
   const SupportScreen({super.key});
 
-  Future<void> _showExitDialog(BuildContext context, String appName, VoidCallback onConfirm) async {
+  Future<void> _showExitDialog(
+    BuildContext context,
+    String appName,
+    VoidCallback onConfirm,
+  ) async {
     AppTheme theme = context.read();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: theme.brandDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: PrimaryText(text: 'Leave MindPilot?', color: theme.accentTxt, fontWeight: FontWeight.bold, fontSize: 18),
+        title: PrimaryText(
+          text: 'Leave MindPilot?',
+          color: theme.accentTxt,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
         content: SecondaryText(
-          text: 'You are about to be redirected to $appName to continue this action.',
+          text:
+              'You are about to be redirected to $appName to continue this action.',
           color: theme.accentTxt.withOpacity(0.7),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: SecondaryText(text: 'Cancel', color: theme.accentTxt.withOpacity(0.5)),
+            child: SecondaryText(
+              text: 'Cancel',
+              color: theme.accentTxt.withOpacity(0.5),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               onConfirm();
             },
-            child: PrimaryText(text: 'Continue', color: theme.primaryBase, fontWeight: FontWeight.bold),
+            child: PrimaryText(
+              text: 'Continue',
+              color: theme.primaryBase,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -38,23 +54,27 @@ class SupportScreen extends StatelessWidget {
       String rawPhone = ConfigService().supportPhone;
       // Remove all non-numeric characters
       String cleanPhone = rawPhone.replaceAll(RegExp(r'\D'), '');
-      
+
       // If it starts with 0 (e.g. 090...), replace with 234
       if (cleanPhone.startsWith('0')) {
-        cleanPhone = '234' + cleanPhone.substring(1);
+        cleanPhone = '234${cleanPhone.substring(1)}';
       } else if (!cleanPhone.startsWith('234') && cleanPhone.length <= 11) {
         // Fallback for Nigerian numbers without 234 or leading 0
-        cleanPhone = '234' + cleanPhone;
+        cleanPhone = '234$cleanPhone';
       }
 
-      final message = Uri.encodeComponent("Hello MindPilot Support, I need assistance with...");
+      final message = Uri.encodeComponent(
+        "Hello MindPilot Support, I need assistance with...",
+      );
       final url = "https://wa.me/$cleanPhone?text=$message";
 
       if (await canLaunchUrl(Uri.parse(url))) {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       } else {
         if (context.mounted) {
-          context.showInAppNotification('Could not launch WhatsApp. Please contact ${ConfigService().supportPhone}.');
+          context.showInAppNotification(
+            'Could not launch WhatsApp. Please contact ${ConfigService().supportPhone}.',
+          );
         }
       }
     });
@@ -65,9 +85,7 @@ class SupportScreen extends StatelessWidget {
       final Uri emailLaunchUri = Uri(
         scheme: 'mailto',
         path: 'solteqinnovationsltd@gmail.com',
-        queryParameters: {
-          'subject': 'MindPilot Support Request',
-        },
+        queryParameters: {'subject': 'MindPilot Support Request'},
       );
 
       try {
@@ -200,7 +218,14 @@ class SupportScreen extends StatelessWidget {
     );
   }
 
-  Widget _supportOption(AppTheme theme, IconData icon, String title, String description, Color color, {VoidCallback? onTap}) {
+  Widget _supportOption(
+    AppTheme theme,
+    IconData icon,
+    String title,
+    String description,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       gradient: theme.glassGradient,

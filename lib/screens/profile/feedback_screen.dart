@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mindpilot/export.dart';
 
 class FeedbackScreen extends StatefulWidget {
@@ -33,7 +32,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       });
 
       if (mounted) {
-        context.showInAppNotification('Thank you for your feedback!', type: InAppNotificationType.success);
+        context.showInAppNotification(
+          'Thank you for your feedback!',
+          type: InAppNotificationType.success,
+        );
+        final url = ConfigService().updateUrl;
+        AppHelper.launchURL(url);
         context.pop();
       }
     } catch (e) {
@@ -98,7 +102,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 ),
                 12.verticalSpace,
                 SecondaryText(
-                  text: 'Please tell us about your experience with MindPilot so far, and share any ideas or thoughts on how we can improve to meet your needs!',
+                  text:
+                      'Please tell us about your experience with MindPilot so far, and share any ideas or thoughts on how we can improve to meet your needs!',
                   color: theme.accentTxt.withOpacity(0.7),
                   fontSize: 14,
                 ),
@@ -117,8 +122,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                     return IconButton(
                       onPressed: () => setState(() => _rating = index + 1),
                       icon: Icon(
-                        isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
-                        color: isSelected ? const Color(0xFFF59E0B) : theme.accentTxt.withOpacity(0.3),
+                        isSelected
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        color: isSelected
+                            ? const Color(0xFFF59E0B)
+                            : theme.accentTxt.withOpacity(0.3),
                         size: 40,
                       ),
                     );
@@ -140,8 +149,11 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                     maxLines: 6,
                     style: GoogleFonts.inter(color: theme.accentTxt),
                     decoration: InputDecoration(
-                      hintText: 'Describe your experience and any suggestions...',
-                      hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.3)),
+                      hintText:
+                          'Describe your experience and any suggestions...',
+                      hintStyle: TextStyle(
+                        color: theme.accentTxt.withOpacity(0.3),
+                      ),
                       border: InputBorder.none,
                     ),
                   ),

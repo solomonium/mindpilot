@@ -5,13 +5,16 @@ import 'package:mindpilot/export.dart';
 class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _timer;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final AudioPlayer _ambientPlayer = AudioPlayer();
   int _selectedMinutes = 25;
   int _secondsRemaining = 25 * 60;
   bool _isRunning = false;
   bool _isAlarmPlaying = false;
+  bool _isAmbientPlaying = false;
   DateTime? _endTime;
   bool _isInBackground = false;
   String _selectedSound = 'Standard Alert';
+  String _selectedAmbient = 'None';
 
   bool _isWaitingForStart = false;
   int _secondsToStart = 0;
@@ -41,15 +44,41 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
     },
   ];
 
+  final List<Map<String, String>> _ambientSounds = [
+    {
+      'name': 'None',
+      'path': '',
+      'isPro': 'false',
+    },
+    {
+      'name': 'Alone With God (Piano & Strings)',
+      'path': 'audio/worship_piano_1.mp3',
+      'isPro': 'false',
+    },
+    {
+      'name': 'Worship Piano (Hillsong Instrumental)',
+      'path': 'audio/worship_piano_2.mp3',
+      'isPro': 'true',
+    },
+    {
+      'name': 'Contemporary Praise (Piano Solo)',
+      'path': 'audio/worship_piano_3.mp3',
+      'isPro': 'true',
+    },
+  ];
+
   // Getters
   int get selectedMinutes => _selectedMinutes;
   int get secondsRemaining => _secondsRemaining;
   bool get isRunning => _isRunning;
   bool get isAlarmPlaying => _isAlarmPlaying;
+  bool get isAmbientPlaying => _isAmbientPlaying;
   DateTime? get endTime => _endTime;
   bool get isInBackground => _isInBackground;
   String get selectedSound => _selectedSound;
+  String get selectedAmbient => _selectedAmbient;
   List<Map<String, String>> get sounds => _sounds;
+  List<Map<String, String>> get ambientSounds => _ambientSounds;
   bool get isWaitingForStart => _isWaitingForStart;
   int get secondsToStart => _secondsToStart;
 
@@ -66,6 +95,14 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  set selectedAmbient(String val) {
+    _selectedAmbient = val;
+    notifyListeners();
+    if (_isRunning) {
+      _startAmbientSound();
+    }
+  }
+
   set isInBackground(bool val) {
     _isInBackground = val;
   }
@@ -73,6 +110,41 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
   FocusProvider() {
     _audioPlayer.setSource(UrlSource(_sounds[0]['url']!));
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  Future<void> _startAmbientSound() async {
+    try {
+      await _ambientPlayer.stop();
+      _isAmbientPlaying = false;
+      if (_selectedAmbient == 'None') {
+        notifyListeners();
+        return;
+      }
+      final track = _ambientSounds.firstWhere(
+        (element) => element['name'] == _selectedAmbient,
+        orElse: () => _ambientSounds[0],
+      );
+      final path = track['path'] ?? '';
+      if (path.isNotEmpty) {
+        await _ambientPlayer.setSource(AssetSource(path));
+        await _ambientPlayer.setReleaseMode(ReleaseMode.loop);
+        await _ambientPlayer.resume();
+        _isAmbientPlaying = true;
+      }
+      notifyListeners();
+    } catch (e) {
+      safePrint('Error starting ambient sound: $e');
+    }
+  }
+
+  Future<void> _stopAmbientSound() async {
+    try {
+      await _ambientPlayer.stop();
+      _isAmbientPlaying = false;
+      notifyListeners();
+    } catch (e) {
+      safePrint('Error stopping ambient sound: $e');
+    }
   }
 
   @override
@@ -193,6 +265,8 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
     _isRunning = true;
     notifyListeners();
 
+    _startAmbientSound();
+
     NotificationService().scheduleFocusCompleteAlarm(
       endTime: _endTime!,
       soundName: _selectedSound,
@@ -218,6 +292,8 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
       _isRunning = false;
       notifyListeners();
 
+      _stopAmbientSound();
+
       final context = R.N.navKey.currentContext;
       if (!_isInBackground) {
         _playSound(durationSeconds: 5);
@@ -227,6 +303,12 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       if (context != null) {
         context.read<JournalProvider>().saveFocusSession(_selectedMinutes);
+        EngagementService().recordAction(EngagementAction.focusComplete);
+        if (!context.read<AppAuthProvider>().hasCompletedFirstSession) {
+          EngagementService().markFirstSessionComplete('focus');
+          context.read<AppAuthProvider>().markFirstSessionComplete();
+        }
+        _showPostFocusJournalPrompt(context);
         context.showInAppNotification(
           'Great job! You finished your session.',
           title: 'Focus Complete',
@@ -241,6 +323,7 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
     _endTime = null;
     _isRunning = false;
     notifyListeners();
+    _stopAmbientSound();
     NotificationService().cancelFocusCompleteAlarm();
   }
 
@@ -250,12 +333,53 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  void _showPostFocusJournalPrompt(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        AppTheme theme = ctx.watch();
+        return AlertDialog(
+          backgroundColor: theme.brandDark,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: PrimaryText(
+            text: 'How did it feel?',
+            color: theme.accentTxt,
+            fontWeight: FontWeight.bold,
+          ),
+          content: SecondaryText(
+            text: 'Capture a quick journal note about your focus session.',
+            color: theme.accentTxt.withOpacity(0.7),
+            fontSize: 13,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: SecondaryText(text: 'Later', color: theme.accentTxt.withOpacity(0.6)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                ctx.push(const JournalEntriesScreen());
+              },
+              child: PrimaryText(
+                text: 'Journal Now',
+                color: theme.primaryBase,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _waitingTimer?.cancel();
     _audioPlayer.dispose();
+    _ambientPlayer.dispose();
     super.dispose();
   }
 }

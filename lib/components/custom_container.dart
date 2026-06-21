@@ -42,13 +42,15 @@ class CustomContainer extends StatelessWidget {
       constraints: constraints,
       clipBehavior: clipBehavior,
       padding: padding ?? const EdgeInsets.all(24),
-      decoration: decoration ??
+      decoration:
+          decoration ??
           BoxDecoration(
             color: color ?? Colors.white,
             borderRadius: BorderRadius.circular(borderRadius ?? 16),
-            border: border ??
+            border:
+                border ??
                 Border.all(
-                  color: Colors.grey.withOpacity(0.15),
+                  color: Colors.grey.withValues(alpha: 0.15),
                   width: 1.5,
                 ),
           ),
@@ -56,10 +58,7 @@ class CustomContainer extends StatelessWidget {
     );
 
     if (onTap != null) {
-      return GestureDetector(
-        onTap: onTap,
-        child: content,
-      );
+      return GestureDetector(onTap: onTap, child: content);
     }
 
     return content;
