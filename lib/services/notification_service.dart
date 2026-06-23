@@ -13,6 +13,13 @@ import 'package:timezone/timezone.dart' as tz;
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 
+  final serverTitle = message.notification?.title ?? message.data['title'];
+  final serverBody = message.notification?.body ?? message.data['body'];
+  if (serverTitle == null && serverBody == null) {
+    print('Silent background message received (no title/body). Skipping.');
+    return;
+  }
+
   final isEnabled =
       await SharedPrefs.getBool('PUSH_NOTIFICATIONS_ENABLED') ?? false;
   final type = message.data['type'] ?? 'update';
@@ -22,9 +29,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 
   final dbHelper = DatabaseHelper();
-  final title =
-      message.notification?.title ?? message.data['title'] ?? 'MindPilot';
-  final body = message.notification?.body ?? message.data['body'] ?? '';
+  final title = serverTitle ?? 'MindPilot';
+  final body = serverBody ?? '';
 
   // Debug log for Admin
   print('--- [FCM BACKGROUND PAYLOAD] ---');
@@ -186,6 +192,26 @@ class NotificationService {
         audioAttributesUsage: AudioAttributesUsage.alarm,
       );
 
+      const AndroidNotificationChannel inviteChannel = AndroidNotificationChannel(
+        'group_invite_channel_v1',
+        'Group Invitations',
+        description: 'Notifications for Bible quiz group invitations',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('invite_voice'),
+        enableVibration: true,
+      );
+
+      const AndroidNotificationChannel gameStartChannel = AndroidNotificationChannel(
+        'group_game_start_channel_v1',
+        'Group Game Starts',
+        description: 'Notifications for Bible quiz game starts',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound('quiz_started'),
+        enableVibration: true,
+      );
+
       final androidPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -194,6 +220,8 @@ class NotificationService {
       await androidPlugin?.createNotificationChannel(generalChannel);
       await androidPlugin?.createNotificationChannel(taskChannel);
       await androidPlugin?.createNotificationChannel(focusChannel);
+      await androidPlugin?.createNotificationChannel(inviteChannel);
+      await androidPlugin?.createNotificationChannel(gameStartChannel);
       await androidPlugin?.requestNotificationsPermission();
       await androidPlugin?.requestExactAlarmsPermission();
     }
@@ -297,6 +325,7 @@ class NotificationService {
 
                   R.N.navKey.currentState?.push(
                     MaterialPageRoute(
+                      settings: const RouteSettings(name: 'FocusSessionScreen'),
                       builder: (_) => FocusSessionScreen(
                         initialDuration: duration,
                         autoStart: true,
@@ -348,10 +377,17 @@ class NotificationService {
     final context = R.N.navKey.currentContext;
     if (context == null) return;
 
+    final serverTitle = message.notification?.title ?? message.data['title'];
+    final serverBody = message.notification?.body ?? message.data['body'];
+    if (serverTitle == null && serverBody == null) {
+      safePrint("Silent foreground message received (no title/body). Skipping.");
+      return;
+    }
+
     final isEnabled = context.read<AppProvider>().pushNotificationsEnabled;
     final type = message.data['type'] ?? 'update';
 
-    if (!isEnabled && type != 'insight' && type != 'feedback') {
+    if (!isEnabled && type != 'insight' && type != 'feedback' && type != 'group_invite' && type != 'group_game_start') {
       return;
     }
 
@@ -360,9 +396,8 @@ class NotificationService {
     safePrint('Data: ${message.data}');
     safePrint('-------------------------------');
 
-    final title =
-        message.notification?.title ?? message.data['title'] ?? 'MindPilot';
-    final body = message.notification?.body ?? message.data['body'] ?? '';
+    final title = serverTitle ?? 'MindPilot';
+    final body = serverBody ?? '';
 
     context.read<NotificationProvider>().addNotification({
       'title': title,
@@ -377,12 +412,23 @@ class NotificationService {
       return;
     }
 
-    if (isForeground && isEnabled) {
-      showForegroundNotification(title, body, type);
+    String payload = type;
+    if (type == 'group_invite') {
+      final groupId = message.data['groupId'] ?? '';
+      final groupName = message.data['groupName'] ?? '';
+      final invitationId = message.data['invitationId'] ?? '';
+      payload = 'group_invite|$groupId|$groupName|$invitationId';
+    } else if (type == 'group_game_start') {
+      final groupId = message.data['groupId'] ?? '';
+      payload = 'group_game_start|$groupId';
+    }
+
+    if (isForeground && (isEnabled || type == 'group_invite')) {
+      showForegroundNotification(title, body, payload);
     }
 
     if (wasTapped) {
-      handleNotificationClick(type);
+      handleNotificationClick(payload);
     }
   }
 
@@ -391,14 +437,28 @@ class NotificationService {
     String body,
     String type,
   ) async {
-    const androidDetails = AndroidNotificationDetails(
-      'mindpilot_notifications',
-      'General Notifications',
+    final isInvite = type.startsWith('group_invite');
+    final isGameStart = type.startsWith('group_game_start');
+
+    final androidDetails = AndroidNotificationDetails(
+      isInvite ? 'group_invite_channel_v1' : (isGameStart ? 'group_game_start_channel_v1' : 'mindpilot_notifications'),
+      isInvite ? 'Group Invitations' : (isGameStart ? 'Group Game Starts' : 'General Notifications'),
       importance: Importance.max,
       priority: Priority.high,
+      playSound: true,
+      sound: isInvite
+          ? const RawResourceAndroidNotificationSound('invite_voice')
+          : (isGameStart
+              ? const RawResourceAndroidNotificationSound('quiz_started')
+              : null),
     );
-    const iosDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: isInvite ? 'invite_voice.wav' : (isGameStart ? 'quiz_started.wav' : null),
+    );
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -510,7 +570,7 @@ class NotificationService {
       if (context != null) {
         context.read<HomeProvider>().navIndex = 2;
       }
-    } else if (payload != null && payload.startsWith('meeting_rating|')) {
+    } else if (payload.startsWith('meeting_rating|')) {
       // payload format: meeting_rating|eventId
       final context = R.N.navKey.currentContext;
       if (context != null) {
@@ -519,7 +579,101 @@ class NotificationService {
         // Navigate to Daily Hub so user sees the meeting productivity section
         context.read<HomeProvider>().navIndex = 0;
       }
+    } else if (payload.startsWith('group_invite|')) {
+      final parts = payload.split('|');
+      if (parts.length > 3) {
+        final groupId = parts[1];
+        final groupName = parts[2];
+        final invitationId = parts[3];
+        _showJoinGroupDialog(groupId, groupName, invitationId);
+      }
+    } else if (payload.startsWith('group_game_start|')) {
+      final parts = payload.split('|');
+      if (parts.length > 1) {
+        final groupId = parts[1];
+        final context = R.N.navKey.currentContext;
+        if (context != null) {
+          context.read<HomeProvider>().navIndex = 2; // Bible / Group Quiz tab
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              settings: const RouteSettings(name: 'GroupLobbyScreen'),
+              builder: (_) => GroupLobbyScreen(groupId: groupId),
+            ),
+          );
+        }
+      }
     }
+  }
+
+  void _showJoinGroupDialog(String groupId, String groupName, String invitationId) {
+    final context = R.N.navKey.currentContext;
+    if (context == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        final theme = context.read<AppTheme>();
+        return Material(
+          type: MaterialType.transparency,
+          child: AlertDialog(
+            backgroundColor: theme.brandDark,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const PrimaryText(text: 'Group Invitation 📖'),
+            content: SecondaryText(
+              text: 'You have been invited to join the Bible Quiz group: "$groupName". Do you want to accept?',
+              color: theme.accentTxt.withValues(alpha: 0.8),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: SecondaryText(text: 'Reject', color: theme.errorPrimary),
+                onPressed: () async {
+                  final provider = context.read<GroupQuizProvider>();
+                  Navigator.of(dialogContext).pop();
+                  try {
+                    await provider.rejectInvitation(groupId, invitationId);
+                    final navCtx = R.N.navKey.currentContext;
+                    if (navCtx != null && navCtx.mounted) {
+                      navCtx.showInAppNotification('Invitation rejected.');
+                    }
+                  } catch (e) {
+                    safePrint("Error rejecting: $e");
+                  }
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryBase,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const PrimaryText(text: 'Accept & Join', color: Colors.black, fontWeight: FontWeight.bold),
+                onPressed: () async {
+                  final provider = context.read<GroupQuizProvider>();
+                  Navigator.of(dialogContext).pop();
+                  try {
+                    await provider.acceptInvitation(groupId, invitationId);
+                    provider.listenToGroup(groupId);
+                    
+                    final navCtx = R.N.navKey.currentContext;
+                    if (navCtx != null && navCtx.mounted) {
+                      Navigator.of(navCtx).push(
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: 'GroupLobbyScreen'),
+                          builder: (_) => GroupLobbyScreen(groupId: groupId),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    safePrint("Error accepting: $e");
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // ─── Meeting Calendar Notifications ─────────────────────────────────────────
@@ -1156,6 +1310,133 @@ class NotificationService {
     );
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+
+  Future<void> scheduleDailyGrowthPraiseReminder() async {
+    const androidDetails = AndroidNotificationDetails(
+      'daily_growth_praise_channel',
+      'Growth Praise',
+      channelDescription: 'Daily praise notification for spiritual growth and knowledge',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await cancelDailyGrowthPraiseReminder();
+
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String timeZoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    }
+
+    await _localNotifications.zonedSchedule(
+      id: 6,
+      title: 'Growing in Knowledge 📖',
+      body: 'You are making great progress! Keep studying and completing quizzes to build a stronger spiritual foundation.',
+      scheduledDate: _nextInstanceOfSevenThirtyPM(),
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'daily_growth_praise',
+    );
+  }
+
+  Future<void> cancelDailyGrowthPraiseReminder() async {
+    await _localNotifications.cancel(id: 6);
+  }
+
+  tz.TZDateTime _nextInstanceOfSevenThirtyPM() {
+    try {
+      tz.local;
+    } catch (_) {
+      return tz.TZDateTime.now(tz.UTC).add(const Duration(hours: 19, minutes: 30));
+    }
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      19,
+      30,
+    );
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+
+  Future<void> scheduleWeeklyGrowthPraiseReminder() async {
+    const androidDetails = AndroidNotificationDetails(
+      'weekly_growth_praise_channel',
+      'Weekly Growth Praise',
+      channelDescription: 'Weekly praise notification on Friday to keep up the momentum',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await cancelWeeklyGrowthPraiseReminder();
+
+    try {
+      tz.local;
+    } catch (_) {
+      tz.initializeTimeZones();
+      final String timeZoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    }
+
+    await _localNotifications.zonedSchedule(
+      id: 7,
+      title: 'Keep up the good work! 🌟',
+      body: "Reflecting on a week of spiritual growth and learning. Let's keep this momentum going next week!",
+      scheduledDate: _nextInstanceOfFridaySixPM(),
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      payload: 'weekly_growth_praise',
+    );
+  }
+
+  Future<void> cancelWeeklyGrowthPraiseReminder() async {
+    await _localNotifications.cancel(id: 7);
+  }
+
+  tz.TZDateTime _nextInstanceOfFridaySixPM() {
+    try {
+      tz.local;
+    } catch (_) {
+      return tz.TZDateTime.now(tz.UTC).add(const Duration(days: 5));
+    }
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      18,
+      0,
+    );
+    while (scheduledDate.weekday != DateTime.friday) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 7));
     }
     return scheduledDate;
   }

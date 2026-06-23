@@ -545,3 +545,171 @@ exports.sendWeeklySummary = onSchedule("0 18 * * 0", async () => {
     }
 });
 
+exports.onGroupInvitationCreated = onDocumentCreated("group_invitations/{invitationId}", async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const data = snap.data();
+    if (!data) return;
+
+    const groupId = data.groupId;
+    const groupName = data.groupName;
+    const senderName = data.senderName;
+    const recipientUid = data.recipientUid;
+    const invitationId = event.params.invitationId;
+
+    try {
+        // Fetch recipient user document to get fcmToken
+        const recipientDoc = await admin.firestore().collection("users").doc(recipientUid).get();
+        if (!recipientDoc.exists) {
+            console.log(`Recipient user ${recipientUid} not found.`);
+            return;
+        }
+
+        const recipientData = recipientDoc.data();
+        const fcmToken = recipientData.fcmToken;
+        if (!fcmToken) {
+            console.log(`Recipient user ${recipientUid} has no FCM token.`);
+            return;
+        }
+
+        const title = "Group Invitation 📖";
+        const body = `${senderName} invited you to join the Bible quiz group "${groupName}".`;
+
+        const payload = {
+            notification: {
+                title: title,
+                body: body,
+            },
+            data: {
+                type: "group_invite",
+                groupId: groupId,
+                groupName: groupName,
+                invitationId: invitationId,
+                click_action: "FLUTTER_NOTIFICATION_CLICK",
+            },
+            android: {
+                priority: "high",
+                notification: {
+                    channelId: "group_invite_channel_v1",
+                    priority: "high",
+                    sound: "invite_voice",
+                },
+            },
+            apns: {
+                payload: {
+                    aps: {
+                        contentAvailable: true,
+                        sound: "invite_voice.wav",
+                    },
+                },
+            },
+            token: fcmToken,
+        };
+
+        await admin.messaging().send(payload);
+        console.log(`FCM invitation sent successfully to ${recipientUid} for group ${groupId}`);
+    } catch (error) {
+        console.error("Error sending group invite notification:", error);
+    }
+});
+
+exports.onGameCreated = onDocumentCreated("games/{gameId}", async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const data = snap.data();
+    if (!data) return;
+
+    const groupId = data.groupId;
+    const status = data.status;
+
+    if (status !== 'playing') {
+        console.log("Game status is not playing. Skipping alert.");
+        return;
+    }
+
+    try {
+        const groupDoc = await admin.firestore().collection("groups").doc(groupId).get();
+        if (!groupDoc.exists) {
+            console.log(`Group ${groupId} not found.`);
+            return;
+        }
+
+        const groupData = groupDoc.data();
+        const groupName = groupData.name || "Bible Quiz Group";
+        const members = groupData.members || {};
+        const creatorUid = groupData.createdBy;
+
+        const recipientUids = [];
+        for (const uid in members) {
+            if (uid !== creatorUid && members[uid].status === 'accepted') {
+                recipientUids.push(uid);
+            }
+        }
+
+        if (recipientUids.length === 0) {
+            console.log("No other accepted members to notify.");
+            return;
+        }
+
+        const promises = [];
+        for (const uid of recipientUids) {
+            const userDoc = await admin.firestore().collection("users").doc(uid).get();
+            if (!userDoc.exists) continue;
+
+            const userData = userDoc.data();
+            const fcmToken = userData.fcmToken;
+            if (!fcmToken) {
+                console.log(`User ${uid} has no FCM token.`);
+                continue;
+            }
+
+            const title = "Quiz Started! 🚀";
+            const body = `The quiz in "${groupName}" has started. Join now!`;
+
+            const payload = {
+                notification: {
+                    title: title,
+                    body: body,
+                },
+                data: {
+                    type: "group_game_start",
+                    groupId: groupId,
+                    click_action: "FLUTTER_NOTIFICATION_CLICK",
+                },
+                android: {
+                    priority: "high",
+                    notification: {
+                        channelId: "group_game_start_channel_v1",
+                        priority: "high",
+                        sound: "quiz_started",
+                    },
+                },
+                apns: {
+                    payload: {
+                        aps: {
+                            contentAvailable: true,
+                            sound: "quiz_started.wav",
+                        },
+                    },
+                },
+                token: fcmToken,
+            };
+
+            promises.push(
+                admin.messaging().send(payload)
+                    .then(() => console.log(`FCM game start alert sent to ${uid}`))
+                    .catch((err) => console.error(`Error sending game start fcm to ${uid}:`, err))
+            );
+        }
+
+        await Promise.all(promises);
+        console.log(`Processed ${promises.length} game start alerts for group ${groupId}`);
+    } catch (error) {
+        console.error("Error sending group game start notification:", error);
+    }
+});
+
+
+

@@ -22,7 +22,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'mindpilot_journal.db');
     return await openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -163,6 +163,13 @@ class DatabaseHelper {
         debugPrint('Migration Error: $e');
       }
     }
+    if (oldVersion < 16) {
+      try {
+        await db.execute('ALTER TABLE bible_quizzes ADD COLUMN xp_earned INTEGER DEFAULT 0');
+      } catch (e) {
+        debugPrint('Migration Error: $e');
+      }
+    }
   }
 
 
@@ -227,7 +234,8 @@ class DatabaseHelper {
         chapter TEXT,
         score INTEGER,
         total_questions INTEGER,
-        quiz_type TEXT
+        quiz_type TEXT,
+        xp_earned INTEGER DEFAULT 0
       )
     ''');
     await db.execute('''

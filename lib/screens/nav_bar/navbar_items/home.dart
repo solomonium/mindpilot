@@ -125,12 +125,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -291,6 +293,83 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               16.verticalSpace,
+              Consumer<GroupQuizProvider>(
+                builder: (context, provider, _) {
+                  if (provider.restoredGroupId == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: GlassContainer(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: Border.all(color: theme.primaryBase.withValues(alpha: 0.3), width: 1.5),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const PrimaryText(
+                                  text: 'Active Quiz Session! 🧠',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                4.verticalSpace,
+                                SecondaryText(
+                                  text: 'You have a lobby in progress.',
+                                  fontSize: 12,
+                                  color: theme.accentTxt.withValues(alpha: 0.6),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.primaryBase,
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                ),
+                                onPressed: () {
+                                  final groupId = provider.restoredGroupId!;
+                                  provider.listenToGroup(groupId);
+                                  provider.clearRestoredSession();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      settings: const RouteSettings(name: 'GroupLobbyScreen'),
+                                      builder: (_) => GroupLobbyScreen(groupId: groupId),
+                                    ),
+                                  );
+                                },
+                                child: const PrimaryText(
+                                  text: 'Rejoin',
+                                  color: Colors.black,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              8.horizontalSpace,
+                              IconButton(
+                                icon: Icon(Icons.close, color: theme.errorPrimary, size: 20),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                tooltip: 'Dismiss Session',
+                                onPressed: () async {
+                                  final groupId = provider.restoredGroupId!;
+                                  await provider.leaveRestoredGroup(groupId);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
               LevelProgressBar(xp: authStore.xp, level: authStore.level),
               16.verticalSpace,
               AnimatedContainer(
@@ -844,8 +923,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
   Widget _buildDailyHubRow(BuildContext context, AppTheme theme, AppAuthProvider authStore) {
     return GlassContainer(
@@ -898,7 +979,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final selected = [
       {
         'key': 'bible_quiz',
-        'title': 'Bible Quiz',
+        'title': 'Bible & General Quiz',
         'subtitle': 'Learn & test knowledge',
         'icon': Icons.quiz_outlined,
         'color': const Color(0xFFF59E0B),
@@ -936,6 +1017,14 @@ class _HomeScreenState extends State<HomeScreen> {
         'color': const Color(0xFF8B5CF6),
         'nav': -3,
       },
+      {
+        'key': 'mood',
+        'title': 'Mood Check-In',
+        'subtitle': 'Track your emotions',
+        'icon': Icons.emoji_emotions_outlined,
+        'color': const Color(0xFF10B981),
+        'nav': -4,
+      },
     ];
 
     void handleTap(int nav) {
@@ -947,6 +1036,8 @@ class _HomeScreenState extends State<HomeScreen> {
         context.push(const BibleMainScreen());
       } else if (nav == -3) {
         context.push(const JournalEntriesScreen());
+      } else if (nav == -4) {
+        context.push(const DailyMoodCheckInScreen());
       }
     }
 
@@ -1010,13 +1101,33 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         12.verticalSpace,
-        _horizontalActionCard(
-          context,
-          selected[4]['title'] as String,
-          selected[4]['subtitle'] as String,
-          selected[4]['icon'] as IconData,
-          selected[4]['color'] as Color,
-          onTap: () => handleTap(selected[4]['nav'] as int),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _actionCard(
+                  context,
+                  selected[4]['title'] as String,
+                  selected[4]['subtitle'] as String,
+                  selected[4]['icon'] as IconData,
+                  selected[4]['color'] as Color,
+                  onTap: () => handleTap(selected[4]['nav'] as int),
+                ),
+              ),
+              12.horizontalSpace,
+              Expanded(
+                child: _actionCard(
+                  context,
+                  selected[5]['title'] as String,
+                  selected[5]['subtitle'] as String,
+                  selected[5]['icon'] as IconData,
+                  selected[5]['color'] as Color,
+                  onTap: () => handleTap(selected[5]['nav'] as int),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1184,66 +1295,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Widget _horizontalActionCard(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color, {
-    VoidCallback? onTap,
-  }) {
-    AppTheme theme = context.watch();
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      gradient: theme.glassGradient,
-      border: Border.all(
-        color: color.withOpacity(0.25),
-        width: 1,
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          16.horizontalSpace,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PrimaryText(
-                  text: title,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: theme.accentTxt,
-                ),
-                4.verticalSpace,
-                SecondaryText(
-                  text: subtitle,
-                  fontSize: 10,
-                  color: theme.accentTxt.withOpacity(0.55),
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_ios, color: color.withOpacity(0.7), size: 14),
-        ],
-      ),
-    ).rippleClick(() {
-      if (onTap != null) {
-        onTap();
-        return;
-      }
-      if (title == 'Bible Quiz') {
-        context.push(const BibleMainScreen());
-      }
-    });
-  }
+
 
   Widget _progressStat(String label, String value, IconData icon) {
     return Builder(

@@ -49,6 +49,7 @@ void main() async {
         ChangeNotifierProvider(
           create: (_) => NotificationProvider()..loadNotifications(),
         ),
+        ChangeNotifierProvider(create: (_) => GroupQuizProvider()),
         Provider<BuildContext>(create: (c) => c),
       ],
       child: const MyApp(),

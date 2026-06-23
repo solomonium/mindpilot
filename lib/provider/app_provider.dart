@@ -135,6 +135,11 @@ class AppProvider extends BaseProvider {
     if (_dailyBibleQuizReminderEnabled) {
       NotificationService().scheduleDailyBibleQuizReminder();
     }
+    
+    // Automatically schedule daily growth and weekly Friday growth praise reminders
+    NotificationService().scheduleDailyGrowthPraiseReminder();
+    NotificationService().scheduleWeeklyGrowthPraiseReminder();
+
     await syncEngagementFromCloud();
     await EngagementService().recordLastAppOpen();
     notifyListeners();

@@ -15,6 +15,20 @@ class ShareService {
     );
   }
 
+  static Future<void> shareToWhatsApp(String text) async {
+    try {
+      final encoded = Uri.encodeComponent(text);
+      final url = Uri.parse("https://wa.me/?text=$encoded");
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        await shareText(text);
+      }
+    } catch (_) {
+      await shareText(text);
+    }
+  }
+
   static Future<void> captureAndShare(
     BuildContext context, {
     required Widget widget,
@@ -27,6 +41,8 @@ class ShareService {
       }
       return;
     }
+
+    if (!context.mounted) return;
 
     // Capture screen info early to avoid View.of() errors in background
     final mediaQuery = MediaQuery.of(context);
@@ -85,7 +101,7 @@ class ShareService {
           );
         }
       } catch (_) {}
-
+      if (!context.mounted) return;
       await Share.shareXFiles(
         [XFile(imagePath.path)],
         text: shareText,

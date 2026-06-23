@@ -136,6 +136,78 @@ class GeminiService {
     return null;
   }
 
+  Future<String?> sendMessageOneShot(String message, {String? systemInstruction}) async {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    }
+
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      throw Exception(
+        "AI not initialized. Please check your OpenRouter API key.",
+      );
+    }
+
+    final List<Map<String, String>> messages = [];
+    if (systemInstruction != null && systemInstruction.isNotEmpty) {
+      messages.add({'role': 'system', 'content': systemInstruction});
+    }
+    messages.add({'role': 'user', 'content': message});
+
+    List<String> modelsToTry = _availableModels.isNotEmpty
+        ? List<String>.from(_availableModels)
+        : [
+            'google/gemini-flash-1.5-8b:free',
+            'mistralai/mistral-7b-instruct:free',
+            'google/gemini-2.0-flash-exp:free',
+          ];
+
+    modelsToTry.shuffle();
+    final finalModels = modelsToTry.take(15).toList();
+
+    for (var i = 0; i < finalModels.length; i++) {
+      final model = finalModels[i];
+      try {
+        final dio = Dio();
+        const url = 'https://openrouter.ai/api/v1/chat/completions';
+
+        if (i > 0) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+
+        final response = await dio.post(
+          url,
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer $_apiKey',
+              'Content-Type': 'application/json',
+              'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
+              'X-Title': 'MindPilot',
+            },
+            validateStatus: (status) => status! < 500,
+            receiveTimeout: const Duration(seconds: 30),
+            sendTimeout: const Duration(seconds: 30),
+          ),
+          data: {'model': model, 'messages': messages},
+        );
+
+        if (response.statusCode == 200) {
+          return response.data['choices'][0]['message']['content'] as String;
+        } else {
+          safePrint('OpenRouter Issue ($model): ${response.statusCode}');
+          if (i == finalModels.length - 1) {
+            throw Exception("OpenRouter Error: ${response.statusCode}");
+          }
+          continue;
+        }
+      } catch (e) {
+        safePrint('AI ATTEMPT ERROR ($model): $e');
+        if (i == finalModels.length - 1) rethrow;
+        continue;
+      }
+    }
+    return null;
+  }
+
   Future<List<String>> listModels(String apiKey) async {
     try {
       final dio = Dio();

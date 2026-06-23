@@ -22,3 +22,4 @@ export 'task_creation_screen.dart';
 export 'tasks_list_screen.dart';
 export 'daily_hub_screen.dart';
 export 'bible_main_screen.dart';
+export 'quiz_scope_selection_screen.dart';

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
 
 class BibleMainScreen extends StatefulWidget {
@@ -23,12 +25,57 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   String? _aiExplanation;
   bool _isExplaining = false;
   Color? _customExplanationColor;
+  String _bibleFontSizeCategory = 'medium';
+  Color? _customBibleColor;
 
   // Quiz tab state
   int _questionCount = 5;
-  String _quizScope = 'General Bible Knowledge'; // or 'Last Read Chapter'
+  String _quizScopeType = 'general'; // 'general', 'chapter', 'deep_learning', 'tech', 'science', 'english', 'economics', 'mindfulness', 'custom'
+  final TextEditingController _chapterOrTopicController = TextEditingController(text: 'John 3');
   String? _lastReadChapter;
   bool _isLoadingQuiz = false;
+  String? _activeQuizGenerationToken;
+  final AudioPlayer _quizAudioPlayer = AudioPlayer();
+
+  // Riddles & Jokes state
+  String _riddlesMode = 'riddle'; // 'riddle', 'joke'
+  String _riddlesCategory = 'bible'; // 'bible', 'logic', 'tech', 'general'
+  bool _isLoadingRiddle = false;
+  String? _currentRiddleText;
+  String? _currentRiddleAnswer;
+  String? _currentRiddleHint;
+  String? _currentRiddleExplanation;
+  String? _currentJokeSetup;
+  String? _currentJokePunchline;
+  final TextEditingController _riddleGuessController = TextEditingController();
+  bool _riddleChecked = false;
+  bool _riddleCorrect = false;
+  bool _hintShown = false;
+  bool _punchlineShown = false;
+  String? _jokeRating;
+
+  void _cancelQuizGeneration() {
+    setState(() {
+      _activeQuizGenerationToken = null;
+      _isLoadingQuiz = false;
+    });
+  }
+
+  Future<void> _playQuizStartedSoundAndVibrate() async {
+    try {
+      await _quizAudioPlayer.setSource(AssetSource('audio/quiz_started.wav'));
+      await _quizAudioPlayer.resume();
+    } catch (e) {
+      safePrint("Error playing quiz started sound: $e");
+    }
+    try {
+      await HapticFeedback.vibrate();
+      await HapticFeedback.heavyImpact();
+    } catch (e) {
+      safePrint("Error triggering haptic: $e");
+    }
+  }
+
   List<Map<String, dynamic>> _quizQuestions = [];
   int _currentQuestionIndex = 0;
   int? _selectedAnswerIndex;
@@ -47,24 +94,80 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   final TextEditingController _customReadController = TextEditingController();
 
   final List<String> _books = [
-    'Genesis', 'Exodus', 'Psalms', 'Proverbs', 'Ecclesiastes', 'Isaiah', 
-    'Matthew', 'Mark', 'Luke', 'John', 'Acts', 'Romans', 'Philippians', 'Revelation'
+    'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy', 'Joshua', 'Judges', 'Ruth',
+    '1 Samuel', '2 Samuel', '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra', 'Nehemiah',
+    'Esther', 'Job', 'Psalms', 'Proverbs', 'Ecclesiastes', 'Song of Solomon', 'Isaiah', 'Jeremiah',
+    'Lamentations', 'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos', 'Obadiah', 'Jonah', 'Micah',
+    'Nahum', 'Habakkuk', 'Zephaniah', 'Haggai', 'Zechariah', 'Malachi',
+    'Matthew', 'Mark', 'Luke', 'John', 'Acts', 'Romans', '1 Corinthians', '2 Corinthians',
+    'Galatians', 'Ephesians', 'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians',
+    '1 Timothy', '2 Timothy', 'Titus', 'Philemon', 'Hebrews', 'James', '1 Peter', '2 Peter',
+    '1 John', '2 John', '3 John', 'Jude', 'Revelation'
   ];
+
+  static const Map<String, int> _bibleBookChapters = {
+    'Genesis': 50, 'Exodus': 40, 'Leviticus': 27, 'Numbers': 36, 'Deuteronomy': 34,
+    'Joshua': 24, 'Judges': 21, 'Ruth': 4, '1 Samuel': 31, '2 Samuel': 24,
+    '1 Kings': 22, '2 Kings': 25, '1 Chronicles': 29, '2 Chronicles': 36,
+    'Ezra': 10, 'Nehemiah': 13, 'Esther': 10, 'Job': 42, 'Psalms': 150,
+    'Proverbs': 31, 'Ecclesiastes': 12, 'Song of Solomon': 8, 'Isaiah': 66,
+    'Jeremiah': 52, 'Lamentations': 5, 'Ezekiel': 48, 'Daniel': 12, 'Hosea': 14,
+    'Joel': 3, 'Amos': 9, 'Obadiah': 1, 'Jonah': 4, 'Micah': 7, 'Nahum': 3,
+    'Habakkuk': 3, 'Zephaniah': 3, 'Haggai': 2, 'Zechariah': 14, 'Malachi': 4,
+    'Matthew': 28, 'Mark': 16, 'Luke': 24, 'John': 21, 'Acts': 28, 'Romans': 16,
+    '1 Corinthians': 16, '2 Corinthians': 13, 'Galatians': 6, 'Ephesians': 6,
+    'Philippians': 4, 'Colossians': 4, '1 Thessalonians': 5, '2 Thessalonians': 3,
+    '1 Timothy': 6, '2 Timothy': 4, 'Titus': 3, 'Philemon': 1, 'Hebrews': 13,
+    'James': 5, '1 Peter': 5, '2 Peter': 3, '1 John': 5, '2 John': 1, '3 John': 1,
+    'Jude': 1, 'Revelation': 22
+  };
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _initializeGemini();
-    _loadLastReadChapter();
-    _fetchBibleChapter();
+    _initData();
+    _initAudioContext();
+  }
+
+  Future<void> _initData() async {
+    await _loadLastReadChapter();
+    await _fetchBibleChapter();
+  }
+
+  void _initAudioContext() {
+    try {
+      _quizAudioPlayer.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.assistanceSonification,
+            audioFocus: AndroidAudioFocus.gainTransient,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: {
+              AVAudioSessionOptions.mixWithOthers,
+              AVAudioSessionOptions.defaultToSpeaker,
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      safePrint("Error initializing audio context: $e");
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _customReadController.dispose();
+    _chapterOrTopicController.dispose();
+    _riddleGuessController.dispose();
     _questionTimer?.cancel();
+    _quizAudioPlayer.dispose();
     super.dispose();
   }
 
@@ -78,6 +181,20 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
     if (mounted) {
       setState(() {
         _lastReadChapter = val.isNotEmpty ? val : null;
+        _chapterOrTopicController.text = _lastReadChapter ?? '$_selectedBook $_selectedChapter';
+        final targetChapter = _chapterOrTopicController.text;
+        final parts = targetChapter.split(' ');
+        if (parts.length >= 2) {
+          final chapterStr = parts.last;
+          final chapter = int.tryParse(chapterStr);
+          if (chapter != null) {
+            final bookName = parts.sublist(0, parts.length - 1).join(' ');
+            if (_books.contains(bookName)) {
+              _selectedBook = bookName;
+              _selectedChapter = chapter;
+            }
+          }
+        }
       });
     }
   }
@@ -473,23 +590,14 @@ Format the response beautifully in Markdown. Crucial: Make sure any quoted Bible
 
   Future<void> _generateQuiz() async {
     final isPro = context.read<AppAuthProvider>().isPro;
-    final isPremiumQuiz = _isTimed || _quizScope == 'Deep Learning & Application';
+    final isFreeScope = _quizScopeType == 'general' || _quizScopeType == 'chapter';
 
-    if (!isPro && isPremiumQuiz) {
-      final adCount = await AppHelper.getAdUnlockCount();
-      if (adCount >= 3) {
-        if (mounted) {
-          AppHelper.showPaywall(context, feature: _isTimed ? 'Timed Quiz' : 'Deep Learning Quiz');
-        }
-        return;
-      }
-
+    if (!isPro && (!isFreeScope || _isTimed)) {
       if (mounted) {
         AppHelper.watchAdForAction(
           context,
-          promptText: 'Watch an ad to unlock premium features for this quiz session. ($adCount/3 daily unlocks used)',
-          onReward: () async {
-            await AppHelper.incrementAdUnlockCount();
+          promptText: 'Watch a video ad to unlock this quiz session!',
+          onReward: () {
             _startQuizGeneration();
           },
         );
@@ -497,40 +605,13 @@ Format the response beautifully in Markdown. Crucial: Make sure any quoted Bible
       return;
     }
 
-    // Standard quiz limits for freemium users (3 free daily, then ads)
-    if (!isPro) {
-      final prefs = await SharedPreferences.getInstance();
-      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final lastDate = prefs.getString('QUIZ_FREE_LAST_DATE') ?? '';
-      int count = prefs.getInt('QUIZ_FREE_USED_COUNT') ?? 0;
-
-      if (lastDate != todayStr) {
-        count = 0;
-        await prefs.setString('QUIZ_FREE_LAST_DATE', todayStr);
-        await prefs.setInt('QUIZ_FREE_USED_COUNT', 0);
-      }
-
-      if (count >= 3) {
-        if (mounted) {
-          AppHelper.watchAdForAction(
-            context,
-            promptText: 'You have used your 3 free quiz sessions for today. Watch a video ad to unlock another session!',
-            onReward: () {
-              _startQuizGeneration();
-            },
-          );
-        }
-        return;
-      }
-
-      // Increment count
-      await prefs.setInt('QUIZ_FREE_USED_COUNT', count + 1);
-    }
-
     _startQuizGeneration();
   }
 
   Future<void> _startQuizGeneration() async {
+    final currentToken = DateTime.now().microsecondsSinceEpoch.toString();
+    _activeQuizGenerationToken = currentToken;
+
     setState(() {
       _isLoadingQuiz = true;
       _quizQuestions = [];
@@ -544,9 +625,13 @@ Format the response beautifully in Markdown. Crucial: Make sure any quoted Bible
 
     String targetContext = '';
     String styleInstructions = '';
+    String systemInstruction = 'You are a precise Bible quiz generator. You generate high-quality Bible trivia questions. Under no circumstances do you generate questions about any other topic, including the MindPilot application or technology. Only biblical facts are allowed.';
 
-    if (_quizScope == 'Deep Learning & Application' && _lastReadChapter != null) {
-      targetContext = 'application and critical thinking lessons inspired by the Bible chapter "$_lastReadChapter"';
+    if (_quizScopeType == 'deep_learning') {
+      final targetChapter = _chapterOrTopicController.text.trim().isNotEmpty
+          ? _chapterOrTopicController.text.trim()
+          : (_lastReadChapter ?? 'John 3');
+      targetContext = 'application and critical thinking lessons inspired by the Bible chapter "$targetChapter"';
       styleInstructions = """
 The questions should NOT be direct trivia or fact recall from the chapter (e.g., do not ask who said what or specific verse numbers).
 Instead, generate **learnable, reflective, and application-oriented questions** that make the user think widely about the moral, philosophical, or practical life lessons of the chapter, and explain what they have learnt.
@@ -554,9 +639,40 @@ The 4 options (answers) must fall around the practical application of those conc
 Ensure the "explanation" for each question explains the lesson clearly and how it relates to what they read.
 Ensure all questions generated are completely unique, deep, and never repetitive compared to standard prompts.
 """;
-    } else if (_quizScope == 'Last Read Chapter' && _lastReadChapter != null) {
-      targetContext = 'the Bible chapter "$_lastReadChapter"';
+      systemInstruction = "You are a precise Bible study application generator. You generate deep, reflective multiple-choice questions focusing on practical takeaways and moral application of scripture. Under no circumstances do you generate questions about other topics.";
+    } else if (_quizScopeType == 'chapter') {
+      final targetChapter = _chapterOrTopicController.text.trim().isNotEmpty
+          ? _chapterOrTopicController.text.trim()
+          : (_lastReadChapter ?? 'John 3');
+      targetContext = 'the Bible chapter "$targetChapter"';
       styleInstructions = "Generate standard comprehension and contextual questions from this chapter. Avoid repeating questions; cover different verses and concepts in the chapter to make it highly unique.";
+      systemInstruction = "You are a precise Bible quiz generator. You generate high-quality Bible trivia questions based strictly on the specified chapter. Under no circumstances do you generate questions about any other topic. Only facts from the specified chapter are allowed.";
+    } else if (_quizScopeType == 'tech') {
+      targetContext = 'technology, computer science, software engineering, and programming';
+      styleInstructions = "Generate educational, accurate multiple-choice questions about software engineering, programming languages, computer science, and digital technology. Avoid repeating questions; ensure all questions are completely unique.";
+      systemInstruction = "You are a precise technology and coding quiz generator. You generate educational, accurate multiple-choice questions about tech and coding. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_quizScopeType == 'science') {
+      targetContext = 'science, physics, chemistry, astronomy, and biology';
+      styleInstructions = "Generate educational, accurate multiple-choice questions about science and physics. Avoid repeating questions; ensure all questions are completely unique.";
+      systemInstruction = "You are a precise science quiz generator. You generate educational, accurate multiple-choice questions about science and physics. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_quizScopeType == 'english') {
+      targetContext = 'English grammar, vocabulary, classic literature, famous authors, and literary devices';
+      styleInstructions = "Generate educational, accurate multiple-choice questions about English language and literature. Avoid repeating questions; ensure all questions are completely unique.";
+      systemInstruction = "You are a precise English and literature quiz generator. You generate educational, accurate multiple-choice questions. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_quizScopeType == 'economics') {
+      targetContext = 'economics, microeconomics, macroeconomics, finance, and investment principles';
+      styleInstructions = "Generate educational, accurate multiple-choice questions about economics and finance. Avoid repeating questions; ensure all questions are completely unique.";
+      systemInstruction = "You are a precise economics and finance quiz generator. You generate educational, accurate multiple-choice questions. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_quizScopeType == 'mindfulness') {
+      targetContext = 'personality development, emotional intelligence, mindfulness practices, and positive psychology';
+      styleInstructions = "Generate constructive, inspiring multiple-choice questions that help players build self-awareness and positive traits. Avoid repeating questions; ensure all questions are completely unique.";
+      systemInstruction = "You are a precise mindfulness and personality development quiz generator. You generate educational, constructive multiple-choice questions that help players build self-awareness and positive traits. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_quizScopeType == 'custom') {
+      final customTopic = _chapterOrTopicController.text.trim();
+      final topic = customTopic.isNotEmpty ? customTopic : 'World History';
+      targetContext = 'the topic: "$topic"';
+      styleInstructions = "Generate educational, accurate multiple-choice questions about this topic. CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content. Under no circumstances should you output any inappropriate, political, offensive, or adult topics.";
+      systemInstruction = "You are a precise quiz generator. You generate educational, accurate multiple-choice questions about the specified topic: '$topic'. You must ensure there is absolutely no inappropriate, offensive, or mature content. Ensure the quiz remains clean and educational.";
     } else {
       targetContext = 'general Bible knowledge (covering both Old and New Testaments)';
       styleInstructions = """
@@ -568,7 +684,7 @@ Every time you are called, randomize the target books and generate a completely 
     }
 
     final prompt = """
-You are the **MindPilot Bible Quiz Generator**. Generate a JSON array of multiple choice questions based on: $targetContext.
+You are the **MindPilot Quiz Generator**. Generate a JSON array of multiple choice questions based on: $targetContext.
 The JSON array must contain exactly $_questionCount questions.
 
 $styleInstructions
@@ -585,11 +701,23 @@ Each question object in the array must have the following keys:
 - "answer": The index (0 to 3) of the correct option.
 - "explanation": A brief explanation of the correct answer.
 
+CRITICAL ACCURACY REQUIREMENT:
+- You MUST double check the correctness of the generated "answer" index.
+- The "answer" index MUST correspond exactly to the index (0 to 3) of the correct answer in the "options" array.
+- For example, if Jesus is the correct option and is placed at index 1 of the options list, the "answer" index MUST be 1. Do not mismatch them.
+- Ensure the question details are completely accurate, using undisputed facts.
+
 Return ONLY the raw JSON array. Do not include markdown code block formatting (no ```json or ```). Just raw JSON.
 """;
 
     try {
-      final response = await _geminiService.sendMessage(prompt);
+      if (_activeQuizGenerationToken != currentToken) return;
+      final response = await _geminiService.sendMessageOneShot(
+        prompt,
+        systemInstruction: systemInstruction,
+      );
+      
+      if (_activeQuizGenerationToken != currentToken) return;
       if (response != null) {
         String cleanJson = response.trim();
         if (cleanJson.startsWith('```')) {
@@ -600,12 +728,15 @@ Return ONLY the raw JSON array. Do not include markdown code block formatting (n
         }
         
         final List decoded = jsonDecode(cleanJson);
+        if (_activeQuizGenerationToken != currentToken) return;
         setState(() {
           _quizQuestions = List<Map<String, dynamic>>.from(decoded);
         });
+        _playQuizStartedSoundAndVibrate();
         _startQuestionTimer();
       }
     } catch (e) {
+      if (_activeQuizGenerationToken != currentToken) return;
       // Fallback questions if AI fails
       setState(() {
         _quizQuestions = [
@@ -629,12 +760,13 @@ Return ONLY the raw JSON array. Do not include markdown code block formatting (n
           },
         ];
       });
+      _playQuizStartedSoundAndVibrate();
       _startQuestionTimer();
       if (mounted) {
         context.showInAppNotification('Dynamic quiz error. Loaded fallback Bible Quiz.', type: InAppNotificationType.info);
       }
     } finally {
-      if (mounted) {
+      if (mounted && _activeQuizGenerationToken == currentToken) {
         setState(() => _isLoadingQuiz = false);
       }
     }
@@ -672,7 +804,10 @@ Let's discuss and reflect on this! 📖✨
     final answerIdx = question['answer'] as int;
     final explanation = question['explanation'] as String;
 
-    final title = 'Scripture Reflection: ${_lastReadChapter ?? "Bible study"}';
+    final targetChapter = _chapterOrTopicController.text.trim().isNotEmpty
+        ? _chapterOrTopicController.text.trim()
+        : (_lastReadChapter ?? 'Bible study');
+    final title = 'Scripture Reflection: $targetChapter';
     final journalText = """
 **Reflective Question:**
 $qText
@@ -747,12 +882,17 @@ $explanation
     );
     
     try {
+      final totalXpGained = 20 + earnedXp;
+      final targetChapter = _chapterOrTopicController.text.trim().isNotEmpty
+          ? _chapterOrTopicController.text.trim()
+          : (_lastReadChapter ?? 'Unknown');
       final quiz = {
         'date': DateTime.now().toIso8601String(),
-        'chapter': _quizScope == 'General Bible Knowledge' ? 'General Knowledge' : (_lastReadChapter ?? 'Unknown'),
+        'chapter': _quizScopeType == 'general' ? 'General Knowledge' : targetChapter,
         'score': _score,
         'total_questions': _quizQuestions.length,
-        'quiz_type': _quizScope,
+        'quiz_type': _quizScopeType,
+        'xp_earned': totalXpGained,
       };
       await DatabaseHelper().insertQuizResult(quiz);
     } catch (e) {
@@ -844,6 +984,7 @@ $explanation
           tabs: const [
             Tab(text: 'Read & Learn', icon: Icon(Icons.menu_book)),
             Tab(text: 'Bible Quiz', icon: Icon(Icons.quiz)),
+            Tab(text: 'Riddles & Jokes', icon: Icon(Icons.sentiment_very_satisfied)),
           ],
         ),
       ),
@@ -875,6 +1016,7 @@ $explanation
             children: [
               _buildReadTab(theme),
               _buildQuizTab(theme),
+              _buildRiddlesTab(theme),
             ],
           ),
         ],
@@ -884,6 +1026,7 @@ $explanation
 
   Widget _buildReadTab(AppTheme theme) {
     final activeColor = _customExplanationColor ?? theme.accentTxt;
+    final activeBibleColor = _customBibleColor ?? theme.accentTxt;
     if (_isLoadingChapter) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -959,7 +1102,10 @@ $explanation
                           if (val != null) {
                             setState(() {
                               _selectedBook = val;
-                              _selectedChapter = 1;
+                              final maxCh = _bibleBookChapters[val] ?? 50;
+                              if (_selectedChapter > maxCh) {
+                                _selectedChapter = 1;
+                              }
                             });
                             _fetchBibleChapter();
                           }
@@ -983,7 +1129,7 @@ $explanation
                         isExpanded: true,
                         underline: const SizedBox(),
                         style: TextStyle(color: theme.accentTxt, fontSize: 15),
-                        items: List.generate(50, (index) => index + 1)
+                        items: List.generate(_bibleBookChapters[_selectedBook] ?? 50, (index) => index + 1)
                             .map((c) => DropdownMenuItem(value: c, child: Text('Ch. $c')))
                             .toList(),
                         onChanged: (val) {
@@ -994,6 +1140,36 @@ $explanation
                         },
                       ),
                     ),
+                  ),
+                ],
+              ),
+              24.verticalSpace,
+
+              // Customize controls bar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.format_size, color: theme.accentTxt.withOpacity(0.6), size: 16),
+                      8.horizontalSpace,
+                      _fontSizeOption('S', 'small'),
+                      6.horizontalSpace,
+                      _fontSizeOption('M', 'medium'),
+                      6.horizontalSpace,
+                      _fontSizeOption('L', 'large'),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Icon(Icons.palette_outlined, color: theme.accentTxt.withOpacity(0.6), size: 16),
+                      8.horizontalSpace,
+                      _bibleColorPaletteOption(const Color(0xFFC0FF00), activeBibleColor), // Lemon Green
+                      8.horizontalSpace,
+                      _bibleColorPaletteOption(const Color(0xFFFF914D), activeBibleColor), // Orange
+                      8.horizontalSpace,
+                      _bibleColorPaletteOption(theme.accentTxt, activeBibleColor, isReset: true), // Reset / White
+                    ],
                   ),
                 ],
               ),
@@ -1045,6 +1221,8 @@ $explanation
                     itemCount: _verses.length,
                     itemBuilder: (context, index) {
                       final v = _verses[index];
+                      final bibleFontSize = _getBibleFontSize();
+                      final verseFontSize = _getVerseNumberFontSize();
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: Text.rich(
@@ -1055,14 +1233,14 @@ $explanation
                                 style: TextStyle(
                                   color: theme.primaryBase,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                                  fontSize: verseFontSize,
                                 ),
                               ),
                               TextSpan(
                                 text: '${v['text']}'.trim(),
                                 style: TextStyle(
-                                  color: theme.accentTxt.withOpacity(0.9),
-                                  fontSize: 14,
+                                  color: activeBibleColor.withOpacity(0.9),
+                                  fontSize: bibleFontSize,
                                   height: 1.5,
                                 ),
                               ),
@@ -1178,11 +1356,19 @@ $explanation
               ),
               32.verticalSpace,
               PrimaryText(
-                text: 'Your questions are being generated, please sit back and be prepared...',
+                text: 'Generating ${_getScopeFriendlyName(_quizScopeType)} Quiz... 📖\n\nYour questions are being generated, please sit back and be prepared...',
                 textAlign: TextAlign.center,
                 fontSize: 16,
                 color: theme.accentTxt.withOpacity(0.9),
                 fontWeight: FontWeight.w500,
+              ),
+              32.verticalSpace,
+              CustomButton(
+                label: 'Cancel',
+                isOutline: true,
+                borderColor: theme.errorPrimary,
+                textColor: theme.errorPrimary,
+                onPressed: _cancelQuizGeneration,
               ),
             ],
           ),
@@ -1209,6 +1395,21 @@ $explanation
           SecondaryText(
             text: 'Engage with daily quizzes generated directly by your AI study assistant.',
             color: theme.accentTxt.withOpacity(0.6),
+          ),
+          16.verticalSpace,
+          CustomButton(
+            label: 'Group Multiplayer Quiz 👥',
+            backgroundColor: theme.primaryBase,
+            textColor: Colors.black,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  settings: const RouteSettings(name: 'GroupLobbyScreen'),
+                  builder: (_) => const GroupLobbyScreen(),
+                ),
+              );
+            },
           ),
           24.verticalSpace,
           
@@ -1245,21 +1446,61 @@ $explanation
               );
             }).toList(),
           ),
-          24.verticalSpace,
-          
           // Scope selection
           PrimaryText(
-            text: 'Quiz Scope',
+            text: 'Quiz Category',
             color: theme.accentTxt,
             fontSize: 15,
             fontWeight: FontWeight.bold,
           ),
           12.verticalSpace,
-          _scopeTile(theme, 'General Bible Knowledge', 'Covers Old and New Testament questions'),
-          12.verticalSpace,
-          _scopeTile(theme, 'Last Read Chapter', 'Test yourself on: ${_lastReadChapter ?? "No chapter read yet"}'),
-          12.verticalSpace,
-          _scopeTile(theme, 'Deep Learning & Application', 'Critical thinking and life application questions based on: ${_lastReadChapter ?? "No chapter read yet"}'),
+          GlassContainer(
+            padding: const EdgeInsets.all(16),
+            border: Border.all(color: theme.primaryBase.withOpacity(0.3), width: 1),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      PrimaryText(
+                        text: _getScopeFriendlyName(_quizScopeType),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: theme.primaryBase,
+                      ),
+                      4.verticalSpace,
+                      SecondaryText(
+                        text: _getScopeDescription(_quizScopeType),
+                        fontSize: 12,
+                        color: theme.accentTxt.withOpacity(0.6),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: theme.primaryBase, size: 16),
+              ],
+            ),
+          ).rippleClick(() async {
+            final result = await Navigator.push<Map<String, String>>(
+              context,
+              MaterialPageRoute(
+                settings: const RouteSettings(name: 'QuizScopeSelectionScreen'),
+                builder: (_) => QuizScopeSelectionScreen(
+                  initialScopeType: _quizScopeType,
+                  initialScopeValue: _chapterOrTopicController.text,
+                ),
+              ),
+            );
+            if (result != null && mounted) {
+              setState(() {
+                _quizScopeType = result['scopeType']!;
+                _chapterOrTopicController.text = result['scopeValue']!;
+              });
+              AnalyticsService.logQuizScopeSelected(_quizScopeType, _chapterOrTopicController.text);
+            }
+          }),
           
           24.verticalSpace,
           // Timed Quiz Settings (Premium Feature)
@@ -1439,7 +1680,7 @@ $explanation
           32.verticalSpace,
           
           // Action button
-          if ((_quizScope == 'Last Read Chapter' || _quizScope == 'Deep Learning & Application') && _lastReadChapter == null) ...[
+          if ((_quizScopeType == 'chapter' || _quizScopeType == 'deep_learning') && _chapterOrTopicController.text.trim().isEmpty) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1447,19 +1688,26 @@ $explanation
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: theme.errorPrimary.withOpacity(0.3)),
               ),
-              child: Column(
-                children: [
-                  SecondaryText(
-                    text: 'Please read or manually log a Bible chapter first to use this quiz mode.',
-                    color: theme.accentTxt,
-                    textAlign: TextAlign.center,
-                  ),
-                  12.verticalSpace,
-                  CustomButton(
-                    label: 'Go Read a Chapter',
-                    onPressed: () => _tabController.animateTo(0),
-                  ),
-                ],
+              child: const Center(
+                child: SecondaryText(
+                  text: 'Please specify a Bible chapter to start the quiz.',
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          ] else if (_quizScopeType == 'custom' && _chapterOrTopicController.text.trim().isEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.errorPrimary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.errorPrimary.withOpacity(0.3)),
+              ),
+              child: const Center(
+                child: SecondaryText(
+                  text: 'Please enter a custom topic to start the quiz.',
+                  color: Colors.white70,
+                ),
               ),
             ),
           ] else ...[
@@ -1474,67 +1722,57 @@ $explanation
     );
   }
 
-  Widget _scopeTile(AppTheme theme, String scope, String desc) {
-    final isSelected = _quizScope == scope;
-    final isPro = context.read<AppAuthProvider>().isPro;
-    final isPremiumOnly = scope == 'Deep Learning & Application';
+  String _getScopeFriendlyName(String scopeType) {
+    switch (scopeType) {
+      case 'general':
+        return 'General Bible Knowledge';
+      case 'chapter':
+        final val = _chapterOrTopicController.text.trim();
+        return 'Specific Chapter Study${val.isNotEmpty ? ": $val" : ""}';
+      case 'deep_learning':
+        final val = _chapterOrTopicController.text.trim();
+        return 'Deep Learning & Application${val.isNotEmpty ? ": $val" : ""}';
+      case 'tech':
+        return 'Technology & Coding';
+      case 'science':
+        return 'Science & Physics';
+      case 'english':
+        return 'English & Literature';
+      case 'economics':
+        return 'Economics & Finance';
+      case 'mindfulness':
+        return 'Personality & Mindfulness';
+      case 'custom':
+        final val = _chapterOrTopicController.text.trim();
+        return 'Custom Topic${val.isNotEmpty ? ": $val" : ""}';
+      default:
+        return 'General Bible Knowledge';
+    }
+  }
 
-    return GlassContainer(
-      padding: const EdgeInsets.all(16),
-      gradient: isSelected ? theme.glassGradient : null,
-      border: Border.all(
-        color: isSelected ? theme.primaryBase : Colors.white12,
-        width: isSelected ? 2.0 : 1.0,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-            color: isSelected ? theme.primaryBase : theme.accentTxt.withOpacity(0.4),
-          ),
-          16.horizontalSpace,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    PrimaryText(
-                      text: scope,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: theme.accentTxt,
-                    ),
-                    if (isPremiumOnly) ...[
-                      8.horizontalSpace,
-                      const Icon(
-                        Icons.star,
-                        color: Color(0xFFF59E0B),
-                        size: 14,
-                      ),
-                    ],
-                  ],
-                ),
-                4.verticalSpace,
-                SecondaryText(
-                  text: desc,
-                  fontSize: 11,
-                  color: theme.accentTxt.withOpacity(0.5),
-                ),
-              ],
-            ),
-          ),
-          if (isPremiumOnly && !isPro)
-            Icon(
-              Icons.lock_outline,
-              color: theme.accentTxt.withOpacity(0.6),
-              size: 18,
-            ),
-        ],
-      ),
-    ).rippleClick(() {
-      setState(() => _quizScope = scope);
-    });
+  String _getScopeDescription(String scopeType) {
+    switch (scopeType) {
+      case 'general':
+        return 'Covers Old and New Testament questions';
+      case 'chapter':
+        return 'Test yourself on a specific Bible book & chapter';
+      case 'deep_learning':
+        return 'Critical thinking and life application questions based on a specific chapter';
+      case 'tech':
+        return 'Questions about software engineering, programming, and tech';
+      case 'science':
+        return 'Questions about physics, chemistry, astronomy, and biology';
+      case 'english':
+        return 'Questions about grammar, classic literature, and vocabulary';
+      case 'economics':
+        return 'Questions about finance, economics, and business';
+      case 'mindfulness':
+        return 'Questions about mindfulness, positive psychology, and emotional intelligence';
+      case 'custom':
+        return 'Test yourself on any custom topic you specify';
+      default:
+        return 'Covers Old and New Testament questions';
+    }
   }
 
   Widget _buildActiveQuiz(AppTheme theme) {
@@ -1558,7 +1796,7 @@ $explanation
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               SecondaryText(
-                text: 'Question ${_currentQuestionIndex + 1} of ${_quizQuestions.length}',
+                text: 'Question ${_currentQuestionIndex + 1} of ${_quizQuestions.length} (${_quizQuestions.length - (_currentQuestionIndex + 1)} remaining)',
                 color: theme.accentTxt.withOpacity(0.6),
                 fontWeight: FontWeight.bold,
               ),
@@ -1612,9 +1850,9 @@ $explanation
                   text: questionText,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: theme.accentTxt,
+                  color: const Color(0xFFCCFF00),
                 ),
-                if (_quizScope == 'Deep Learning & Application') ...[
+                if (_quizScopeType == 'deep_learning') ...[
                   12.verticalSpace,
                   const Divider(color: Colors.white12, height: 1),
                   12.verticalSpace,
@@ -1881,13 +2119,16 @@ $explanation
                   label: 'Share Score Card',
                   onPressed: () {
                     final downloadUrl = ConfigService().updateUrl;
+                    final scopeName = _getScopeFriendlyName(_quizScopeType);
+                    final isBible = _quizScopeType == 'general' || _quizScopeType == 'chapter' || _quizScopeType == 'deep_learning';
+                    final emoji = isBible ? ' 📖' : '';
                     ShareService.captureAndShare(
                       context,
-                      text: "Bible Quiz completed on MindPilot! 📖 Score: $_score/${_quizQuestions.length}. Ready to test your Bible knowledge and build focus? Join me on MindPilot!\n\nDownload: $downloadUrl",
+                      text: "$scopeName Quiz completed on MindPilot!$emoji Score: $_score/${_quizQuestions.length}. Ready to test your knowledge and build focus? Join me on MindPilot!\n\nDownload: $downloadUrl",
                       widget: ShareableCard(
                         mode: ShareableCardMode.insight,
-                        insightTitle: 'Bible Quiz Score: $_score/${_quizQuestions.length}',
-                        insightContent: 'I scored $_score out of ${_quizQuestions.length} questions on the MindPilot Bible Quiz! Knowledge level: ${_score == _quizQuestions.length ? "Master 🌟" : "Scholar 📖"}.',
+                        insightTitle: '$scopeName Quiz Score: $_score/${_quizQuestions.length}',
+                        insightContent: 'I scored $_score out of ${_quizQuestions.length} questions on the MindPilot $scopeName Quiz! Knowledge level: ${_score == _quizQuestions.length ? "Master 🌟" : "Scholar 📖"}.',
                         userName: authStore.user?.displayName,
                       ),
                     );
@@ -1949,6 +2190,757 @@ $explanation
       setState(() {
         _customExplanationColor = isReset ? null : color;
       });
+    });
+  }
+
+  Widget _bibleColorPaletteOption(Color color, Color activeColor, {bool isReset = false}) {
+    final isSelected = isReset ? (_customBibleColor == null) : (_customBibleColor == color);
+    AppTheme theme = context.watch();
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isSelected ? Colors.white : Colors.white24,
+          width: isSelected ? 2.5 : 1.0,
+        ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: color.withOpacity(0.4),
+                  blurRadius: 6,
+                  spreadRadius: 2,
+                )
+              ]
+            : null,
+      ),
+      child: isReset
+          ? Icon(Icons.refresh, size: 10, color: theme.brandDark)
+          : null,
+    ).rippleClick(() {
+      setState(() {
+        _customBibleColor = isReset ? null : color;
+      });
+    });
+  }
+
+  Widget _fontSizeOption(String label, String category) {
+    final isSelected = _bibleFontSizeCategory == category;
+    AppTheme theme = context.watch();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isSelected ? theme.primaryBase : Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isSelected ? theme.primaryBase : Colors.white12,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.black : theme.accentTxt,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    ).rippleClick(() {
+      setState(() {
+        _bibleFontSizeCategory = category;
+      });
+    });
+  }
+
+  double _getBibleFontSize() {
+    switch (_bibleFontSizeCategory) {
+      case 'small':
+        return 12.0;
+      case 'large':
+        return 18.0;
+      case 'medium':
+      default:
+        return 15.0;
+    }
+  }
+
+  double _getVerseNumberFontSize() {
+    switch (_bibleFontSizeCategory) {
+      case 'small':
+        return 10.0;
+      case 'large':
+        return 14.0;
+      case 'medium':
+      default:
+        return 12.0;
+    }
+  }
+
+  void _checkRiddleOrJokeAccessAndGenerate() async {
+    final authStore = context.read<AppAuthProvider>();
+    final isPro = authStore.isPro;
+    final modeKey = _riddlesMode; // 'riddle' or 'joke'
+
+    if (isPro) {
+      if (modeKey == 'riddle') {
+        AnalyticsService.logRiddleGenerated(isFree: true, count: 0);
+      } else {
+        AnalyticsService.logJokeGenerated(isFree: true, count: 0);
+      }
+      _generateRiddleOrJoke();
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    final lastDateKey = '${modeKey.toUpperCase()}_FREE_LAST_DATE';
+    final countKey = '${modeKey.toUpperCase()}_FREE_USED_COUNT';
+
+    final lastDate = prefs.getString(lastDateKey) ?? '';
+    int count = prefs.getInt(countKey) ?? 0;
+
+    if (lastDate != todayStr) {
+      count = 0;
+      await prefs.setString(lastDateKey, todayStr);
+      await prefs.setInt(countKey, 0);
+    }
+
+    if (count >= 3) {
+      if (mounted) {
+        AppHelper.watchAdForAction(
+          context,
+          promptText: 'You have used your 3 free ${modeKey}s for today. Watch a video ad to unlock another one!',
+          onReward: () {
+            if (modeKey == 'riddle') {
+              AnalyticsService.logRiddleGenerated(isFree: false, count: count + 1);
+            } else {
+              AnalyticsService.logJokeGenerated(isFree: false, count: count + 1);
+            }
+            _generateRiddleOrJoke();
+          },
+        );
+      }
+      return;
+    }
+
+    await prefs.setInt(countKey, count + 1);
+    if (modeKey == 'riddle') {
+      AnalyticsService.logRiddleGenerated(isFree: true, count: count + 1);
+    } else {
+      AnalyticsService.logJokeGenerated(isFree: true, count: count + 1);
+    }
+    _generateRiddleOrJoke();
+  }
+
+  Future<void> _generateRiddleOrJoke() async {
+    setState(() {
+      _isLoadingRiddle = true;
+      _currentRiddleText = null;
+      _currentRiddleAnswer = null;
+      _currentRiddleHint = null;
+      _currentRiddleExplanation = null;
+      _currentJokeSetup = null;
+      _currentJokePunchline = null;
+      _riddleGuessController.clear();
+      _riddleChecked = false;
+      _riddleCorrect = false;
+      _hintShown = false;
+      _punchlineShown = false;
+      _jokeRating = null;
+    });
+
+    if (!_geminiService.isInitialized) {
+      _initializeGemini();
+    }
+
+    String categoryText = '';
+    if (_riddlesCategory == 'bible') {
+      categoryText = 'the Holy Bible (both Old and New Testaments)';
+    } else if (_riddlesCategory == 'logic') {
+      categoryText = 'logic, critical thinking, and puzzles';
+    } else if (_riddlesCategory == 'tech') {
+      categoryText = 'technology, coding, computer science, and software engineering';
+    } else {
+      categoryText = 'general knowledge, science, literature, history, and life';
+    }
+
+    String prompt = '';
+    String systemInstruction = '';
+
+    if (_riddlesMode == 'riddle') {
+      prompt = """
+You are a precise riddle generator. Generate exactly 1 riddle about: $categoryText.
+The riddle MUST be clever, engaging, and suitable for improving thinking skills.
+CRITICAL: No inappropriate, mature, political, or offensive content under any circumstances. Ensure the content is completely clean and constructive.
+
+You MUST format the output ONLY as a valid JSON object. Do not wrap it in markdown code block formatting. Return only raw JSON.
+The JSON object must have exactly these keys:
+- "riddle": The riddle question text.
+- "answer": A short answer word or phrase.
+- "hint": A subtle clue or hint.
+- "explanation": A brief explanation of the riddle answer.
+""";
+      systemInstruction = "You are a precise riddle generator. Generate a clever, clean riddle on the chosen category. Return ONLY raw JSON.";
+    } else {
+      prompt = """
+You are a precise joke generator. Generate exactly 1 joke or pun about: $categoryText.
+The joke MUST be clean, lighthearted, and funny.
+CRITICAL: No inappropriate, mature, political, or offensive content under any circumstances. Ensure the content is completely clean and constructive.
+
+You MUST format the output ONLY as a valid JSON object. Do not wrap it in markdown code block formatting. Return only raw JSON.
+The JSON object must have exactly these keys:
+- "setup": The joke setup or question.
+- "punchline": The punchline or answer.
+""";
+      systemInstruction = "You are a precise joke generator. Generate a clean, funny joke on the chosen category. Return ONLY raw JSON.";
+    }
+
+    try {
+      final response = await _geminiService.sendMessageOneShot(prompt, systemInstruction: systemInstruction);
+      if (response != null && response.trim().isNotEmpty) {
+        String cleanJson = response.trim();
+        if (cleanJson.startsWith('```')) {
+          final lines = cleanJson.split('\n');
+          if (lines.first.startsWith('```')) lines.removeAt(0);
+          if (lines.last.startsWith('```')) lines.removeLast();
+          cleanJson = lines.join('\n').trim();
+        }
+
+        final Map<String, dynamic> decoded = jsonDecode(cleanJson);
+        setState(() {
+          if (_riddlesMode == 'riddle') {
+            _currentRiddleText = decoded['riddle']?.toString() ?? 'What gets wetter the more it dries?';
+            _currentRiddleAnswer = decoded['answer']?.toString() ?? 'A towel';
+            _currentRiddleHint = decoded['hint']?.toString() ?? 'You use it after a shower.';
+            _currentRiddleExplanation = decoded['explanation']?.toString() ?? 'A towel absorbs water to dry things, so it becomes wet.';
+          } else {
+            _currentJokeSetup = decoded['setup']?.toString() ?? 'Why did the programmer quit their job?';
+            _currentJokePunchline = decoded['punchline']?.toString() ?? 'Because they didn\'t get arrays.';
+          }
+        });
+      }
+    } catch (e) {
+      setState(() {
+        if (_riddlesMode == 'riddle') {
+          _currentRiddleText = 'I am something when you cut me you cry, what am I?';
+          _currentRiddleAnswer = 'An onion';
+          _currentRiddleHint = 'Common kitchen vegetable used in cooking.';
+          _currentRiddleExplanation = 'Cutting onions releases a chemical that irritates the eyes, causing tears.';
+        } else {
+          _currentJokeSetup = 'Why did the laptop go to the doctor?';
+          _currentJokePunchline = 'Because it had a virus!';
+        }
+      });
+      if (mounted) {
+        context.showInAppNotification('Failed to generate. Loaded a default one instead.', type: InAppNotificationType.info);
+      }
+    } finally {
+      setState(() {
+        _isLoadingRiddle = false;
+      });
+    }
+  }
+
+  void _checkRiddleGuess() {
+    final guess = _riddleGuessController.text.trim().toLowerCase();
+    final answer = (_currentRiddleAnswer ?? '').trim().toLowerCase();
+
+    if (guess.isEmpty) {
+      context.showInAppNotification('Please enter a guess first.');
+      return;
+    }
+
+    String cleanStr(String s) {
+      var res = s.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      if (res.startsWith('a ')) res = res.substring(2);
+      if (res.startsWith('an ')) res = res.substring(3);
+      if (res.startsWith('the ')) res = res.substring(4);
+      return res.trim();
+    }
+
+    final cleanGuess = cleanStr(guess);
+    final cleanAnswer = cleanStr(answer);
+
+    setState(() {
+      _riddleChecked = true;
+      _riddleCorrect = cleanGuess == cleanAnswer || cleanAnswer.contains(cleanGuess) && cleanGuess.length >= 3;
+    });
+
+    if (_riddleCorrect) {
+      context.showInAppNotification('Spot on! Correct answer 🎉', type: InAppNotificationType.success);
+    } else {
+      context.showInAppNotification('Not quite! Try again or reveal the hint/answer.', type: InAppNotificationType.error);
+    }
+  }
+
+  Widget _buildRiddlesTab(AppTheme theme) {
+    if (_isLoadingRiddle) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(theme.primaryBase),
+                  strokeWidth: 3.0,
+                ),
+              ),
+              32.verticalSpace,
+              PrimaryText(
+                text: _riddlesMode == 'riddle'
+                    ? 'Thinking of a clever riddle for you...'
+                    : 'Crafting a funny joke for you...',
+                textAlign: TextAlign.center,
+                fontSize: 16,
+                color: theme.accentTxt.withOpacity(0.9),
+                fontWeight: FontWeight.w500,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final hasContent = _riddlesMode == 'riddle' ? _currentRiddleText != null : _currentJokeSetup != null;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PrimaryText(
+            text: 'Riddles & Jokes 🌟',
+            color: theme.accentTxt,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+          12.verticalSpace,
+          SecondaryText(
+            text: 'Challenge your mind with riddles or relax with lighthearted jokes generated by Gemini AI.',
+            color: theme.accentTxt.withOpacity(0.6),
+          ),
+          20.verticalSpace,
+
+          // Mode Selection
+          Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: GlassContainer(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    gradient: _riddlesMode == 'riddle' ? theme.glassGradient : null,
+                    border: Border.all(
+                      color: _riddlesMode == 'riddle' ? theme.primaryBase : Colors.white12,
+                      width: _riddlesMode == 'riddle' ? 2.0 : 1.0,
+                    ),
+                    child: Center(
+                      child: PrimaryText(
+                        text: '🧠 Riddles',
+                        color: theme.accentTxt,
+                        fontWeight: _riddlesMode == 'riddle' ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ).rippleClick(() => setState(() {
+                    _riddlesMode = 'riddle';
+                    _currentRiddleText = null;
+                    _currentJokeSetup = null;
+                  })),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: GlassContainer(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    gradient: _riddlesMode == 'joke' ? theme.glassGradient : null,
+                    border: Border.all(
+                      color: _riddlesMode == 'joke' ? theme.primaryBase : Colors.white12,
+                      width: _riddlesMode == 'joke' ? 2.0 : 1.0,
+                    ),
+                    child: Center(
+                      child: PrimaryText(
+                        text: '😂 Jokes',
+                        color: theme.accentTxt,
+                        fontWeight: _riddlesMode == 'joke' ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ).rippleClick(() => setState(() {
+                    _riddlesMode = 'joke';
+                    _currentRiddleText = null;
+                    _currentJokeSetup = null;
+                  })),
+                ),
+              ),
+            ],
+          ),
+          20.verticalSpace,
+
+          // Category Chips
+          PrimaryText(
+            text: 'Choose Category',
+            color: theme.accentTxt,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+          12.verticalSpace,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _categoryChip('bible', '📖 Bible', theme),
+                8.horizontalSpace,
+                _categoryChip('logic', '🧠 Logic', theme),
+                8.horizontalSpace,
+                _categoryChip('tech', '💻 Tech', theme),
+                8.horizontalSpace,
+                _categoryChip('general', '🌍 General', theme),
+              ],
+            ),
+          ),
+          24.verticalSpace,
+
+          // Content Card
+          if (!hasContent) ...[
+            GlassContainer(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(
+                    _riddlesMode == 'riddle' ? Icons.lightbulb_outline : Icons.sentiment_satisfied_alt,
+                    size: 48,
+                    color: theme.primaryBase,
+                  ),
+                  16.verticalSpace,
+                  PrimaryText(
+                    text: _riddlesMode == 'riddle'
+                        ? 'Ready for a challenge?'
+                        : 'Need a quick laugh?',
+                    color: theme.accentTxt,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    textAlign: TextAlign.center,
+                  ),
+                  8.verticalSpace,
+                  SecondaryText(
+                    text: _riddlesMode == 'riddle'
+                        ? 'Tap below to generate a riddle and test your logic.'
+                        : 'Tap below to generate a lighthearted joke.',
+                    color: theme.accentTxt.withOpacity(0.6),
+                    textAlign: TextAlign.center,
+                  ),
+                  24.verticalSpace,
+                  CustomButton(
+                    label: _riddlesMode == 'riddle' ? 'Generate Riddle' : 'Generate Joke',
+                    onPressed: _checkRiddleOrJokeAccessAndGenerate,
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // Active Riddle / Joke Card
+            GlassContainer(
+              padding: const EdgeInsets.all(20),
+              border: Border.all(color: theme.primaryBase.withOpacity(0.3)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Topic label
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: theme.primaryBase.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: PrimaryText(
+                          text: _riddlesCategory.toUpperCase(),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: theme.primaryBase,
+                        ),
+                      ),
+                      Icon(
+                        _riddlesMode == 'riddle' ? Icons.help_outline : Icons.sentiment_satisfied,
+                        color: theme.primaryBase,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                  20.verticalSpace,
+
+                  if (_riddlesMode == 'riddle') ...[
+                    // Riddle Question
+                    PrimaryText(
+                      text: _currentRiddleText ?? '',
+                      fontSize: 17,
+                      color: theme.accentTxt,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                    24.verticalSpace,
+
+                    // Hint Box if visible
+                    if (_hintShown && _currentRiddleHint != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.lightbulb, color: Colors.amber, size: 18),
+                            10.horizontalSpace,
+                            Expanded(
+                              child: SecondaryText(
+                                text: 'Hint: $_currentRiddleHint',
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      16.verticalSpace,
+                    ],
+
+                    // Input guess field
+                    CustomTextField(
+                      textController: _riddleGuessController,
+                      autoFocus: false,
+                      hintText: 'Type your guess here...',
+                      textInputType: TextInputType.text,
+                      textInputAction: TextInputAction.done,
+                      labelText: 'Your Guess',
+                      labelColor: Colors.white70,
+                      textColor: Colors.white,
+                      onDone: _checkRiddleGuess,
+                    ),
+                    16.verticalSpace,
+
+                    // Guess Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: CustomButton(
+                            label: 'Check',
+                            onPressed: _checkRiddleGuess,
+                          ),
+                        ),
+                        8.horizontalSpace,
+                        Expanded(
+                          child: CustomButton(
+                            label: _hintShown ? 'Hint On' : 'Hint',
+                            isOutline: true,
+                            borderColor: _hintShown ? Colors.amber : Colors.white24,
+                            textColor: _hintShown ? Colors.amber : Colors.white70,
+                            onPressed: () => setState(() => _hintShown = true),
+                          ),
+                        ),
+                        8.horizontalSpace,
+                        Expanded(
+                          child: CustomButton(
+                            label: 'Reveal',
+                            isOutline: true,
+                            borderColor: theme.errorPrimary.withOpacity(0.5),
+                            textColor: theme.errorPrimary,
+                            onPressed: () {
+                              setState(() {
+                                _riddleChecked = true;
+                                _riddleCorrect = false;
+                                _riddleGuessController.text = _currentRiddleAnswer ?? '';
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Explanation / Answer Display
+                    if (_riddleChecked) ...[
+                      20.verticalSpace,
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _riddleCorrect 
+                              ? theme.successPrimary.withOpacity(0.15) 
+                              : theme.errorPrimary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _riddleCorrect ? theme.successPrimary : theme.errorPrimary.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  _riddleCorrect ? Icons.check_circle : Icons.info_outline,
+                                  color: _riddleCorrect ? theme.successPrimary : theme.errorPrimary,
+                                  size: 20,
+                                ),
+                                8.horizontalSpace,
+                                PrimaryText(
+                                  text: _riddleCorrect ? 'Correct!' : 'Answer Revealed',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: _riddleCorrect ? theme.successPrimary : theme.errorPrimary,
+                                ),
+                              ],
+                            ),
+                            8.verticalSpace,
+                            PrimaryText(
+                              text: 'Answer: $_currentRiddleAnswer',
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: theme.accentTxt,
+                            ),
+                            if (_currentRiddleExplanation != null) ...[
+                              8.verticalSpace,
+                              SecondaryText(
+                                text: _currentRiddleExplanation!,
+                                fontSize: 13,
+                                color: theme.accentTxt.withOpacity(0.7),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    // Joke Setup
+                    PrimaryText(
+                      text: _currentJokeSetup ?? '',
+                      fontSize: 17,
+                      color: theme.accentTxt,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                    24.verticalSpace,
+
+                    // Punchline
+                    if (!_punchlineShown) ...[
+                      CustomButton(
+                        label: 'Reveal Punchline 🎭',
+                        backgroundColor: theme.primaryBase,
+                        textColor: Colors.black,
+                        onPressed: () => setState(() => _punchlineShown = true),
+                      ),
+                    ] else ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.primaryBase.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: theme.primaryBase.withOpacity(0.4)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            PrimaryText(
+                              text: _currentJokePunchline ?? '',
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: theme.primaryBase,
+                              height: 1.3,
+                            ),
+                          ],
+                        ),
+                      ),
+                      20.verticalSpace,
+
+                      // Joke interaction rating
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SecondaryText(
+                            text: 'Was this funny?',
+                            color: theme.accentTxt.withOpacity(0.6),
+                          ),
+                          16.horizontalSpace,
+                          _jokeRatingButton('Funny 😂', 'funny', theme),
+                          8.horizontalSpace,
+                          _jokeRatingButton('Meh 😐', 'meh', theme),
+                        ],
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+            24.verticalSpace,
+            CustomButton(
+              label: _riddlesMode == 'riddle' ? 'Next Riddle ➡️' : 'Next Joke ➡️',
+              isOutline: true,
+              onPressed: _checkRiddleOrJokeAccessAndGenerate,
+            ),
+          ],
+          60.verticalSpace,
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryChip(String catKey, String label, AppTheme theme) {
+    final isSelected = _riddlesCategory == catKey;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? theme.primaryBase : Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSelected ? theme.primaryBase : Colors.white12,
+        ),
+      ),
+      child: PrimaryText(
+        text: label,
+        fontSize: 13,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        color: isSelected ? Colors.black : theme.accentTxt,
+      ),
+    ).rippleClick(() => setState(() {
+      _riddlesCategory = catKey;
+      _currentRiddleText = null;
+      _currentJokeSetup = null;
+    }));
+  }
+
+  Widget _jokeRatingButton(String label, String ratingKey, AppTheme theme) {
+    final isSelected = _jokeRating == ratingKey;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isSelected ? theme.primaryBase.withOpacity(0.2) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? theme.primaryBase : Colors.white12,
+        ),
+      ),
+      child: SecondaryText(
+        text: label,
+        color: isSelected ? theme.primaryBase : theme.accentTxt.withOpacity(0.7),
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+    ).rippleClick(() {
+      if (_jokeRating != null) return;
+      setState(() => _jokeRating = ratingKey);
+      context.showInAppNotification(
+        ratingKey == 'funny' ? 'Glad you liked it! 😄' : 'Thanks for the feedback! We\'ll try harder.',
+        type: InAppNotificationType.success,
+      );
     });
   }
 }

@@ -26,6 +26,7 @@ class _MainScreenState extends State<MainScreen> {
       _listenForFeedbackToggle();
       _handlePendingNotification();
       _maybeShowChatFabTooltip();
+      _checkClipboardForGroupInvite();
     });
   }
 
@@ -310,9 +311,91 @@ class _MainScreenState extends State<MainScreen> {
         });
   }
 
+  Future<void> _checkClipboardForGroupInvite() async {
+    try {
+      final ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text;
+      if (text == null || text.isEmpty) return;
+
+      final inviteRegExp = RegExp(r'mindpilot-group-invite:([a-zA-Z0-9_-]+):([^\n]*)');
+      final match = inviteRegExp.firstMatch(text);
+      if (match != null) {
+        final groupId = match.group(1);
+        final groupName = match.group(2)?.trim();
+        if (groupId != null && groupName != null) {
+          final lastPrompted = await SharedPrefs.getString('LAST_PROMPTED_CLIPBOARD_INVITE');
+          if (lastPrompted == groupId) return;
+          await SharedPrefs.setString('LAST_PROMPTED_CLIPBOARD_INVITE', groupId);
+
+          // Clear clipboard text to avoid infinite prompting loops
+          await Clipboard.setData(const ClipboardData(text: ''));
+
+          if (!mounted) return;
+          _showClipboardJoinDialog(groupId, groupName);
+        }
+      }
+    } catch (e) {
+      safePrint("Clipboard check error: $e");
+    }
+  }
+
+  void _showClipboardJoinDialog(String groupId, String groupName) {
+    AppTheme theme = context.read<AppTheme>();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: theme.brandDark,
+          title: const PrimaryText(text: 'Join Bible Quiz Group? 📖'),
+          content: SecondaryText(
+            text: 'We found an invite code on your clipboard to join: "$groupName". Would you like to join?',
+            color: theme.accentTxt.withOpacity(0.8),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: SecondaryText(text: 'Ignore', color: theme.accentTxt.withOpacity(0.6)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                try {
+                  final currentUser = FirebaseAuth.instance.currentUser;
+                  if (currentUser == null) {
+                    context.showInAppNotification('Please sign in first to join groups.');
+                    return;
+                  }
+
+                  final provider = context.read<GroupQuizProvider>();
+                  await provider.directJoinGroup(groupId);
+                  provider.listenToGroup(groupId);
+
+                  if (context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: 'GroupLobbyScreen'),
+                        builder: (_) => GroupLobbyScreen(groupId: groupId),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  safePrint("Error joining from clipboard: $e");
+                }
+              },
+              child: PrimaryText(text: 'Join Room', color: theme.primaryBase),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     AppTheme theme = context.watch();
+    final currentUser = FirebaseAuth.instance.currentUser;
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
@@ -365,9 +448,121 @@ class _MainScreenState extends State<MainScreen> {
                   ],
                 ),
               ),
+              if (currentUser != null)
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('group_invitations')
+                      .where('recipientUid', isEqualTo: currentUser.uid)
+                      .where('status', isEqualTo: 'pending')
+                      .limit(1)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                      final inviteDoc = snapshot.data!.docs.first;
+                      final inviteData = inviteDoc.data() as Map<String, dynamic>;
+                      final invitationId = inviteDoc.id;
+                      final groupId = inviteData['groupId'] ?? '';
+                      final groupName = inviteData['groupName'] ?? '';
+                      final senderName = inviteData['senderName'] ?? 'A friend';
+
+                      if (store.navIndex != 0) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          store.navIndex = 0;
+                        });
+                      }
+
+                      return Positioned.fill(
+                        child: _buildBlockingInviteOverlay(
+                          context,
+                          theme,
+                          invitationId,
+                          groupId,
+                          groupName,
+                          senderName,
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildBlockingInviteOverlay(
+    BuildContext context,
+    AppTheme theme,
+    String invitationId,
+    String groupId,
+    String groupName,
+    String senderName,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        color: Colors.black.withOpacity(0.95),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+        child: Center(
+          child: GlassContainer(
+            padding: const EdgeInsets.all(28),
+            border: Border.all(color: theme.primaryBase.withOpacity(0.3), width: 1.5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.mark_email_unread_rounded, color: Colors.deepPurpleAccent, size: 50),
+                16.verticalSpace,
+                PrimaryText(
+                  text: 'Pending Bible Quiz Invite! 📖',
+                  color: theme.accentTxt,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  textAlign: TextAlign.center,
+                ),
+                16.verticalSpace,
+                SecondaryText(
+                  text: '$senderName has invited you to join the Bible Quiz group "$groupName".',
+                  color: theme.accentTxt.withOpacity(0.8),
+                  fontSize: 14,
+                  textAlign: TextAlign.center,
+                ),
+                24.verticalSpace,
+                CustomButton(
+                  label: 'Accept & Join',
+                  backgroundColor: theme.primaryBase,
+                  textColor: Colors.black,
+                  onPressed: () async {
+                    final provider = context.read<GroupQuizProvider>();
+                    await provider.acceptInvitation(groupId, invitationId);
+                    provider.listenToGroup(groupId);
+                    if (context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          settings: const RouteSettings(name: 'GroupLobbyScreen'),
+                          builder: (_) => GroupLobbyScreen(groupId: groupId),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                12.verticalSpace,
+                CustomButton(
+                  label: 'Reject Invite',
+                  isOutline: true,
+                  borderColor: theme.errorPrimary,
+                  textColor: theme.errorPrimary,
+                  onPressed: () async {
+                    await context.read<GroupQuizProvider>().rejectInvitation(groupId, invitationId);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

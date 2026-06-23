@@ -25,7 +25,7 @@ class BottomNav extends StatelessWidget {
             color: theme.isDark
                 ? theme.brandDark.withValues(alpha: 0.5)
                 : theme.primaryBase.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(40),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: theme.primaryBase.withValues(
                 alpha: 0.35,
@@ -44,7 +44,7 @@ class BottomNav extends StatelessWidget {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(18),
             child: BackdropFilter(
               filter: ImageFilter.blur(
                 sigmaX: 22,

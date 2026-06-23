@@ -26,6 +26,11 @@ class _AiChatScreenState extends State<AiChatScreen> {
           widget.initialMessage!.trim().isNotEmpty) {
         _messageController.text = widget.initialMessage!.trim();
       }
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted) {
+          _scrollToBottom();
+        }
+      });
     });
   }
 

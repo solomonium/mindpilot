@@ -32,7 +32,8 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
         
         final double overallGrowth;
         if (homeStore.weeklyQuizzes > 0) {
-          overallGrowth = ((taskRate * 0.4) + (focusScore * 0.3) + ((homeStore.bibleKnowledgeScore / 100) * 0.3)) * 100;
+          final quizXpScore = (homeStore.weeklyQuizXp / 250).clamp(0.0, 1.0);
+          overallGrowth = ((taskRate * 0.3) + (focusScore * 0.3) + ((homeStore.bibleKnowledgeScore / 100) * 0.2) + (quizXpScore * 0.2)) * 100;
         } else {
           overallGrowth = ((taskRate * 0.6) + (focusScore * 0.4)) * 100;
         }
@@ -134,7 +135,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                               _reportItem(context, 'Tasks Done', homeStore.weeklyTasks.toString(), Icons.check_circle, Colors.green),
                               _reportItem(context, 'Focus Time', '${homeStore.weeklyFocusMinutes}m', Icons.timer, Colors.blue),
                               _reportItem(context, 'Journals', homeStore.weeklyJournalEntries.toString(), Icons.book, Colors.purple),
-                              _reportItem(context, 'Bible Quizzes', homeStore.weeklyQuizzes.toString(), Icons.quiz, Colors.orange),
+                              _reportItem(context, 'Quiz XP', '+${homeStore.weeklyQuizXp} XP', Icons.bolt, Colors.amber),
                             ],
                           ),
                           16.verticalSpace,
@@ -237,6 +238,8 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                           context, 'Bible Knowledge', homeStore.bibleKnowledgeScore / 100, '${homeStore.bibleKnowledgeScore.toInt()}%'),
                       _focusArea(
                           context, 'Bible Growth', homeStore.bibleGrowthScore / 100, '${homeStore.bibleGrowthScore.toInt()}%'),
+                      _focusArea(
+                          context, 'Quiz XP Progress', (homeStore.weeklyQuizXp / 250).clamp(0.0, 1.0), '${homeStore.weeklyQuizXp} XP'),
                       32.verticalSpace,
                       PrimaryText(
                           text: 'Pro Insights',

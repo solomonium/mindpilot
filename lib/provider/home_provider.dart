@@ -22,6 +22,7 @@ class HomeProvider extends BaseProvider {
   int weeklyFocusMinutes = 0;
   int weeklyJournalEntries = 0;
   int weeklyQuizzes = 0;
+  int weeklyQuizXp = 0;
   double bibleKnowledgeScore = 0.0;
   double bibleGrowthScore = 0.0;
   bool isLoadingStats = false;
@@ -44,18 +45,23 @@ class HomeProvider extends BaseProvider {
       if (quizzes.isNotEmpty) {
         int totalScore = 0;
         int totalQuestions = 0;
+        int totalXp = 0;
         for (final q in quizzes) {
           totalScore += (q['score'] as int? ?? 0);
           totalQuestions += (q['total_questions'] as int? ?? 0);
+          totalXp += (q['xp_earned'] as int? ?? 0);
         }
         bibleKnowledgeScore = totalQuestions > 0 ? (totalScore / totalQuestions) * 100 : 0.0;
         bibleGrowthScore = (weeklyQuizzes * 20.0).clamp(0.0, 100.0);
+        weeklyQuizXp = totalXp;
       } else {
         bibleKnowledgeScore = 0.0;
         bibleGrowthScore = 0.0;
+        weeklyQuizXp = 0;
       }
     } catch (_) {
       weeklyQuizzes = 0;
+      weeklyQuizXp = 0;
       bibleKnowledgeScore = 0.0;
       bibleGrowthScore = 0.0;
     }
