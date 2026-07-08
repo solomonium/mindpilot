@@ -28,7 +28,6 @@ class GroupQuizProvider extends ChangeNotifier {
             category: AVAudioSessionCategory.playback,
             options: {
               AVAudioSessionOptions.mixWithOthers,
-              AVAudioSessionOptions.defaultToSpeaker,
             },
           ),
         ),
@@ -132,7 +131,9 @@ class GroupQuizProvider extends ChangeNotifier {
           'timerSeconds': _timerSeconds,
           'scopeType': _scopeType,
           'scopeValue': _scopeValue,
-        }
+        },
+        'questionsReady': false,
+        'preGeneratedQuestions': FieldValue.delete(),
       });
     } catch (e) {
       safePrint("Error updating group settings in Firestore: $e");
@@ -143,6 +144,12 @@ class GroupQuizProvider extends ChangeNotifier {
   int _secondsRemaining = 0;
   int get secondsRemaining => _secondsRemaining;
   Timer? _gameTimer;
+
+  // Nudge cooldown
+  DateTime? _lastNudgeSentAt;
+  bool get canNudge =>
+      _lastNudgeSentAt == null ||
+      DateTime.now().difference(_lastNudgeSentAt!).inSeconds >= 10;
 
   void setLoading(bool val) {
     _isLoading = val;
@@ -268,7 +275,7 @@ class GroupQuizProvider extends ChangeNotifier {
 
   Future<void> searchEmails(String prefix) async {
     final queryText = prefix.trim();
-    if (queryText.length < 2) {
+    if (queryText.isEmpty) {
       _emailSuggestions = [];
       notifyListeners();
       return;
@@ -689,10 +696,6 @@ class GroupQuizProvider extends ChangeNotifier {
     }
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // 3. Gameplay & AI Generation
-  // ───────────────────────────────────────────────────────────────────────────
-
   Future<void> _setGeneratingGame(bool value) async {
     final groupId = _activeGroupId;
     if (groupId == null) return;
@@ -702,6 +705,229 @@ class GroupQuizProvider extends ChangeNotifier {
       });
     } catch (e) {
       safePrint("Error updating isGeneratingGame to $value: $e");
+    }
+  }
+
+  String _buildQuestionPrompt(int count, List<dynamic> askedQuestions) {
+    String prompt = "";
+    if (_scopeType == 'chapter') {
+      prompt = "You are a Bible trivia generator. Generate exactly $count multiple-choice Bible quiz questions based strictly on the Bible chapter: '$_scopeValue'.\n"
+          "CRITICAL: The questions must be 100% theological, historical, and biblical. They must only ask about the scripture text and details within the chapter '$_scopeValue'.\n"
+          "Under no circumstances should you generate questions about the MindPilot app, technology, software, or other non-biblical topics.\n";
+    } else if (_scopeType == 'general') {
+      prompt = "You are a Bible trivia generator. Generate exactly $count general knowledge Bible quiz questions with multiple-choice options.\n"
+          "CRITICAL: The questions must be 100% theological, historical, and biblical. They must only ask about the Holy Bible (Old and New Testaments).\n"
+          "Under no circumstances should you generate questions about the MindPilot app, technology, software, or other non-biblical topics.\n";
+    } else if (_scopeType == 'tech') {
+      prompt = "You are an expert technology and computer science trivia generator. Generate exactly $count multiple-choice questions about software engineering, programming languages, computer science, and digital technology.\n"
+          "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content.\n";
+    } else if (_scopeType == 'science') {
+      prompt = "You are a science and physics trivia generator. Generate exactly $count multiple-choice questions about physical sciences, key physics principles, chemistry, astronomy, and scientific breakthroughs.\n"
+          "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content.\n";
+    } else if (_scopeType == 'english') {
+      prompt = "You are an English language and literature trivia generator. Generate exactly $count multiple-choice questions about grammar, vocabulary, classic literature, famous authors, and literary devices.\n"
+          "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content.\n";
+    } else if (_scopeType == 'economics') {
+      prompt = "You are an economics and finance trivia generator. Generate exactly $count multiple-choice questions about microeconomics, macroeconomics, financial literacy, investment principles, and economic history.\n"
+          "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content.\n";
+    } else if (_scopeType == 'mindfulness') {
+      prompt = "You are a personality development, emotional intelligence, and mindfulness trivia generator. Generate exactly $count multiple-choice questions about mindfulness practices, self-improvement, emotional intelligence, relationship building, and positive psychology.\n"
+          "CRITICAL: Ensure the questions are constructive, inspiring, and completely free of inappropriate or offensive content. Focus on building self-awareness and positive character traits.\n";
+    } else {
+      prompt = "You are an expert trivia generator. Generate exactly $count multiple-choice questions about the topic: '$_scopeValue'.\n"
+          "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content. Under no circumstances should you output any inappropriate, political, offensive, or adult topics.\n";
+    }
+
+    if (askedQuestions.isNotEmpty) {
+      prompt += "\nCRITICAL: Do NOT generate any of the following questions, as they have already been played in this group:\n";
+      for (var qText in askedQuestions) {
+        prompt += "- $qText\n";
+      }
+      prompt += "\n";
+    }
+
+    prompt += "Ensure the questions are balanced, informative, and engaging.\n"
+        "You MUST format the output ONLY as a valid JSON array of objects. Do not wrap it in markdown block formatting like ```json ... ```, just return the raw JSON text.\n"
+        "Each object in the array must look exactly like this (example only — the correctAnswerIndex will vary):\n"
+        "{\n"
+        "  \"questionText\": \"What was the first thing God created?\",\n"
+        "  \"options\": [\"Water\", \"Land\", \"Light\", \"Humans\"],\n"
+        "  \"correctAnswerIndex\": 2\n"
+        "}\n"
+        "Ensure the array contains exactly $count objects.\n"
+        "CRITICAL ANSWER PLACEMENT REQUIREMENT:\n"
+        "- You MUST deliberately vary the position of the correct answer across ALL questions.\n"
+        "- The correctAnswerIndex values across the full set of questions MUST be distributed as evenly as possible across positions 0, 1, 2, and 3 (i.e. options A, B, C and D).\n"
+        "- NEVER cluster correct answers at position 0 or 1. Ensure positions 2 and 3 are used just as frequently as 0 and 1.\n"
+        "- For each question, first decide a random target index (0, 1, 2, or 3), then place the correct answer at that index, and fill the remaining slots with plausible but wrong distractors.\n"
+        "CRITICAL ACCURACY REQUIREMENT:\n"
+        "- You MUST double check the correctness of the generated correctAnswerIndex.\n"
+        "- The correctAnswerIndex MUST correspond exactly to the index (0 to 3) of the correct answer in the options array.\n"
+        "- For example, if 'Noah' is the correct option and is placed at index 2 of the options list, correctAnswerIndex MUST be 2. Do not mismatch them.\n"
+        "- Ensure the question details are theologically and historically accurate, using undisputed facts.";
+
+    return prompt;
+  }
+
+  String _getSystemInstruction() {
+    if (_scopeType == 'chapter') {
+      return "You are a precise Bible quiz generator. You generate high-quality Bible trivia questions based strictly on the specified chapter. Under no circumstances do you generate questions about any other topic. Only facts from the specified chapter are allowed.";
+    } else if (_scopeType == 'general') {
+      return "You are a precise Bible quiz generator. You generate high-quality Bible trivia questions. Under no circumstances do you generate questions about any other topic, including the MindPilot application or technology. Only biblical facts are allowed.";
+    } else if (_scopeType == 'tech') {
+      return "You are a precise technology and coding quiz generator. You generate educational, accurate multiple-choice questions about tech and coding. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_scopeType == 'science') {
+      return "You are a precise science quiz generator. You generate educational, accurate multiple-choice questions about science and physics. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_scopeType == 'english') {
+      return "You are a precise English and literature quiz generator. You generate educational, accurate multiple-choice questions. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_scopeType == 'economics') {
+      return "You are a precise economics and finance quiz generator. You generate educational, accurate multiple-choice questions. Do not include any inappropriate, mature, or irrelevant content.";
+    } else if (_scopeType == 'mindfulness') {
+      return "You are a precise mindfulness and personality development quiz generator. You generate educational, constructive multiple-choice questions that help players build self-awareness and positive traits. Do not include any inappropriate, mature, or irrelevant content.";
+    } else {
+      return "You are a precise quiz generator. You generate educational, accurate multiple-choice questions about the specified topic: '$_scopeValue'. You must ensure there is absolutely no inappropriate, offensive, or mature content. Ensure the quiz remains clean and educational.";
+    }
+  }
+
+  /// Shuffle the options of each question so the correct answer lands at a random
+  /// index (0–3). This is a client-side guarantee on top of the AI prompt instruction.
+  List<dynamic> _shuffleQuestionOptions(List<dynamic> questions) {
+    final random = DateTime.now().microsecondsSinceEpoch;
+    return questions.map((q) {
+      try {
+        final qMap = Map<String, dynamic>.from(q as Map);
+        final options = List<String>.from(qMap['options'] ?? []);
+        final correctIdx = qMap['correctAnswerIndex'] as int? ?? 0;
+
+        if (options.isEmpty || correctIdx < 0 || correctIdx >= options.length) {
+          return q;
+        }
+
+        final correctAnswer = options[correctIdx];
+
+        // Pair each option with a sort key to shuffle them reproducibly
+        final indexed = options
+            .asMap()
+            .entries
+            .map((e) => {'idx': e.key, 'val': e.value})
+            .toList();
+
+        // Fisher-Yates shuffle using a simple LCG seeded differently per question
+        int seed = random ^ (questions.indexOf(q) * 2654435761);
+        for (int i = indexed.length - 1; i > 0; i--) {
+          seed = (seed * 1664525 + 1013904223) & 0xFFFFFFFF;
+          final j = seed % (i + 1);
+          final tmp = indexed[i];
+          indexed[i] = indexed[j];
+          indexed[j] = tmp;
+        }
+
+        final shuffledOptions = indexed.map((e) => e['val'] as String).toList();
+        final newCorrectIdx = shuffledOptions.indexOf(correctAnswer);
+
+        return {
+          ...qMap,
+          'options': shuffledOptions,
+          'correctAnswerIndex': newCorrectIdx,
+        };
+      } catch (e) {
+        safePrint('Error shuffling question options: $e');
+        return q;
+      }
+    }).toList();
+  }
+
+  Future<String?> preGenerateQuestions() async {
+    if (_activeGroupId == null || _groupData == null) return "No group selected.";
+
+    final membersMap = _groupData!['members'] as Map<String, dynamic>? ?? {};
+    final totalPossibleMembers = membersMap.length;
+    final countToGenerate = _questionsPerParticipant * (totalPossibleMembers > 0 ? totalPossibleMembers : 1);
+
+    final currentToken = DateTime.now().microsecondsSinceEpoch.toString();
+    _activeGenerationToken = currentToken;
+
+    await _firestore.collection('groups').doc(_activeGroupId!).update({
+      'isGeneratingQuestions': true,
+      'questionsReady': false,
+    });
+
+    try {
+      final List<dynamic> askedQuestions = _groupData?['askedQuestions'] as List<dynamic>? ?? [];
+
+      final prompt = _buildQuestionPrompt(countToGenerate, askedQuestions);
+      final systemInstruction = _getSystemInstruction();
+
+      if (!_geminiService.isInitialized) {
+        final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+        _geminiService.init(apiKey);
+      }
+
+      if (_activeGenerationToken != currentToken) {
+        await _firestore.collection('groups').doc(_activeGroupId!).update({
+          'isGeneratingQuestions': false,
+        });
+        return "Generation cancelled.";
+      }
+
+      final response = await _geminiService.sendMessageOneShot(
+        prompt,
+        systemInstruction: systemInstruction,
+      );
+
+      if (_activeGenerationToken != currentToken) {
+        await _firestore.collection('groups').doc(_activeGroupId!).update({
+          'isGeneratingQuestions': false,
+        });
+        return "Generation cancelled.";
+      }
+
+      if (response == null || response.isEmpty) {
+        await _firestore.collection('groups').doc(_activeGroupId!).update({
+          'isGeneratingQuestions': false,
+        });
+        return "Could not generate questions. AI connection failed.";
+      }
+
+      List<dynamic> parsedQuestions;
+      try {
+        final cleanJson = _cleanJsonString(response);
+        parsedQuestions = jsonDecode(cleanJson) as List<dynamic>;
+      } catch (e) {
+        safePrint("Failed to parse JSON response: $e");
+        await _firestore.collection('groups').doc(_activeGroupId!).update({
+          'isGeneratingQuestions': false,
+        });
+        return "AI generated an invalid format. Please try again.";
+      }
+
+      if (_activeGenerationToken != currentToken) {
+        await _firestore.collection('groups').doc(_activeGroupId!).update({
+          'isGeneratingQuestions': false,
+        });
+        return "Generation cancelled.";
+      }
+
+      if (parsedQuestions.isEmpty) {
+        await _firestore.collection('groups').doc(_activeGroupId!).update({
+          'isGeneratingQuestions': false,
+        });
+        return "AI returned zero questions. Please try again.";
+      }
+
+      await _firestore.collection('groups').doc(_activeGroupId!).update({
+        'preGeneratedQuestions': _shuffleQuestionOptions(parsedQuestions),
+        'questionsReady': true,
+        'isGeneratingQuestions': false,
+      });
+
+      return null; // Success
+    } catch (e) {
+      safePrint("Error pre-generating questions: $e");
+      await _firestore.collection('groups').doc(_activeGroupId!).update({
+        'isGeneratingQuestions': false,
+      });
+      return "An error occurred generating questions: $e";
     }
   }
 
@@ -747,137 +973,75 @@ class GroupQuizProvider extends ChangeNotifier {
 
       final List<dynamic> askedQuestions = _groupData?['askedQuestions'] as List<dynamic>? ?? [];
 
-      // 1. Build prompt based on settings
-      String prompt = "";
-      String systemInstruction = "";
-
-      if (_scopeType == 'chapter') {
-        prompt = "You are a Bible trivia generator. Generate exactly $questionCount multiple-choice Bible quiz questions based strictly on the Bible chapter: '$_scopeValue'.\n"
-            "CRITICAL: The questions must be 100% theological, historical, and biblical. They must only ask about the scripture text and details within the chapter '$_scopeValue'.\n"
-            "Under no circumstances should you generate questions about the MindPilot app, technology, software, or other non-biblical topics.\n";
-        systemInstruction = "You are a precise Bible quiz generator. You generate high-quality Bible trivia questions based strictly on the specified chapter. Under no circumstances do you generate questions about any other topic. Only facts from the specified chapter are allowed.";
-      } else if (_scopeType == 'general') {
-        prompt = "You are a Bible trivia generator. Generate exactly $questionCount general knowledge Bible quiz questions with multiple-choice options.\n"
-            "CRITICAL: The questions must be 100% theological, historical, and biblical. They must only ask about the Holy Bible (Old and New Testaments).\n"
-            "Under no circumstances should you generate questions about the MindPilot app, technology, software, or other non-biblical topics.\n";
-        systemInstruction = "You are a precise Bible quiz generator. You generate high-quality Bible trivia questions. Under no circumstances do you generate questions about any other topic, including the MindPilot application or technology. Only biblical facts are allowed.";
-      } else if (_scopeType == 'tech') {
-        prompt = "You are an expert technology and computer science trivia generator. Generate exactly $questionCount multiple-choice questions about software engineering, programming languages, computer science, and digital technology.\n"
-            "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content.\n";
-        systemInstruction = "You are a precise technology and coding quiz generator. You generate educational, accurate multiple-choice questions about tech and coding. Do not include any inappropriate, mature, or irrelevant content.";
-      } else if (_scopeType == 'science') {
-        prompt = "You are a science and physics trivia generator. Generate exactly $questionCount multiple-choice questions about physical sciences, key physics principles, chemistry, astronomy, and scientific breakthroughs.\n"
-            "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content.\n";
-        systemInstruction = "You are a precise science quiz generator. You generate educational, accurate multiple-choice questions about science and physics. Do not include any inappropriate, mature, or irrelevant content.";
-      } else if (_scopeType == 'english') {
-        prompt = "You are an English language and literature trivia generator. Generate exactly $questionCount multiple-choice questions about grammar, vocabulary, classic literature, famous authors, and literary devices.\n"
-            "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content.\n";
-        systemInstruction = "You are a precise English and literature quiz generator. You generate educational, accurate multiple-choice questions. Do not include any inappropriate, mature, or irrelevant content.";
-      } else if (_scopeType == 'economics') {
-        prompt = "You are an economics and finance trivia generator. Generate exactly $questionCount multiple-choice questions about microeconomics, macroeconomics, financial literacy, investment principles, and economic history.\n"
-            "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content.\n";
-        systemInstruction = "You are a precise economics and finance quiz generator. You generate educational, accurate multiple-choice questions. Do not include any inappropriate, mature, or irrelevant content.";
-      } else if (_scopeType == 'mindfulness') {
-        prompt = "You are a personality development, emotional intelligence, and mindfulness trivia generator. Generate exactly $questionCount multiple-choice questions about mindfulness practices, self-improvement, emotional intelligence, relationship building, and positive psychology.\n"
-            "CRITICAL: Ensure the questions are constructive, inspiring, and completely free of inappropriate or offensive content. Focus on building self-awareness and positive character traits.\n";
-        systemInstruction = "You are a precise mindfulness and personality development quiz generator. You generate educational, constructive multiple-choice questions that help players build self-awareness and positive traits. Do not include any inappropriate, mature, or irrelevant content.";
-      } else {
-        prompt = "You are an expert trivia generator. Generate exactly $questionCount multiple-choice questions about the topic: '$_scopeValue'.\n"
-            "CRITICAL: Ensure the questions are highly educational, accurate, and completely free of inappropriate or offensive content. Under no circumstances should you output any inappropriate, political, offensive, or adult topics.\n";
-        systemInstruction = "You are a precise quiz generator. You generate educational, accurate multiple-choice questions about the specified topic: '$_scopeValue'. You must ensure there is absolutely no inappropriate, offensive, or mature content. Ensure the quiz remains clean and educational.";
-      }
-
-      if (askedQuestions.isNotEmpty) {
-        prompt += "\nCRITICAL: Do NOT generate any of the following questions, as they have already been played in this group:\n";
-        for (var qText in askedQuestions) {
-          prompt += "- $qText\n";
-        }
-        prompt += "\n";
-      }
-
-      prompt += "Ensure the questions are balanced, informative, and engaging.\n"
-          "You MUST format the output ONLY as a valid JSON array of objects. Do not wrap it in markdown block formatting like ```json ... ```, just return the raw JSON text.\n"
-          "Each object in the array must look exactly like this:\n"
-          "{\n"
-          "  \"questionText\": \"What was the first thing God created?\",\n"
-          "  \"options\": [\"Light\", \"Water\", \"Land\", \"Humans\"],\n"
-          "  \"correctAnswerIndex\": 0\n"
-          "}\n"
-          "Ensure the array contains exactly $questionCount objects.\n"
-          "CRITICAL ACCURACY REQUIREMENT:\n"
-          "- You MUST double check the correctness of the generated correctAnswerIndex.\n"
-          "- The correctAnswerIndex MUST correspond exactly to the index (0 to 3) of the correct answer in the options array.\n"
-          "- For example, if 'Noah' is the correct option and is placed at index 2 of the options list, correctAnswerIndex MUST be 2. Do not mismatch them.\n"
-          "- Ensure the question details are theologically and historically accurate, using undisputed facts.";
-
-      // 2. Initialize Gemini Service if needed
-      if (!_geminiService.isInitialized) {
-        final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-        _geminiService.init(apiKey);
-      }
-
-      if (_activeGenerationToken != currentToken) {
-        await _setGeneratingGame(false);
-        return "Generation cancelled.";
-      }
-
-      // 3. Call AI
-      final response = await _geminiService.sendMessageOneShot(
-        prompt,
-        systemInstruction: systemInstruction,
-      );
-
-      if (_activeGenerationToken != currentToken) {
-        await _setGeneratingGame(false);
-        return "Generation cancelled.";
-      }
-
-      if (response == null || response.isEmpty) {
-        if (_activeGenerationToken == currentToken) {
-          setLoading(false);
-        }
-        await _setGeneratingGame(false);
-        return "Could not generate questions. AI connection failed.";
-      }
-
-      // 4. Parse AI JSON response
       List<dynamic> parsedQuestions;
-      try {
-        // Strip markdown backticks if Gemini ignored instructions and appended them
-        String cleanJson = response.trim();
-        if (cleanJson.startsWith("```")) {
-          final lines = cleanJson.split("\n");
-          if (lines.first.startsWith("```")) {
-            lines.removeAt(0);
-          }
-          if (lines.last.startsWith("```")) {
-            lines.removeLast();
-          }
-          cleanJson = lines.join("\n").trim();
+      final preGen = _groupData?['preGeneratedQuestions'] as List<dynamic>?;
+      final questionsReady = _groupData?['questionsReady'] as bool? ?? false;
+
+      if (questionsReady && preGen != null && preGen.isNotEmpty) {
+        // Use pre-generated questions — take up to questionCount, or all of them if fewer were generated
+        parsedQuestions = preGen.take(questionCount).toList();
+        safePrint("Using ${parsedQuestions.length} pre-generated questions (requested: $questionCount)");
+      } else {
+        // Generate on the fly
+        final prompt = _buildQuestionPrompt(questionCount, askedQuestions);
+        final systemInstruction = _getSystemInstruction();
+
+        if (!_geminiService.isInitialized) {
+          final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+          _geminiService.init(apiKey);
         }
-        parsedQuestions = jsonDecode(cleanJson) as List<dynamic>;
-      } catch (e) {
-        safePrint("Failed to parse JSON response: $e. Response was: $response");
-        if (_activeGenerationToken == currentToken) {
-          setLoading(false);
+
+        if (_activeGenerationToken != currentToken) {
+          await _setGeneratingGame(false);
+          return "Generation cancelled.";
         }
-        await _setGeneratingGame(false);
-        return "AI generated an invalid format. Please try again.";
+
+        final response = await _geminiService.sendMessageOneShot(
+          prompt,
+          systemInstruction: systemInstruction,
+        );
+
+        if (_activeGenerationToken != currentToken) {
+          await _setGeneratingGame(false);
+          return "Generation cancelled.";
+        }
+
+        if (response == null || response.isEmpty) {
+          if (_activeGenerationToken == currentToken) {
+            setLoading(false);
+          }
+          await _setGeneratingGame(false);
+          return "Could not generate questions. AI connection failed.";
+        }
+
+        try {
+          final cleanJson = _cleanJsonString(response);
+          parsedQuestions = jsonDecode(cleanJson) as List<dynamic>;
+        } catch (e) {
+          safePrint("Failed to parse JSON response: $e");
+          if (_activeGenerationToken == currentToken) {
+            setLoading(false);
+          }
+          await _setGeneratingGame(false);
+          return "AI generated an invalid format. Please try again.";
+        }
+
+        if (_activeGenerationToken != currentToken) {
+          await _setGeneratingGame(false);
+          return "Generation cancelled.";
+        }
+
+        if (parsedQuestions.isEmpty) {
+          if (_activeGenerationToken == currentToken) {
+            setLoading(false);
+          }
+          await _setGeneratingGame(false);
+          return "AI returned zero questions. Please try again.";
+        }
       }
 
-      if (_activeGenerationToken != currentToken) {
-        await _setGeneratingGame(false);
-        return "Generation cancelled.";
-      }
-
-      // Validate parsed format
-      if (parsedQuestions.isEmpty) {
-        if (_activeGenerationToken == currentToken) {
-          setLoading(false);
-        }
-        await _setGeneratingGame(false);
-        return "AI returned zero questions. Please try again.";
-      }
+      // Shuffle options to ensure correct answers are distributed across A–D
+      parsedQuestions = _shuffleQuestionOptions(parsedQuestions);
 
       // 5. Setup players list (only active accepted members)
       final List<String> turnOrder = [];
@@ -938,7 +1102,6 @@ class GroupQuizProvider extends ChangeNotifier {
       });
 
       if (_activeGenerationToken != currentToken) {
-        // Clean up orphaned document
         try {
           await _firestore.collection('games').doc(gameDocRef.id).delete();
         } catch (e) {
@@ -957,16 +1120,17 @@ class GroupQuizProvider extends ChangeNotifier {
       final List<String> updatedAskedQuestions = List<String>.from(askedQuestions)
         ..addAll(newQuestionTexts);
 
-      // Keep askedQuestions list capped at most recent 100 questions to respect document limits
       if (updatedAskedQuestions.length > 100) {
         updatedAskedQuestions.removeRange(0, updatedAskedQuestions.length - 100);
       }
 
-      // 7. Update Group collection to reference this active game, store asked questions, and clear isGeneratingGame
+      // 7. Update Group collection to reference this active game, store asked questions, clear isGeneratingGame, and clear pre-generated questions
       await _firestore.collection('groups').doc(_activeGroupId!).update({
         'activeGameId': gameDocRef.id,
         'askedQuestions': updatedAskedQuestions,
         'isGeneratingGame': false,
+        'preGeneratedQuestions': FieldValue.delete(),
+        'questionsReady': false,
       });
 
       if (_activeGenerationToken == currentToken) {
@@ -1274,6 +1438,27 @@ class GroupQuizProvider extends ChangeNotifier {
     }
   }
 
+  /// Send a nudge signal to the current-turn player (creator only).
+  Future<void> sendNudge() async {
+    final gameId = _groupData?['activeGameId'] as String?;
+    final targetUid = _gameData?['currentTurnPlayerUid'] as String?;
+    if (gameId == null || targetUid == null) return;
+
+    _lastNudgeSentAt = DateTime.now();
+    notifyListeners();
+
+    try {
+      await _firestore.collection('games').doc(gameId).update({
+        'nudge': {
+          'targetUid': targetUid,
+          'sentAt': DateTime.now().toIso8601String(),
+        },
+      });
+    } catch (e) {
+      safePrint('Error sending nudge: $e');
+    }
+  }
+
   Future<void> playQuizStartedSoundAndVibrate() async {
     try {
       await _lobbyAudioPlayer.setSource(AssetSource('audio/quiz_started.wav'));
@@ -1296,5 +1481,22 @@ class GroupQuizProvider extends ChangeNotifier {
     _gameSubscription?.cancel();
     _lobbyAudioPlayer.dispose();
     super.dispose();
+  }
+
+  String _cleanJsonString(String response) {
+    String clean = response.trim();
+    int firstList = clean.indexOf('[');
+    int lastList = clean.lastIndexOf(']');
+    int firstObj = clean.indexOf('{');
+    int lastObj = clean.lastIndexOf('}');
+    if (firstList != -1 && lastList != -1 && lastList > firstList) {
+      if (firstObj == -1 || firstList < firstObj) {
+        return clean.substring(firstList, lastList + 1);
+      }
+    }
+    if (firstObj != -1 && lastObj != -1 && lastObj > firstObj) {
+      return clean.substring(firstObj, lastObj + 1);
+    }
+    return clean;
   }
 }

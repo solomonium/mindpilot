@@ -308,8 +308,20 @@ class EngagementService {
       final refereeRef =
           FirebaseFirestore.instance.collection('users').doc(refereeId);
 
+      // Fetch referrer's current premiumExpiresAt to add 3 days onto it
+      final referrerDoc = await referrerRef.get();
+      final currentPremiumExpires = referrerDoc.data()?['premiumExpiresAt'] as Timestamp?;
+      DateTime newExpiry = DateTime.now().add(const Duration(days: 3));
+      if (currentPremiumExpires != null) {
+        final currentExpiryDateTime = currentPremiumExpires.toDate();
+        if (currentExpiryDateTime.isAfter(DateTime.now())) {
+          newExpiry = currentExpiryDateTime.add(const Duration(days: 3));
+        }
+      }
+
       await referrerRef.set({
         'bonusDecisionCredits': FieldValue.increment(bonusCredits),
+        'premiumExpiresAt': Timestamp.fromDate(newExpiry),
       }, SetOptions(merge: true));
 
       await refereeRef.set({
@@ -340,9 +352,9 @@ class EngagementService {
 
   List<String> orderedQuickActions(List<String> personalization) {
     const defaultOrder = [
+      'Expand My Knowledge',
+      'Sharpen My Mind',
       'Make Better Decisions',
-      'Be More Productive',
-      'Improve Mental Wellbeing',
     ];
 
     if (personalization.isEmpty) {
@@ -362,14 +374,10 @@ class EngagementService {
   String primaryGoalAction(List<String> personalization) {
     if (personalization.isEmpty) return 'focus';
     final primary = personalization.first;
+    if (primary.contains('Knowledge') || primary.contains('Spiritual')) return 'bible_quiz';
+    if (primary.contains('Sharpen') || primary.contains('Habits')) return 'focus';
     if (primary.contains('Decision')) return 'decision';
-    if (primary.contains('Productive')) return 'focus';
-    if (primary.contains('Wellbeing') || primary.contains('Growth')) {
-      return 'journal';
-    }
-    if (primary.contains('Financial') || primary.contains('Leadership')) {
-      return 'decision';
-    }
+    if (primary.contains('Growth') || primary.contains('Track')) return 'journal';
     return 'focus';
   }
 

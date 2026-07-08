@@ -9,18 +9,12 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _userSearchController = TextEditingController();
   final List<String> _superAdmins = [
     'laleyesolomon2@gmail.com',
     'solteqinnovationsltd@gmail.com',
   ];
   bool _isLoading = false;
   bool _isBroadcasting = false;
-  bool _isUpdatingMembership = false;
-
-  String? _foundUserUid;
-  String _foundUserType = 'Freemium';
-  bool _isSearchingUser = false;
 
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _versionController = TextEditingController();
@@ -32,6 +26,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   int _totalUsers = 0;
   bool _isLoadingUsersCount = true;
+  bool _isPurgingLogs = false;
 
   @override
   void initState() {
@@ -131,6 +126,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 16.verticalSpace,
                 _configCard(context),
                 32.verticalSpace,
+                if (FirebaseAuth.instance.currentUser?.email == 'laleyesolomon2@gmail.com') ...[
+                  _sectionTitle(context, 'Gemini API Quota Tracking'),
+                  16.verticalSpace,
+                  _quotaTrackerCard(context),
+                  32.verticalSpace,
+                ],
                 _sectionTitle(context, 'Broadcast System'),
                 16.verticalSpace,
                 _broadcastCard(context),
@@ -141,7 +142,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 32.verticalSpace,
                 _sectionTitle(context, 'User Membership Management'),
                 16.verticalSpace,
-                _userManagementCard(context),
+                _allRegisteredUsersCard(context),
                 32.verticalSpace,
                 _sectionTitle(context, 'Manage Admin Privileges'),
                 16.verticalSpace,
@@ -318,133 +319,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() => _isBroadcasting = false);
   }
 
-  Widget _userManagementCard(BuildContext context) {
+  Widget _allRegisteredUsersCard(BuildContext context) {
     AppTheme theme = context.watch<AppTheme>();
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       gradient: theme.glassGradient,
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: CustomTextField(
-                  textController: _userSearchController,
-                  hintText: 'Enter User Email',
-                  textInputType: TextInputType.emailAddress,
-                  autoFocus: false,
-                  textInputAction: TextInputAction.search,
-                  onDone: _searchUser,
-                ),
-              ),
-              12.horizontalSpace,
-              IconButton(
-                icon: _isSearchingUser
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.search, color: Colors.white),
-                onPressed: _searchUser,
-              ),
-            ],
-          ),
-          if (_foundUserUid != null) ...[
-            20.verticalSpace,
-            const Divider(color: Colors.white24),
-            20.verticalSpace,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SecondaryText(
-                  text: 'Member Type:',
-                  color: theme.accentTxt.withOpacity(0.7),
+                PrimaryText(
+                  text: 'Registered Users Directory',
+                  color: theme.accentTxt,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
-                DropdownButton<String>(
-                  value: _foundUserType,
-                  dropdownColor: theme.brandDark,
-                  underline: const SizedBox(),
-                  style: GoogleFonts.inter(
-                    color: theme.accentTxt,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  items: ['Freemium', 'Pro Member'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _foundUserType = val);
-                  },
+                4.verticalSpace,
+                SecondaryText(
+                  text: 'View directory, copy emails, and modify membership tiers.',
+                  color: theme.accentTxt.withOpacity(0.6),
+                  fontSize: 12,
                 ),
               ],
             ),
-            20.verticalSpace,
-            CustomButton(
-              label: 'Update Membership',
-              loading: _isUpdatingMembership,
-              onPressed: _updateUserType,
-            ),
-          ],
+          ),
+          12.horizontalSpace,
+          Icon(
+            Icons.chevron_right,
+            color: theme.primaryBase,
+            size: 24,
+          ),
         ],
       ),
-    );
-  }
-
-  Future<void> _searchUser() async {
-    final email = _userSearchController.text.trim().toLowerCase();
-    if (email.isEmpty) return;
-
-    setState(() {
-      _isSearchingUser = true;
-      _foundUserUid = null;
+    ).rippleClick(() {
+      context.push(const AllRegisteredUsersScreen());
     });
-
-    try {
-      final query = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get();
-
-      if (query.docs.isNotEmpty) {
-        final doc = query.docs.first;
-        setState(() {
-          _foundUserUid = doc.id;
-          _foundUserType = doc.data()['userType'] ?? 'Freemium';
-        });
-      } else {
-        if (mounted) {
-          context.showInAppNotification('User not found in database.');
-        }
-      }
-    } catch (e) {
-      if (mounted) context.showInAppNotification('Error: $e');
-    }
-    setState(() => _isSearchingUser = false);
-  }
-
-  Future<void> _updateUserType() async {
-    if (_foundUserUid == null) return;
-    setState(() => _isUpdatingMembership = true);
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_foundUserUid)
-          .update({'userType': _foundUserType});
-      if (mounted) {
-        context.showInAppNotification(
-          'User updated to $_foundUserType',
-          type: InAppNotificationType.success,
-        );
-      }
-    } catch (e) {
-      if (mounted) context.showInAppNotification('Error: $e');
-    } finally {
-      setState(() => _isUpdatingMembership = false);
-    }
   }
 
   Widget _sectionTitle(BuildContext context, String title) {
@@ -966,5 +878,290 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (e) {
       if (mounted) context.showInAppNotification('Error: $e');
     }
+  }
+
+  Future<void> _clearAllUsageLogs() async {
+    if (_isPurgingLogs) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = context.read<AppTheme>();
+        return AlertDialog(
+          backgroundColor: theme.brandDark,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: PrimaryText(
+            text: 'Clear All API Logs?',
+            color: theme.accentTxt,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          content: SecondaryText(
+            text: 'This will instantly delete all usage logs from Firestore and reset your daily quota progress back to 0. This action cannot be undone.',
+            color: theme.accentTxt.withOpacity(0.8),
+            fontSize: 13,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: SecondaryText(
+                text: 'Cancel',
+                color: theme.accentTxt.withOpacity(0.6),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const PrimaryText(
+                text: 'Delete All',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isPurgingLogs = true);
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('api_usage')
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        if (mounted) {
+          context.showInAppNotification(
+            'No API logs found to clear.',
+            type: InAppNotificationType.success,
+          );
+        }
+        setState(() => _isPurgingLogs = false);
+        return;
+      }
+
+      final docs = querySnapshot.docs;
+      await Future.wait(docs.map((doc) => doc.reference.delete()));
+
+      if (mounted) {
+        context.showInAppNotification(
+          'Successfully cleared all API usage logs!',
+          type: InAppNotificationType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        context.showInAppNotification('Error purging logs: $e', type: InAppNotificationType.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPurgingLogs = false);
+      }
+    }
+  }
+
+  Widget _quotaTrackerCard(BuildContext context) {
+    AppTheme theme = context.watch<AppTheme>();
+    final todayStart = DateTime.now().copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('api_usage')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(20),
+            gradient: theme.glassGradient,
+            child: Center(
+              child: SecondaryText(
+                text: 'Error loading API usage: ${snapshot.error}',
+                color: theme.errorPrimary,
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(20),
+            gradient: theme.glassGradient,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        final docs = snapshot.data!.docs;
+        int directRequests = 0;
+        int directTokens = 0;
+        int openRouterRequests = 0;
+        int openRouterTokens = 0;
+
+        for (var doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final source = data['source'] as String? ?? 'direct';
+          final tokens = data['totalTokens'] as int? ?? 0;
+
+          if (source == 'direct') {
+            directRequests++;
+            directTokens += tokens;
+          } else {
+            openRouterRequests++;
+            openRouterTokens += tokens;
+          }
+        }
+
+        final totalRequests = directRequests + openRouterRequests;
+        final totalTokens = directTokens + openRouterTokens;
+
+        // Free tier daily limit for Gemini 2.5 Flash is 1500 requests
+        const dailyRequestLimit = 1500;
+        final dailyRequestPercentage = (totalRequests / dailyRequestLimit).clamp(0.0, 1.0);
+
+        return GlassContainer(
+          padding: const EdgeInsets.all(20),
+          gradient: theme.glassGradient,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SecondaryText(
+                    text: 'Daily Request Limit Proximity',
+                    color: theme.accentTxt.withOpacity(0.7),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  PrimaryText(
+                    text: '${(dailyRequestPercentage * 100).toStringAsFixed(1)}%',
+                    color: dailyRequestPercentage > 0.8
+                        ? theme.errorPrimary
+                        : (dailyRequestPercentage > 0.5
+                            ? const Color(0xFFF59E0B)
+                            : theme.successPrimary),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ],
+              ),
+              8.verticalSpace,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: dailyRequestPercentage,
+                  backgroundColor: theme.accentTxt.withOpacity(0.1),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    dailyRequestPercentage > 0.8
+                        ? theme.errorPrimary
+                        : (dailyRequestPercentage > 0.5
+                            ? const Color(0xFFF59E0B)
+                            : theme.successPrimary),
+                  ),
+                  minHeight: 8,
+                ),
+              ),
+              12.verticalSpace,
+              SecondaryText(
+                text: '$totalRequests / $dailyRequestLimit free requests used today',
+                color: theme.accentTxt.withOpacity(0.6),
+                fontSize: 12,
+              ),
+              16.verticalSpace,
+              const Divider(color: Colors.white24),
+              16.verticalSpace,
+              _metricRow(context, 'Total Tokens Consumed', totalTokens.toString()),
+              _metricRow(context, 'Direct Gemini (2.5 Flash)', '$directRequests reqs ($directTokens tokens)'),
+              _metricRow(context, 'OpenRouter Fallbacks', '$openRouterRequests reqs ($openRouterTokens tokens)'),
+              16.verticalSpace,
+              const Divider(color: Colors.white24),
+              16.verticalSpace,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SecondaryText(
+                    text: 'Recent API Requests',
+                    color: theme.primaryBase,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: theme.primaryBase,
+                    size: 20,
+                  ),
+                ],
+              ).rippleClick(() {
+                context.push(const RecentApiRequestsScreen());
+              }),
+              16.verticalSpace,
+              const Divider(color: Colors.white24),
+              16.verticalSpace,
+              Center(
+                child: _isPurgingLogs
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.delete_sweep_outlined,
+                            color: theme.errorPrimary.withOpacity(0.8),
+                            size: 16,
+                          ),
+                          8.horizontalSpace,
+                          SecondaryText(
+                            text: 'Clear All API Logs Instantly',
+                            color: theme.errorPrimary.withOpacity(0.8),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ],
+                      ).rippleClick(_clearAllUsageLogs),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _metricRow(BuildContext context, String label, String value) {
+    AppTheme theme = context.watch<AppTheme>();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          SecondaryText(
+            text: label,
+            color: theme.accentTxt.withOpacity(0.6),
+            fontSize: 12,
+          ),
+          PrimaryText(
+            text: value,
+            color: theme.accentTxt,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ],
+      ),
+    );
   }
 }

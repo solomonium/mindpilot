@@ -24,7 +24,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       await SharedPrefs.getBool('PUSH_NOTIFICATIONS_ENABLED') ?? false;
   final type = message.data['type'] ?? 'update';
 
-  if (!isEnabled && type != 'insight') {
+  if (!isEnabled && type != 'insight' && type != 'admin_alert') {
     return;
   }
 
@@ -63,8 +63,10 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final AudioPlayer _inviteAudioPlayer = AudioPlayer();
   bool _isAlarmPlaying = false;
   StreamSubscription? _playerCompleteSubscription;
+  bool _inviteAudioInitialized = false;
 
   String? _pendingPayload;
 
@@ -120,6 +122,46 @@ class NotificationService {
     try {
       await _permissionChannel.invokeMethod<void>('openOverlaySettings');
     } catch (_) {}
+  }
+
+  /// Initializes the invite audio player with proper iOS playback session.
+  Future<void> _ensureInviteAudioInitialized() async {
+    if (_inviteAudioInitialized) return;
+    try {
+      await _inviteAudioPlayer.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.assistanceSonification,
+            audioFocus: AndroidAudioFocus.gainTransient,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: {
+              AVAudioSessionOptions.mixWithOthers,
+            },
+          ),
+        ),
+      );
+      _inviteAudioInitialized = true;
+    } catch (e) {
+      safePrint('Error initializing invite audio context: $e');
+    }
+  }
+
+  /// Plays the invite_voice.wav directly via AudioPlayer so it works
+  /// reliably on iOS even when the app is in the foreground
+  /// (iOS suppresses custom notification sounds for foreground apps).
+  Future<void> playInviteVoiceSound() async {
+    try {
+      await _ensureInviteAudioInitialized();
+      await _inviteAudioPlayer.stop();
+      await _inviteAudioPlayer.setSource(AssetSource('audio/invite_voice.wav'));
+      await _inviteAudioPlayer.resume();
+    } catch (e) {
+      safePrint('Error playing invite voice sound: $e');
+    }
   }
 
   Future<void> initialize() async {
@@ -387,7 +429,7 @@ class NotificationService {
     final isEnabled = context.read<AppProvider>().pushNotificationsEnabled;
     final type = message.data['type'] ?? 'update';
 
-    if (!isEnabled && type != 'insight' && type != 'feedback' && type != 'group_invite' && type != 'group_game_start') {
+    if (!isEnabled && type != 'insight' && type != 'feedback' && type != 'group_invite' && type != 'group_game_start' && type != 'group_member_joined' && type != 'admin_alert') {
       return;
     }
 
@@ -421,9 +463,20 @@ class NotificationService {
     } else if (type == 'group_game_start') {
       final groupId = message.data['groupId'] ?? '';
       payload = 'group_game_start|$groupId';
+    } else if (type == 'group_member_joined') {
+      final memberName = message.data['memberName'] ?? 'Someone';
+      final groupName  = message.data['groupName'] ?? '';
+      payload = 'group_member_joined|$memberName|$groupName';
     }
 
-    if (isForeground && (isEnabled || type == 'group_invite')) {
+    // Play invite sound directly via AudioPlayer on iOS foreground
+    // (iOS suppresses custom notification sounds when the app is active,
+    // so we mirror what quiz_started does — use AudioPlayer directly).
+    if (isForeground && type == 'group_invite') {
+      playInviteVoiceSound();
+    }
+
+    if (isForeground && (isEnabled || type == 'group_invite' || type == 'group_member_joined' || type == 'admin_alert')) {
       showForegroundNotification(title, body, payload);
     }
 
@@ -601,6 +654,18 @@ class NotificationService {
             ),
           );
         }
+      }
+    } else if (payload.startsWith('group_member_joined|')) {
+      // Creator gets a banner; no navigation needed (they're in the lobby)
+      final parts = payload.split('|');
+      final memberName = parts.length > 1 ? parts[1] : 'Someone';
+      final groupName  = parts.length > 2 ? parts[2] : '';
+      final context = R.N.navKey.currentContext;
+      if (context != null && context.mounted) {
+        context.showInAppNotification(
+          '🎉 $memberName has joined${groupName.isNotEmpty ? ' "$groupName"' : ' your group'}!',
+          type: InAppNotificationType.success,
+        );
       }
     }
   }

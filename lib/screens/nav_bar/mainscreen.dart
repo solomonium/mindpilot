@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
 
@@ -17,6 +18,38 @@ class _MainScreenState extends State<MainScreen> {
   StreamSubscription<DocumentSnapshot>? _feedbackSubscription;
   bool _lastFeedbackFlag = false;
 
+  // Invite voice sound player — plays invite_voice.wav the moment a new
+  // pending invite appears in the Firestore StreamBuilder (the FCM path
+  // is unreliable on iOS; Firestore snapshot is the source of truth).
+  final AudioPlayer _inviteAudioPlayer = AudioPlayer();
+  String? _lastPlayedInviteId; // prevents replaying on every rebuild
+
+  Future<void> _playInviteVoice() async {
+    try {
+      await _inviteAudioPlayer.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.assistanceSonification,
+            audioFocus: AndroidAudioFocus.gainTransient,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: {
+              AVAudioSessionOptions.mixWithOthers,
+            },
+          ),
+        ),
+      );
+      await _inviteAudioPlayer.stop();
+      await _inviteAudioPlayer.setSource(AssetSource('audio/invite_voice.wav'));
+      await _inviteAudioPlayer.resume();
+    } catch (e) {
+      debugPrint('Error playing invite voice: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +60,145 @@ class _MainScreenState extends State<MainScreen> {
       _handlePendingNotification();
       _maybeShowChatFabTooltip();
       _checkClipboardForGroupInvite();
+      _checkAndPromptHeardFrom();
     });
+  }
+
+  Future<void> _checkAndPromptHeardFrom() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!doc.exists) return;
+
+      final data = doc.data();
+      if (data == null) return;
+
+      if (!data.containsKey('heardFrom') ||
+          data['heardFrom'] == null ||
+          data['heardFrom'].toString().trim().isEmpty ||
+          data['heardFrom'] == 'Unknown') {
+        if (mounted) {
+          _showHeardFromDialog();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking heardFrom: $e');
+    }
+  }
+
+  void _showHeardFromDialog() {
+    final theme = context.read<AppTheme>();
+    String? selectedOption;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: false,
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                backgroundColor: theme.brandDark,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: const PrimaryText(text: 'Welcome to MindPilot! 👋'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SecondaryText(
+                      text: 'Where did you hear about us?',
+                      color: theme.accentTxt.withOpacity(0.8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    16.verticalSpace,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: theme.accentTxt.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedOption,
+                          hint: SecondaryText(
+                            text: 'Select an option',
+                            color: theme.accentTxt.withOpacity(0.4),
+                          ),
+                          dropdownColor: theme.brandDark,
+                          isExpanded: true,
+                          icon: Icon(Icons.arrow_drop_down, color: theme.accentTxt),
+                          items: [
+                            'Google Search',
+                            'App Store / Play Store',
+                            'Social Media (Instagram/TikTok/Twitter)',
+                            'Reddit',
+                            'Friend / Recommendation',
+                            'Ad / Promotion',
+                            'Other',
+                          ].map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: PrimaryText(
+                                text: value,
+                                fontSize: 14,
+                                color: theme.accentTxt,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            setState(() {
+                              selectedOption = val;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primaryBase,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: const Size(double.infinity, 44),
+                    ),
+                    onPressed: selectedOption == null
+                        ? null
+                        : () async {
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (user != null) {
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(user.uid)
+                                  .update({'heardFrom': selectedOption});
+                            }
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                          },
+                    child: const PrimaryText(
+                      text: 'Submit & Proceed',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _maybeShowChatFabTooltip() async {
@@ -65,6 +236,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void dispose() {
     _feedbackSubscription?.cancel();
+    _inviteAudioPlayer.dispose();
     super.dispose();
   }
 
@@ -464,6 +636,16 @@ class _MainScreenState extends State<MainScreen> {
                       final groupId = inviteData['groupId'] ?? '';
                       final groupName = inviteData['groupName'] ?? '';
                       final senderName = inviteData['senderName'] ?? 'A friend';
+
+                      // Play invite sound exactly once per new invite doc.
+                      // This Firestore path is the reliable trigger on iOS
+                      // (FCM/local-notification sounds are suppressed in foreground).
+                      if (_lastPlayedInviteId != invitationId) {
+                        _lastPlayedInviteId = invitationId;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _playInviteVoice();
+                        });
+                      }
 
                       if (store.navIndex != 0) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {

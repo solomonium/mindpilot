@@ -10,39 +10,39 @@ class PersonalizationScreen extends StatefulWidget {
 class _PersonalizationScreenState extends State<PersonalizationScreen> {
   final List<Map<String, dynamic>> goals = [
     {
-      "title": "Make Better Decisions",
-      "subtitle": "Get clarity on important life choices",
-      "icon": Icons.lightbulb_outline,
+      "title": "Expand My Knowledge",
+      "subtitle": "Learn new topics across Bible, science & more",
+      "icon": Icons.menu_book_outlined,
       "color": const Color(0xFF6366F1),
     },
     {
-      "title": "Be More Productive",
-      "subtitle": "Build habits and improve focus",
-      "icon": Icons.bolt_outlined,
+      "title": "Sharpen My Mind",
+      "subtitle": "Build focus, memory & critical thinking",
+      "icon": Icons.psychology_outlined,
       "color": const Color(0xFF3B82F6),
     },
     {
-      "title": "Improve Mental Wellbeing",
-      "subtitle": "Reduce stress and anxiety",
-      "icon": Icons.favorite_border,
-      "color": const Color(0xFFEF4444),
-    },
-    {
-      "title": "Personal Growth",
-      "subtitle": "Learn, grow and become better",
+      "title": "Track My Growth",
+      "subtitle": "Measure progress and celebrate wins",
       "icon": Icons.trending_up,
       "color": const Color(0xFF10B981),
     },
     {
-      "title": "Financial Clarity",
-      "subtitle": "Manage money and plan better",
-      "icon": Icons.account_balance_wallet_outlined,
+      "title": "Make Better Decisions",
+      "subtitle": "Gain clarity on complex life choices",
+      "icon": Icons.lightbulb_outline,
       "color": const Color(0xFFF59E0B),
     },
     {
-      "title": "Leadership & Influence",
-      "subtitle": "Inspire others and lead effectively",
-      "icon": Icons.groups_outlined,
+      "title": "Build Daily Habits",
+      "subtitle": "Stay consistent with structured routines",
+      "icon": Icons.repeat_outlined,
+      "color": const Color(0xFFEF4444),
+    },
+    {
+      "title": "Grow Spiritually",
+      "subtitle": "Deepen faith and biblical understanding",
+      "icon": Icons.auto_awesome_outlined,
       "color": const Color(0xFF8B5CF6),
     },
   ];
@@ -54,6 +54,146 @@ class _PersonalizationScreenState extends State<PersonalizationScreen> {
   void initState() {
     super.initState();
     _loadExistingPreferences();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndPromptHeardFrom();
+    });
+  }
+
+  Future<void> _checkAndPromptHeardFrom() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!doc.exists) return;
+
+      final data = doc.data();
+      if (data == null) return;
+
+      if (!data.containsKey('heardFrom') ||
+          data['heardFrom'] == null ||
+          data['heardFrom'].toString().trim().isEmpty ||
+          data['heardFrom'] == 'Unknown') {
+        if (mounted) {
+          _showHeardFromDialog();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking heardFrom: $e');
+    }
+  }
+
+  void _showHeardFromDialog() {
+    final theme = context.read<AppTheme>();
+    String? selectedOption;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: false,
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                backgroundColor: theme.brandDark,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: const PrimaryText(text: 'Welcome to MindPilot! 👋'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SecondaryText(
+                      text: 'Where did you hear about us?',
+                      color: theme.accentTxt.withOpacity(0.8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    16.verticalSpace,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: theme.accentTxt.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedOption,
+                          hint: SecondaryText(
+                            text: 'Select an option',
+                            color: theme.accentTxt.withOpacity(0.4),
+                          ),
+                          dropdownColor: theme.brandDark,
+                          isExpanded: true,
+                          icon: Icon(Icons.arrow_drop_down, color: theme.accentTxt),
+                          items: [
+                            'Google Search',
+                            'App Store / Play Store',
+                            'Social Media (Instagram/TikTok/Twitter)',
+                            'Reddit',
+                            'Friend / Recommendation',
+                            'Ad / Promotion',
+                            'Other',
+                          ].map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: PrimaryText(
+                                text: value,
+                                fontSize: 14,
+                                color: theme.accentTxt,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            setState(() {
+                              selectedOption = val;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primaryBase,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: const Size(double.infinity, 44),
+                    ),
+                    onPressed: selectedOption == null
+                        ? null
+                        : () async {
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (user != null) {
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(user.uid)
+                                  .update({'heardFrom': selectedOption});
+                            }
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                          },
+                    child: const PrimaryText(
+                      text: 'Submit & Proceed',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   void _loadExistingPreferences() async {

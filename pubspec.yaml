@@ -3,7 +3,7 @@ description: "A new Flutter project."
 
 publish_to: "none"
 
-version: 1.0.14+19
+version: 1.0.15+21
 
 environment:
   sdk: ^3.10.1
@@ -53,6 +53,9 @@ dependencies:
   screen_protector: ^1.5.1
   sign_in_with_apple: ^8.1.0
   google_mobile_ads: ^8.0.0
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.0.1
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

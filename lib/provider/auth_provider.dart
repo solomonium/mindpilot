@@ -20,7 +20,19 @@ class AppAuthProvider extends BaseProvider {
 
   String _userType = "Freemium";
   String get userType => _userType;
-  bool get isPro => _userType == "Pro Member";
+
+  Timestamp? _premiumExpiresAt;
+  Timestamp? get premiumExpiresAt => _premiumExpiresAt;
+
+  bool get isPro {
+    if (_userType == "Pro Member") return true;
+    if (_premiumExpiresAt != null) {
+      final now = DateTime.now();
+      final expiry = _premiumExpiresAt!.toDate();
+      if (expiry.isAfter(now)) return true;
+    }
+    return false;
+  }
 
   String _aiTone = "Balanced";
   String get aiTone => _aiTone;
@@ -66,7 +78,7 @@ class AppAuthProvider extends BaseProvider {
   bool _hasCompletedFirstSession = false;
   bool get hasCompletedFirstSession => _hasCompletedFirstSession;
 
-  int _insightIntervalHours = 1;
+  int _insightIntervalHours = 3;
   int get insightIntervalHours => _insightIntervalHours;
 
   final List<String> _superAdmins = [
@@ -143,6 +155,7 @@ class AppAuthProvider extends BaseProvider {
         _aiPersonality = "Encouraging";
         _displayName = null;
         _email = null;
+        GeminiService().setIsPro(false);
         GeminiService().setUserName(null);
         GeminiService().setAiPreferences("Balanced", "Encouraging");
 
@@ -194,7 +207,7 @@ class AppAuthProvider extends BaseProvider {
     }
   }
 
-  Future<void> ensureFirestoreUserExists(User user) async {
+  Future<void> ensureFirestoreUserExists(User user, {String? heardFrom}) async {
     try {
       final doc = await _firestore.collection('users').doc(user.uid).get();
       if (!doc.exists) {
@@ -213,7 +226,7 @@ class AppAuthProvider extends BaseProvider {
           'aiTone': 'Balanced',
           'aiPersonality': 'Encouraging',
           'explanationCount': 0,
-          'insightIntervalHours': 1,
+          'insightIntervalHours': 3,
           'streak': 0,
           'xp': 0,
           'level': 1,
@@ -222,6 +235,7 @@ class AppAuthProvider extends BaseProvider {
           'hasCompletedFirstSession': false,
           'country': '',
           'regCountry': _detectCountry(),
+          'heardFrom': heardFrom ?? 'Unknown',
           'createdAt': FieldValue.serverTimestamp(),
         });
         safePrint(
@@ -239,15 +253,20 @@ class AppAuthProvider extends BaseProvider {
           safePrint('⚠️ Failed to increment authenticated_users_count: $e');
         }
       } else {
-        // Retroactively backfill regCountry if missing for existing users
+        // Retroactively backfill regCountry or heardFrom if missing
         final data = doc.data();
-        if (data != null && !data.containsKey('regCountry')) {
-          await _firestore.collection('users').doc(user.uid).update({
-            'regCountry': _detectCountry(),
-          });
-          safePrint(
-            '🌍 Retroactively set regCountry for existing user: ${user.uid}',
-          );
+        if (data != null) {
+          final Map<String, dynamic> updates = {};
+          if (!data.containsKey('regCountry')) {
+            updates['regCountry'] = _detectCountry();
+          }
+          if (heardFrom != null && (!data.containsKey('heardFrom') || data['heardFrom'] == null || data['heardFrom'] == 'Unknown' || data['heardFrom'].toString().isEmpty)) {
+            updates['heardFrom'] = heardFrom;
+          }
+          if (updates.isNotEmpty) {
+            await _firestore.collection('users').doc(user.uid).update(updates);
+            safePrint('🌍 Retroactively updated user document: ${user.uid} with $updates');
+          }
         }
       }
     } catch (e) {
@@ -279,6 +298,7 @@ class AppAuthProvider extends BaseProvider {
 
     if (_superAdmins.contains(user.email?.toLowerCase())) {
       _userType = "Pro Member";
+      GeminiService().setIsPro(true);
       notifyListeners();
       return;
     }
@@ -290,13 +310,16 @@ class AppAuthProvider extends BaseProvider {
         .listen((doc) {
           if (doc.exists) {
             _userType = doc.data()?['userType'] ?? "Freemium";
+            _premiumExpiresAt = doc.data()?['premiumExpiresAt'] as Timestamp?;
+            GeminiService().setIsPro(isPro);
             _explanationCount = doc.data()?['explanationCount'] ?? 0;
             _aiTone = doc.data()?['aiTone'] ?? "Balanced";
             _aiPersonality = doc.data()?['aiPersonality'] ?? "Encouraging";
             _phoneNumber = doc.data()?['phoneNumber'];
             _location = doc.data()?['location'];
             _country = doc.data()?['country'];
-            _insightIntervalHours = doc.data()?['insightIntervalHours'] ?? 1;
+            final loadedHours = doc.data()?['insightIntervalHours'] ?? 3;
+            _insightIntervalHours = (loadedHours == 1 || loadedHours == 2) ? 3 : loadedHours;
             _xp = doc.data()?['xp'] ?? 0;
             _level = doc.data()?['level'] ?? EngagementService().levelFromXp(_xp);
             _referralCode = doc.data()?['referralCode'];
@@ -393,7 +416,7 @@ class AppAuthProvider extends BaseProvider {
                   'aiTone': 'Balanced',
                   'aiPersonality': 'Encouraging',
                   'explanationCount': 0,
-                  'insightIntervalHours': 1,
+                  'insightIntervalHours': 3,
                   'streak': 0,
                   'xp': 0,
                   'level': 1,
@@ -639,7 +662,7 @@ class AppAuthProvider extends BaseProvider {
     }
   }
 
-  Future<void> loginWithGoogle(BuildContext context) async {
+  Future<void> loginWithGoogle(BuildContext context, {String? heardFrom}) async {
     _isLoading = true;
     notifyListeners();
 
@@ -648,7 +671,7 @@ class AppAuthProvider extends BaseProvider {
       if (user != null) {
         _user = user;
 
-        await ensureFirestoreUserExists(user);
+        await ensureFirestoreUserExists(user, heardFrom: heardFrom);
         final doc = await _firestore
             .collection('users')
             .doc(user.uid)
@@ -682,7 +705,7 @@ class AppAuthProvider extends BaseProvider {
     }
   }
 
-  Future<void> loginWithApple(BuildContext context) async {
+  Future<void> loginWithApple(BuildContext context, {String? heardFrom}) async {
     _isLoading = true;
     notifyListeners();
 
@@ -691,7 +714,7 @@ class AppAuthProvider extends BaseProvider {
       if (user != null) {
         _user = user;
 
-        await ensureFirestoreUserExists(user);
+        await ensureFirestoreUserExists(user, heardFrom: heardFrom);
         final doc = await _firestore
             .collection('users')
             .doc(user.uid)

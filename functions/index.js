@@ -1,4 +1,4 @@
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const axios = require("axios");
@@ -247,7 +247,11 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
             const fcmToken = userData.fcmToken;
 
             // Per-user interval in hours (convert to Ms)
-            const userIntervalHours = userData.insightIntervalHours;
+            let userIntervalHours = userData.insightIntervalHours;
+            // If interval is 1 or 2 hours, increase to 3 hours as users complained of too many notifications
+            if (userIntervalHours === 1 || userIntervalHours === 2) {
+                userIntervalHours = 3;
+            }
             const userIntervalMs = (userIntervalHours && userIntervalHours > 0)
                 ? (userIntervalHours * 3600000)
                 : defaultIntervalMs;
@@ -317,7 +321,6 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
 // Super Admin list for registration alerts
 const SUPER_ADMIN_EMAILS = [
     "laleyesolomon2@gmail.com",
-    "solteqinnovationsltd@gmail.com",
 ];
 
 exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
@@ -365,13 +368,23 @@ exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
                     notification: {
                         channelId: "mindpilot_notifications",
                         priority: "high",
+                        sound: "default",
                     },
                 },
                 apns: {
+                    headers: {
+                        "apns-priority": "10",
+                    },
                     payload: {
                         aps: {
-                            contentAvailable: true,
+                            alert: {
+                                title: "🆕 New User Registration",
+                                body: `${userName} (${userEmail})${userCountry} just signed up!`,
+                            },
                             sound: "default",
+                            badge: 1,
+                            mutableContent: true,
+                            contentAvailable: true,
                         },
                     },
                 },
@@ -574,7 +587,7 @@ exports.onGroupInvitationCreated = onDocumentCreated("group_invitations/{invitat
         }
 
         const title = "Group Invitation 📖";
-        const body = `${senderName} invited you to join the Bible quiz group "${groupName}".`;
+        const body = `${senderName} invited you to join the "${groupName}" quiz group on MindPilot!`;
 
         const payload = {
             notification: {
@@ -596,11 +609,20 @@ exports.onGroupInvitationCreated = onDocumentCreated("group_invitations/{invitat
                     sound: "invite_voice",
                 },
             },
+            // iOS: Use alert notification (NOT content-available / silent) so the custom sound plays.
+            // content-available:1 signals a background-only silent push, which suppresses custom sounds.
             apns: {
+                headers: {
+                    'apns-priority': '10',
+                },
                 payload: {
                     aps: {
-                        contentAvailable: true,
-                        sound: "invite_voice.wav",
+                        alert: {
+                            title: title,
+                            body: body,
+                        },
+                        sound: 'invite_voice.wav',
+                        badge: 1,
                     },
                 },
             },
@@ -712,4 +734,89 @@ exports.onGameCreated = onDocumentCreated("games/{gameId}", async (event) => {
 });
 
 
+// Notify group creator when an invited member accepts & joins the group
+exports.onGroupMemberJoined = onDocumentUpdated("groups/{groupId}", async (event) => {
+    const before = event.data.before.data();
+    const after  = event.data.after.data();
 
+    if (!before || !after) return;
+
+    const groupId   = event.params.groupId;
+    const groupName = after.name || "Quiz Group";
+    const creatorUid = after.createdBy;
+
+    if (!creatorUid) return;
+
+    // Find members who just flipped to 'accepted'
+    const beforeMembers = before.members || {};
+    const afterMembers  = after.members  || {};
+
+    const newlyAccepted = [];
+    for (const uid in afterMembers) {
+        if (uid === creatorUid) continue; // skip the creator themselves
+        const wasAccepted = beforeMembers[uid]?.status === 'accepted';
+        const isNowAccepted = afterMembers[uid]?.status === 'accepted';
+        if (!wasAccepted && isNowAccepted) {
+            newlyAccepted.push({
+                uid,
+                displayName: afterMembers[uid].displayName || afterMembers[uid].email || 'Someone',
+            });
+        }
+    }
+
+    if (newlyAccepted.length === 0) return;
+
+    try {
+        // Get creator's FCM token
+        const creatorDoc = await admin.firestore().collection("users").doc(creatorUid).get();
+        if (!creatorDoc.exists) return;
+
+        const creatorData = creatorDoc.data();
+        const fcmToken = creatorData.fcmToken;
+        if (!fcmToken) {
+            console.log(`Creator ${creatorUid} has no FCM token.`);
+            return;
+        }
+
+        for (const member of newlyAccepted) {
+            const title = "New Member Joined! 🎉";
+            const body  = `${member.displayName} has joined your quiz group "${groupName}"!`;
+
+            const payload = {
+                notification: { title, body },
+                data: {
+                    type: "group_member_joined",
+                    groupId: groupId,
+                    groupName: groupName,
+                    memberName: member.displayName,
+                    memberUid: member.uid,
+                    click_action: "FLUTTER_NOTIFICATION_CLICK",
+                },
+                android: {
+                    priority: "high",
+                    notification: {
+                        channelId: "mindpilot_notifications",
+                        priority: "high",
+                    },
+                },
+                apns: {
+                    headers: { 'apns-priority': '10' },
+                    payload: {
+                        aps: {
+                            alert: { title, body },
+                            sound: 'default',
+                            badge: 1,
+                        },
+                    },
+                },
+                token: fcmToken,
+            };
+
+            await admin.messaging().send(payload)
+                .then(() => console.log(`Join notification sent to creator ${creatorUid} for member ${member.uid}`))
+                .catch(err => console.error(`Error notifying creator:`, err));
+        }
+    } catch (error) {
+        console.error("Error in onGroupMemberJoined:", error);
+    }
+});

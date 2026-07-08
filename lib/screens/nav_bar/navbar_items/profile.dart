@@ -141,7 +141,7 @@ class ProfileScreen extends StatelessWidget {
                       onTap: () async {
                         final shareUrl = ConfigService().shareUrl;
                         final shareText =
-                            "Hey! I've been using MindPilot to sharpen my focus, organize my thoughts, and clear my mind. 🧠✨\n\nWhat is MindPilot?\nIt's a premium, secure productivity and wellness assistant designed to:\n• Clear mental clutter with secure cognitive journaling\n• Improve concentration and stay on track with custom looping alarms\n• Work through complex life decisions with the Decision Analyzer\n• Provide daily, personalized AI-driven cognitive insights\n\nI really think it will help you boost your focus, reduce distractions, and achieve your goals. Check it out here:\n👉 $shareUrl";
+                            "🧠 I've been levelling up with MindPilot — the app that turns everyday learning into real growth!\n\nWhat can MindPilot do for you?\n• 📚 Quiz yourself on Bible, science, history, tech & more\n• 🤔 Analyse tough decisions with AI-powered clarity\n• 📖 Journal your thoughts securely and track your mindset\n• ⏱️ Deep-focus sessions to build unstoppable concentration\n• 🔥 Daily streaks & XP to keep you motivated and growing\n• 🤝 Challenge friends in live group quiz battles\n\nWhether you want to sharpen your mind, grow spiritually, or simply learn something new every day — MindPilot has you covered.\n\nJoin thousands already on their growth journey 👇\n👉 $shareUrl";
 
                         try {
                           await Clipboard.setData(

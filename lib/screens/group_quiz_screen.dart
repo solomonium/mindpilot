@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
 
 class GroupQuizScreen extends StatefulWidget {
@@ -15,6 +17,14 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
   bool _isGameCompleted = false;
   int _lastMessageCount = 0;
 
+  // Nudge detection
+  String? _lastNudgeSentAt;
+  OverlayEntry? _nudgeBannerOverlay;
+
+  // Cache last known data so scores stay visible after host resets Firestore
+  Map<String, dynamic>? _cachedGroupData;
+  Map<String, dynamic>? _cachedGameData;
+
   @override
   void initState() {
     super.initState();
@@ -26,6 +36,7 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _nudgeBannerOverlay?.remove();
     super.dispose();
   }
 
@@ -41,18 +52,22 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
 
   // Helper to dynamically build the chatbot messages list from Firestore state
   List<Map<String, dynamic>> _reconstructChatThread(
-      Map<String, dynamic> groupData, Map<String, dynamic> gameData) {
+    Map<String, dynamic> groupData,
+    Map<String, dynamic> gameData,
+  ) {
     final List<Map<String, dynamic>> messages = [];
 
     // 1. Initial Greeting
     messages.add({
       'sender': 'MindPilot Host AI 🤖',
-      'text': "Welcome to the Group Bible Quiz! Let's test your scripture knowledge. 📖",
+      'text':
+          "Welcome to the Group Bible Quiz! Let's test your scripture knowledge. 📖",
       'isAi': true,
     });
 
     final questions = gameData['questions'] as List<dynamic>? ?? [];
-    final playerAnswers = gameData['playerAnswers'] as Map<String, dynamic>? ?? {};
+    final playerAnswers =
+        gameData['playerAnswers'] as Map<String, dynamic>? ?? {};
     final turnOrder = gameData['turnOrder'] as List<dynamic>? ?? [];
     final membersMap = groupData['members'] as Map<String, dynamic>? ?? {};
 
@@ -90,19 +105,27 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
         final correctIdx = q['correctAnswerIndex'] as int? ?? 0;
 
         if (answerVal == -1) {
-          final correctText = (correctIdx >= 0 && correctIdx < options.length) ? options[correctIdx] : '';
+          final correctText = (correctIdx >= 0 && correctIdx < options.length)
+              ? options[correctIdx]
+              : '';
           messages.add({
             'sender': playerName,
-            'text': '**@$playerName** timed out! ⏱️\n\n*(The correct answer is: **$correctText**)*',
+            'text':
+                '**@$playerName** timed out! ⏱️\n\n*(The correct answer is: **$correctText**)*',
             'isAi': false,
             'isCorrect': false,
           });
         } else {
           final isCorrect = answerVal == correctIdx;
-          final answerText = (answerVal >= 0 && answerVal < options.length) ? options[answerVal] : 'Skipped';
-          final correctText = (correctIdx >= 0 && correctIdx < options.length) ? options[correctIdx] : '';
+          final answerText = (answerVal >= 0 && answerVal < options.length)
+              ? options[answerVal]
+              : 'Skipped';
+          final correctText = (correctIdx >= 0 && correctIdx < options.length)
+              ? options[correctIdx]
+              : '';
 
-          String text = 'I choose: **$answerText**\n\nResult: ${isCorrect ? "Correct! +10 XP 🎉" : "Incorrect! ❌"}';
+          String text =
+              'I choose: **$answerText**\n\nResult: ${isCorrect ? "Correct! +10 XP 🎉" : "Incorrect! ❌"}';
           if (!isCorrect) {
             text += '\n\n*(The correct answer is: **$correctText**)*';
           }
@@ -121,8 +144,10 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
     if (status == 'playing' && currentIndex < questions.length) {
       final currentTurnUid = gameData['currentTurnPlayerUid'] as String?;
       if (currentTurnUid != null) {
-        final currentTurnEmail = membersMap[currentTurnUid]?['email'] ?? 'player';
-        final currentTurnName = membersMap[currentTurnUid]?['displayName'] ?? currentTurnEmail;
+        final currentTurnEmail =
+            membersMap[currentTurnUid]?['email'] ?? 'player';
+        final currentTurnName =
+            membersMap[currentTurnUid]?['displayName'] ?? currentTurnEmail;
         final q = questions[currentIndex] as Map<String, dynamic>;
         final qText = q['questionText'] ?? q['question'] ?? '';
 
@@ -139,7 +164,11 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
     return messages;
   }
 
-  void _showResultsDialog(BuildContext context, Map<String, dynamic> groupData, Map<String, dynamic> gameData) {
+  void _showResultsDialog(
+    BuildContext context,
+    Map<String, dynamic> groupData,
+    Map<String, dynamic> gameData,
+  ) {
     if (_resultsDialogShown) return;
     _resultsDialogShown = true;
     AnalyticsService.logGroupQuizAction('completed', groupId: widget.groupId);
@@ -182,7 +211,9 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
         scopeShortName = 'Mindfulness';
         break;
       case 'custom':
-        scopeShortName = scopeVal.trim().isNotEmpty ? scopeVal.trim() : 'Custom Topic';
+        scopeShortName = scopeVal.trim().isNotEmpty
+            ? scopeVal.trim()
+            : 'Custom Topic';
         break;
       default:
         scopeShortName = 'Bible';
@@ -193,11 +224,14 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         AppTheme theme = dialogContext.watch();
-        final questionsPerPlayer = gameData['questionsPerPlayer'] ?? (totalQs ~/ scoreEntries.length);
+        final questionsPerPlayer =
+            gameData['questionsPerPlayer'] ?? (totalQs ~/ scoreEntries.length);
 
         return AlertDialog(
           backgroundColor: theme.brandDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -279,23 +313,34 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primaryBase,
                     foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () {
-                    final questionsPerPlayer = gameData['questionsPerPlayer'] ?? (totalQs ~/ scoreEntries.length);
+                    final questionsPerPlayer =
+                        gameData['questionsPerPlayer'] ??
+                        (totalQs ~/ scoreEntries.length);
                     final shareCard = Container(
                       width: 360,
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         color: theme.brandDark,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: theme.primaryBase.withOpacity(0.2), width: 1.5),
+                        border: Border.all(
+                          color: theme.primaryBase.withOpacity(0.2),
+                          width: 1.5,
+                        ),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(Icons.emoji_events, color: Colors.amber, size: 56),
+                          const Icon(
+                            Icons.emoji_events,
+                            color: Colors.amber,
+                            size: 56,
+                          ),
                           16.verticalSpace,
                           PrimaryText(
                             text: '$scopeShortName Quiz Results 🏆',
@@ -331,8 +376,11 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                               final entry = scoreEntries[index];
                               final uid = entry.key;
                               final score = entry.value as int;
-                              final email = membersMap[uid]?['email'] ?? 'player@email.com';
-                              final name = membersMap[uid]?['displayName'] ?? email;
+                              final email =
+                                  membersMap[uid]?['email'] ??
+                                  'player@email.com';
+                              final name =
+                                  membersMap[uid]?['displayName'] ?? email;
 
                               String medal = '🥈';
                               if (index == 0) medal = '🥇';
@@ -340,7 +388,9 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                               if (index > 2) medal = '🎖️';
 
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10.0),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10.0,
+                                ),
                                 child: Row(
                                   children: [
                                     PrimaryText(text: medal, fontSize: 20),
@@ -369,7 +419,9 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                           const Divider(color: Colors.white10, height: 1),
                           16.verticalSpace,
                           SecondaryText(
-                            text: (scopeType == 'general' || scopeType == 'chapter')
+                            text:
+                                (scopeType == 'general' ||
+                                    scopeType == 'chapter')
                                 ? 'Study scripture and challenge friends in real-time!'
                                 : 'Challenge friends and test your knowledge in real-time!',
                             color: theme.accentTxt.withOpacity(0.5),
@@ -391,12 +443,16 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                     ShareService.captureAndShare(
                       dialogContext,
                       widget: shareCard,
-                      text: 'Check out our Group $scopeShortName Quiz results on MindPilot!${(scopeType == 'general' || scopeType == 'chapter') ? " 📖" : ""}🏆',
+                      text:
+                          'Check out our Group $scopeShortName Quiz results on MindPilot!${(scopeType == 'general' || scopeType == 'chapter') ? " 📖" : ""}🏆',
                       subject: 'MindPilot $scopeShortName Quiz Results',
                     );
                   },
                   icon: const Icon(Icons.share, size: 16),
-                  label: const Text('Share Scores', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Share Scores',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 12.verticalSpace,
                 TextButton(
@@ -432,7 +488,22 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
     final groupData = provider.groupData;
     final gameData = provider.gameData;
 
-    if (provider.activeGroupId == null || groupData == null || gameData == null) {
+    // Cache valid data so scores survive after host resets Firestore
+    if (groupData != null) _cachedGroupData = groupData;
+    if (gameData != null) _cachedGameData = gameData;
+
+    // Detect completion from live or cached state
+    final isCompleted = gameData != null
+        ? gameData['status'] == 'completed'
+        : _isGameCompleted;
+    if (isCompleted) _isGameCompleted = true;
+
+    // Results dialog is triggered manually by participants tapping
+    // "Proceed to Results" — NOT auto-shown.
+
+    if (provider.activeGroupId == null ||
+        groupData == null ||
+        gameData == null) {
       if (!_isGameCompleted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -443,25 +514,59 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
         });
         return Scaffold(
           backgroundColor: theme.brandDark,
-          body: const Center(
-            child: CircularProgressIndicator(),
-          ),
+          body: const Center(child: CircularProgressIndicator()),
         );
       } else {
+        // Game completed, then host reset the Firestore data.
+        // Show a "Proceed to Results" screen so the participant can
+        // still view their scores on their own terms.
         return Scaffold(
           backgroundColor: theme.brandDark,
-          body: const Center(
-            child: SecondaryText(text: 'Quiz Completed'),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.emoji_events,
+                    color: Colors.amber,
+                    size: 72,
+                  ),
+                  24.verticalSpace,
+                  PrimaryText(
+                    text: 'Quiz Complete! 🎉',
+                    color: theme.accentTxt,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    textAlign: TextAlign.center,
+                  ),
+                  12.verticalSpace,
+                  SecondaryText(
+                    text: 'The host has ended the session. Tap below to see your results.',
+                    color: theme.accentTxt.withOpacity(0.7),
+                    fontSize: 14,
+                    textAlign: TextAlign.center,
+                  ),
+                  32.verticalSpace,
+                  if (_cachedGroupData != null && _cachedGameData != null)
+                    CustomButton(
+                      key: const ValueKey('view_results_after_host_reset'),
+                      label: 'Proceed to Results 🏆',
+                      onPressed: () {
+                        _showResultsDialog(
+                          context,
+                          _cachedGroupData!,
+                          _cachedGameData!,
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
           ),
         );
       }
-    }
-
-    final isCompleted = gameData['status'] == 'completed';
-
-    // Track completion state
-    if (isCompleted) {
-      _isGameCompleted = true;
     }
 
     final messages = _reconstructChatThread(groupData, gameData);
@@ -470,20 +575,42 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
 
+    // Nudge detection: fire haptic + banner when a nudge targets the current user
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final nudge = gameData['nudge'] as Map<String, dynamic>?;
+    final nudgeSentAt = nudge?['sentAt'] as String?;
+    final nudgeTarget = nudge?['targetUid'] as String?;
+    if (nudgeSentAt != null &&
+        nudgeTarget == currentUid &&
+        nudgeSentAt != _lastNudgeSentAt) {
+      _lastNudgeSentAt = nudgeSentAt;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _triggerNudge(theme);
+      });
+    }
+
     final membersMap = groupData['members'] as Map<String, dynamic>? ?? {};
     final totalInvited = membersMap.length;
-    final joinedCount = membersMap.values.where((m) => m['status'] == 'accepted').length;
+    final joinedCount = membersMap.values
+        .where((m) => m['status'] == 'accepted')
+        .length;
 
-    final currentUid = FirebaseAuth.instance.currentUser?.uid;
     final expectedTurnUid = gameData['currentTurnPlayerUid'] as String?;
     final isMyTurn = currentUid == expectedTurnUid && !isCompleted;
     final currentTurnName = (expectedTurnUid != null)
-        ? (membersMap[expectedTurnUid]?['displayName'] ?? membersMap[expectedTurnUid]?['email'] ?? 'player')
+        ? (membersMap[expectedTurnUid]?['displayName'] ??
+              membersMap[expectedTurnUid]?['email'] ??
+              'player')
         : 'player';
+
+    final creatorUid = groupData['createdBy'] as String?;
+    final isCreator = creatorUid == currentUid;
 
     final int currentIndex = gameData['currentQuestionIndex'] as int? ?? 0;
     final questions = gameData['questions'] as List<dynamic>? ?? [];
-    final currentQuestion = (currentIndex < questions.length) ? questions[currentIndex] as Map<String, dynamic>? : null;
+    final currentQuestion = (currentIndex < questions.length)
+        ? questions[currentIndex] as Map<String, dynamic>?
+        : null;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -515,31 +642,45 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
         centerTitle: true,
         leading: Icon(Icons.close, color: theme.accentTxt, size: 20)
             .rippleClick(() {
-          // Warning before leaving
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: theme.brandDark,
-              title: PrimaryText(text: 'Leave Game?', color: theme.accentTxt),
-              content: SecondaryText(text: 'If you leave, you will forfeit this game.', color: theme.accentTxt.withOpacity(0.7)),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: SecondaryText(text: 'Stay', color: theme.accentTxt.withOpacity(0.6)),
+              // Warning before leaving
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: theme.brandDark,
+                  title: PrimaryText(
+                    text: 'Leave Game?',
+                    color: theme.accentTxt,
+                  ),
+                  content: SecondaryText(
+                    text: 'If you leave, you will forfeit this game.',
+                    color: theme.accentTxt.withOpacity(0.7),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: SecondaryText(
+                        text: 'Stay',
+                        color: theme.accentTxt.withOpacity(0.6),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        provider.leaveGroup();
+                        context.read<HomeProvider>().navIndex = 2;
+                        Navigator.of(
+                          context,
+                        ).popUntil((route) => route.isFirst);
+                      },
+                      child: PrimaryText(
+                        text: 'Leave',
+                        color: theme.errorPrimary,
+                      ),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    provider.leaveGroup();
-                    context.read<HomeProvider>().navIndex = 2;
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  },
-                  child: PrimaryText(text: 'Leave', color: theme.errorPrimary),
-                ),
-              ],
-            ),
-          );
-        }),
+              );
+            }),
       ),
       body: Stack(
         children: [
@@ -567,7 +708,10 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
           Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: BackdropFilter(
@@ -581,7 +725,11 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.people, color: theme.primaryBase, size: 20),
+                          Icon(
+                            Icons.people,
+                            color: theme.primaryBase,
+                            size: 20,
+                          ),
                           12.horizontalSpace,
                           Expanded(
                             child: Column(
@@ -589,17 +737,16 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 PrimaryText(
-                                  text: 'Group Members ($joinedCount of $totalInvited Joined)',
+                                  text:
+                                      'Group Members ($joinedCount of $totalInvited Joined)',
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: theme.accentTxt,
                                 ),
                                 4.verticalSpace,
                                 SecondaryText(
-                                  text: 'Active: ${membersMap.values
-                                      .where((m) => m['status'] == 'accepted')
-                                      .map((m) => m['displayName'] ?? m['email'] ?? 'player')
-                                      .join(', ')}',
+                                  text:
+                                      'Active: ${membersMap.values.where((m) => m['status'] == 'accepted').map((m) => m['displayName'] ?? m['email'] ?? 'player').join(', ')}',
                                   fontSize: 11,
                                   color: theme.accentTxt.withOpacity(0.6),
                                   textOverflow: TextOverflow.ellipsis,
@@ -617,7 +764,10 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 20,
+                  ),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final msg = messages[index];
@@ -625,24 +775,38 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                     final isCurrent = msg['isCurrent'] as bool? ?? false;
 
                     return Align(
-                      alignment: isAi ? Alignment.centerLeft : Alignment.centerRight,
+                      alignment: isAi
+                          ? Alignment.centerLeft
+                          : Alignment.centerRight,
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: isAi
-                              ? (isCurrent ? theme.primaryBase.withOpacity(0.1) : Colors.white.withOpacity(0.05))
-                              : (msg['isCorrect'] == true ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15)),
+                              ? (isCurrent
+                                    ? theme.primaryBase.withOpacity(0.1)
+                                    : Colors.white.withOpacity(0.05))
+                              : (msg['isCorrect'] == true
+                                    ? Colors.green.withOpacity(0.15)
+                                    : Colors.red.withOpacity(0.15)),
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(16),
                             topRight: const Radius.circular(16),
-                            bottomLeft: isAi ? Radius.zero : const Radius.circular(16),
-                            bottomRight: isAi ? const Radius.circular(16) : Radius.zero,
+                            bottomLeft: isAi
+                                ? Radius.zero
+                                : const Radius.circular(16),
+                            bottomRight: isAi
+                                ? const Radius.circular(16)
+                                : Radius.zero,
                           ),
                           border: Border.all(
                             color: isAi
-                                ? (isCurrent ? theme.primaryBase.withOpacity(0.3) : Colors.white10)
-                                : (msg['isCorrect'] == true ? Colors.greenAccent.withOpacity(0.3) : Colors.redAccent.withOpacity(0.3)),
+                                ? (isCurrent
+                                      ? theme.primaryBase.withOpacity(0.3)
+                                      : Colors.white10)
+                                : (msg['isCorrect'] == true
+                                      ? Colors.greenAccent.withOpacity(0.3)
+                                      : Colors.redAccent.withOpacity(0.3)),
                           ),
                         ),
                         child: Column(
@@ -653,14 +817,23 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                               text: msg['sender'] ?? 'User',
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: isAi ? theme.primaryBase : theme.accentTxt.withOpacity(0.8),
+                              color: isAi
+                                  ? theme.primaryBase
+                                  : theme.accentTxt.withOpacity(0.8),
                             ),
                             8.verticalSpace,
                             MarkdownBody(
                               data: msg['text'] ?? '',
                               styleSheet: MarkdownStyleSheet(
-                                p: TextStyle(color: theme.accentTxt, fontSize: 14, height: 1.4),
-                                strong: TextStyle(color: theme.primaryBase, fontWeight: FontWeight.bold),
+                                p: TextStyle(
+                                  color: theme.accentTxt,
+                                  fontSize: 14,
+                                  height: 1.4,
+                                ),
+                                strong: TextStyle(
+                                  color: theme.primaryBase,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             if (msg['question'] != null) ...[
@@ -669,10 +842,14 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFCCFF00).withOpacity(0.08),
+                                  color: const Color(
+                                    0xFFCCFF00,
+                                  ).withOpacity(0.08),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: const Color(0xFFCCFF00).withOpacity(0.2),
+                                    color: const Color(
+                                      0xFFCCFF00,
+                                    ).withOpacity(0.2),
                                     width: 1,
                                   ),
                                 ),
@@ -694,9 +871,6 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
 
               // Interactive Answer Options panel
               if (!isCompleted) ...[
-                // Timer
-                _buildTimerIndicator(theme, provider),
-                
                 if (currentQuestion != null)
                   _buildInteractiveAnswers(
                     theme,
@@ -704,12 +878,22 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                     currentQuestion,
                     isMyTurn,
                     currentTurnName,
+                    isCreator,
                   )
                 else
-                  _buildWaitingPanel(theme, groupData, gameData),
+                  _buildWaitingPanel(
+                    theme,
+                    groupData,
+                    gameData,
+                    provider,
+                    isCreator,
+                  ),
               ] else ...[
                 GlassContainer(
-                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 24,
+                    horizontal: 20,
+                  ),
                   borderRadius: 0,
                   border: const Border(top: BorderSide(color: Colors.white10)),
                   child: Column(
@@ -742,45 +926,107 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
     );
   }
 
-  Widget _buildTimerIndicator(AppTheme theme, GroupQuizProvider provider) {
+  /// Compact circular countdown timer shown inline in answer/waiting panels.
+  Widget _buildCircularTimer(AppTheme theme, GroupQuizProvider provider) {
     final seconds = provider.secondsRemaining;
     final total = provider.timerSeconds;
-    final progress = (total > 0) ? (seconds / total) : 0.0;
+    final progress = (total > 0) ? (seconds / total).clamp(0.0, 1.0) : 0.0;
+    final isUrgent = seconds < 6;
+    final color = isUrgent ? theme.errorPrimary : theme.primaryBase;
 
-    return Column(
-      children: [
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.white10,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            seconds < 6 ? theme.errorPrimary : theme.primaryBase,
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CircularProgressIndicator(
+            value: progress,
+            strokeWidth: 2.5,
+            backgroundColor: Colors.white10,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              SecondaryText(text: 'Question Timer', color: theme.accentTxt.withOpacity(0.5), fontSize: 11),
-              PrimaryText(
-                text: '00:${seconds.toString().padLeft(2, '0')}',
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: seconds < 6 ? theme.errorPrimary : theme.accentTxt,
-              ),
-            ],
+          Center(
+            child: PrimaryText(
+              text: seconds.toString(),
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
+  /// Fires haptic feedback and shows an animated nudge banner overlay.
+  void _triggerNudge(AppTheme theme) async {
+    try {
+      await HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 120));
+      await HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 120));
+      await HapticFeedback.heavyImpact();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    _nudgeBannerOverlay?.remove();
+    _nudgeBannerOverlay = OverlayEntry(
+      builder: (ctx) => Positioned(
+        top: MediaQuery.of(ctx).padding.top + 60,
+        left: 20,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: theme.errorPrimary.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.errorPrimary.withOpacity(0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Text('⚡', style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'The host is nudging you to answer!',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_nudgeBannerOverlay!);
+    await Future.delayed(const Duration(seconds: 3));
+    _nudgeBannerOverlay?.remove();
+    _nudgeBannerOverlay = null;
+  }
+
   Widget _buildInteractiveAnswers(
-      AppTheme theme,
-      GroupQuizProvider provider,
-      Map<String, dynamic> question,
-      bool isMyTurn,
-      String currentTurnName) {
+    AppTheme theme,
+    GroupQuizProvider provider,
+    Map<String, dynamic> question,
+    bool isMyTurn,
+    String currentTurnName,
+    bool isCreator,
+  ) {
     final options = List<String>.from(question['options'] ?? []);
 
     return GlassContainer(
@@ -790,13 +1036,23 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PrimaryText(
-            text: isMyTurn
-                ? 'Your Turn to Answer! Select Options:'
-                : 'Question Options (Waiting for @$currentTurnName):',
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: isMyTurn ? theme.primaryBase : theme.accentTxt.withOpacity(0.6),
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryText(
+                  text: isMyTurn
+                      ? 'Your Turn to Answer! Select Options:'
+                      : 'Question Options (Waiting for @$currentTurnName):',
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isMyTurn
+                      ? theme.primaryBase
+                      : theme.accentTxt.withOpacity(0.6),
+                ),
+              ),
+              12.horizontalSpace,
+              _buildCircularTimer(theme, provider),
+            ],
           ),
           12.verticalSpace,
           ...List.generate(options.length, (index) {
@@ -823,7 +1079,9 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                       child: PrimaryText(
                         text: String.fromCharCode(65 + index),
                         fontSize: 12,
-                        color: isMyTurn ? theme.primaryBase : theme.accentTxt.withOpacity(0.5),
+                        color: isMyTurn
+                            ? theme.primaryBase
+                            : theme.accentTxt.withOpacity(0.5),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -832,7 +1090,9 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
                   Expanded(
                     child: SecondaryText(
                       text: options[index],
-                      color: isMyTurn ? theme.accentTxt : theme.accentTxt.withOpacity(0.6),
+                      color: isMyTurn
+                          ? theme.accentTxt
+                          : theme.accentTxt.withOpacity(0.6),
                       fontSize: 14,
                     ),
                   ),
@@ -844,7 +1104,8 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: optionWidget.rippleClick(() {
-                  final correctIdx = question['correctAnswerIndex'] as int? ?? 0;
+                  final correctIdx =
+                      question['correctAnswerIndex'] as int? ?? 0;
                   final isCorrect = index == correctIdx;
                   AnalyticsService.logGroupQuizAction(
                     isCorrect ? 'answered_correct' : 'answered_incorrect',
@@ -856,62 +1117,153 @@ class _GroupQuizScreenState extends State<GroupQuizScreen> {
             } else {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
-                child: Opacity(
-                  opacity: 0.7,
-                  child: optionWidget,
-                ),
+                child: Opacity(opacity: 0.7, child: optionWidget),
               );
             }
           }),
+          // Creator-only nudge button during active questions when waiting for someone else
+          if (!isMyTurn && isCreator) ...[
+            12.verticalSpace,
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: provider.canNudge
+                    ? () async {
+                        await provider.sendNudge();
+                        if (mounted) {
+                          context.showInAppNotification(
+                            '👋 Nudge sent to @$currentTurnName!',
+                            type: InAppNotificationType.success,
+                          );
+                        }
+                      }
+                    : null,
+                icon: const Text('👋', style: TextStyle(fontSize: 16)),
+                label: Text(
+                  provider.canNudge
+                      ? 'Nudge @$currentTurnName'
+                      : 'Nudge sent (wait 10s)',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: provider.canNudge
+                      ? theme.errorPrimary
+                      : theme.accentTxt.withOpacity(0.3),
+                  side: BorderSide(
+                    color: provider.canNudge
+                        ? theme.errorPrimary.withOpacity(0.5)
+                        : theme.accentTxt.withOpacity(0.1),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildWaitingPanel(
-      AppTheme theme, Map<String, dynamic> groupData, Map<String, dynamic> gameData) {
+    AppTheme theme,
+    Map<String, dynamic> groupData,
+    Map<String, dynamic> gameData,
+    GroupQuizProvider provider,
+    bool isCreator,
+  ) {
     final currentTurnUid = gameData['currentTurnPlayerUid'] as String?;
     final membersMap = groupData['members'] as Map<String, dynamic>? ?? {};
     final currentTurnName = (currentTurnUid != null)
-        ? (membersMap[currentTurnUid]?['displayName'] ?? membersMap[currentTurnUid]?['email'] ?? 'player')
+        ? (membersMap[currentTurnUid]?['displayName'] ??
+              membersMap[currentTurnUid]?['email'] ??
+              'player')
         : 'player';
 
     return GlassContainer(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
       borderRadius: 0,
       border: const Border(top: BorderSide(color: Colors.white10)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-          ),
-          16.horizontalSpace,
-          Flexible(
-            child: RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                style: GoogleFonts.inter(
-                  color: theme.accentTxt.withOpacity(0.7),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-                children: [
-                  const TextSpan(text: 'Waiting for '),
-                  TextSpan(
-                    text: '@$currentTurnName',
-                    style: TextStyle(
-                      color: theme.primaryBase,
-                      fontWeight: FontWeight.bold,
+          Row(
+            children: [
+              _buildCircularTimer(theme, provider),
+              16.horizontalSpace,
+              Flexible(
+                child: RichText(
+                  text: TextSpan(
+                    style: GoogleFonts.inter(
+                      color: theme.accentTxt.withOpacity(0.7),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
                     ),
+                    children: [
+                      const TextSpan(text: 'Waiting for '),
+                      TextSpan(
+                        text: '@$currentTurnName',
+                        style: TextStyle(
+                          color: theme.primaryBase,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const TextSpan(text: ' to answer...'),
+                    ],
                   ),
-                  const TextSpan(text: ' to answer...'),
-                ],
+                ),
+              ),
+            ],
+          ),
+          // Creator-only nudge button
+          if (isCreator) ...[
+            12.verticalSpace,
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: provider.canNudge
+                    ? () async {
+                        await provider.sendNudge();
+                        if (mounted) {
+                          context.showInAppNotification(
+                            '👋 Nudge sent to @$currentTurnName!',
+                            type: InAppNotificationType.success,
+                          );
+                        }
+                      }
+                    : null,
+                icon: const Text('👋', style: TextStyle(fontSize: 16)),
+                label: Text(
+                  provider.canNudge
+                      ? 'Nudge @$currentTurnName'
+                      : 'Nudge sent (wait 10s)',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: provider.canNudge
+                      ? theme.errorPrimary
+                      : theme.accentTxt.withOpacity(0.3),
+                  side: BorderSide(
+                    color: provider.canNudge
+                        ? theme.errorPrimary.withOpacity(0.6)
+                        : theme.accentTxt.withOpacity(0.15),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

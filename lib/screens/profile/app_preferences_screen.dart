@@ -178,7 +178,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
   Widget _insightFrequencySelector(BuildContext context) {
     AppTheme theme = context.watch();
     final authProvider = context.watch<AppAuthProvider>();
-    final intervals = [0, 1, 2, 3, 6, 12];
+    final intervals = [0, 3, 6, 12];
 
     return Wrap(
       spacing: 12,
@@ -192,7 +192,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
               ? Border.all(color: theme.primaryBase, width: 2)
               : Border.all(color: theme.accentTxt.withOpacity(0.1), width: 1.5),
           child: PrimaryText(
-            text: hours == 0 ? 'Off' : (hours == 1 ? '1 Hour' : '$hours Hours'),
+            text: hours == 0 ? 'Off' : '$hours Hours',
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             color: theme.accentTxt,
@@ -202,7 +202,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
           context.showInAppNotification(
             hours == 0
                 ? 'Daily insights disabled.'
-                : 'Insight frequency updated to ${hours == 1 ? '1 hour' : '$hours hours'}.',
+                : 'Insight frequency updated to $hours hours.',
             type: InAppNotificationType.success,
           );
         });

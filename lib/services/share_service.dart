@@ -29,6 +29,72 @@ class ShareService {
     }
   }
 
+  /// Returns a human-readable label for a quiz scope type key.
+  static String _getScopeLabel(String scopeType, String scopeValue) {
+    switch (scopeType) {
+      case 'general':     return 'General Bible Knowledge';
+      case 'chapter':     return 'Bible Chapter Study';
+      case 'tech':        return 'Technology & Coding';
+      case 'science':     return 'Science & Physics';
+      case 'english':     return 'English & Literature';
+      case 'economics':   return 'Economics & Finance';
+      case 'mindfulness': return 'Personality & Mindfulness';
+      case 'custom':      return scopeValue.isNotEmpty ? scopeValue : 'Custom Topic';
+      default:            return scopeType;
+    }
+  }
+
+  /// Returns the full invite text used for both the share sheet and the QR code.
+  static String buildGroupInviteContent({
+    required String groupId,
+    required String groupName,
+    required String scopeType,
+    String scopeValue = '',
+  }) {
+    final scopeLabel = _getScopeLabel(scopeType, scopeValue);
+    final shareUrl = ConfigService().shareUrl;
+    return '🎯 You\'ve been invited to a $scopeLabel quiz challenge on MindPilot!\n\n'
+        'MindPilot is a free knowledge & personal growth app where you can:\n'
+        '• 📚 Quiz yourself on Bible, science, tech & more\n'
+        '• 🧠 Sharpen your mind with daily challenges\n'
+        '• 🔥 Earn XP, build streaks & compete with friends\n\n'
+        '📲 Download the app to get started:\n'
+        '$shareUrl\n\n'
+        'Once you\'re registered, use the invite code below to join my group:\n'
+        'mindpilot-group-invite:$groupId:$groupName';
+  }
+
+  /// Returns the compact deep-link encoded into the QR code.
+  /// Format: mindpilot://group/<groupId>/<encodedName>
+  static String buildGroupQrData({
+    required String groupId,
+    required String groupName,
+  }) {
+    final encoded = Uri.encodeComponent(groupName);
+    return 'mindpilot://group/$groupId/$encoded';
+  }
+
+  /// Compose the invite text and show a multi-platform share bottom sheet.
+  static Future<void> shareGroupInvite({
+    required BuildContext context,
+    required String groupId,
+    required String groupName,
+    required String scopeType,
+    String scopeValue = '',
+  }) async {
+    final inviteText = buildGroupInviteContent(
+      groupId: groupId,
+      groupName: groupName,
+      scopeType: scopeType,
+      scopeValue: scopeValue,
+    );
+
+    await Share.share(
+      inviteText,
+      sharePositionOrigin: AppHelper.getSharePositionOrigin(context),
+    );
+  }
+
   static Future<void> captureAndShare(
     BuildContext context, {
     required Widget widget,

@@ -631,22 +631,41 @@ Format the response beautifully in Markdown. Crucial: Make sure any quoted Bible
       final targetChapter = _chapterOrTopicController.text.trim().isNotEmpty
           ? _chapterOrTopicController.text.trim()
           : (_lastReadChapter ?? 'John 3');
-      targetContext = 'application and critical thinking lessons inspired by the Bible chapter "$targetChapter"';
+      
+      String chapterContent = '';
+      if (_chapterText != null && _chapterText!.trim().isNotEmpty &&
+          (_lastReadChapter == targetChapter || '$_selectedBook $_selectedChapter' == targetChapter)) {
+        chapterContent = '\n\nHere is the text of the chapter for reference:\n"""\n$_chapterText\n"""\n';
+      }
+      
+      targetContext = 'application and critical thinking lessons inspired by the Bible chapter "$targetChapter"$chapterContent';
       styleInstructions = """
 The questions should NOT be direct trivia or fact recall from the chapter (e.g., do not ask who said what or specific verse numbers).
-Instead, generate **learnable, reflective, and application-oriented questions** that make the user think widely about the moral, philosophical, or practical life lessons of the chapter, and explain what they have learnt.
+Instead, generate **learnable, reflective, and application-oriented questions** based strictly on the provided chapter "$targetChapter" that make the user think widely about the moral, philosophical, or practical life lessons of the chapter, and explain what they have learnt.
 The 4 options (answers) must fall around the practical application of those concepts, and the correct option should represent the most meaningful, constructive takeaway or life application.
-Ensure the "explanation" for each question explains the lesson clearly and how it relates to what they read.
+Ensure the "explanation" for each question explains the lesson clearly and how it relates to what they read in "$targetChapter".
 Ensure all questions generated are completely unique, deep, and never repetitive compared to standard prompts.
 """;
-      systemInstruction = "You are a precise Bible study application generator. You generate deep, reflective multiple-choice questions focusing on practical takeaways and moral application of scripture. Under no circumstances do you generate questions about other topics.";
+      systemInstruction = "You are a precise Bible study application generator. You generate deep, reflective multiple-choice questions focusing on practical takeaways and moral application of scripture based strictly on the chapter: '$targetChapter'. Under no circumstances do you generate questions about other topics.";
     } else if (_quizScopeType == 'chapter') {
       final targetChapter = _chapterOrTopicController.text.trim().isNotEmpty
           ? _chapterOrTopicController.text.trim()
           : (_lastReadChapter ?? 'John 3');
-      targetContext = 'the Bible chapter "$targetChapter"';
-      styleInstructions = "Generate standard comprehension and contextual questions from this chapter. Avoid repeating questions; cover different verses and concepts in the chapter to make it highly unique.";
-      systemInstruction = "You are a precise Bible quiz generator. You generate high-quality Bible trivia questions based strictly on the specified chapter. Under no circumstances do you generate questions about any other topic. Only facts from the specified chapter are allowed.";
+      
+      String chapterContent = '';
+      if (_chapterText != null && _chapterText!.trim().isNotEmpty &&
+          (_lastReadChapter == targetChapter || '$_selectedBook $_selectedChapter' == targetChapter)) {
+        chapterContent = '\n\nHere is the text of the chapter for reference:\n"""\n$_chapterText\n"""\n';
+      }
+      
+      targetContext = 'the Bible chapter "$targetChapter"$chapterContent';
+      styleInstructions = """
+Generate standard comprehension and contextual questions strictly from the chapter: "$targetChapter".
+CRITICAL: Every question must be directly answerable from the text of "$targetChapter" alone.
+Do NOT generate general Bible trivia questions (e.g. "Who built the ark?", "What is the first book of the Bible?", "How many disciples did Jesus choose?") unless they are specifically mentioned in this chapter.
+Ensure the questions target specific details, verses, characters, or events that occur within "$targetChapter".
+""";
+      systemInstruction = "You are a precise Bible quiz generator. You generate high-quality Bible trivia questions based strictly on the specified chapter: '$targetChapter'. Under no circumstances do you generate questions about any other topic. Only facts from the specified chapter are allowed.";
     } else if (_quizScopeType == 'tech') {
       targetContext = 'technology, computer science, software engineering, and programming';
       styleInstructions = "Generate educational, accurate multiple-choice questions about software engineering, programming languages, computer science, and digital technology. Avoid repeating questions; ensure all questions are completely unique.";
@@ -719,14 +738,7 @@ Return ONLY the raw JSON array. Do not include markdown code block formatting (n
       
       if (_activeQuizGenerationToken != currentToken) return;
       if (response != null) {
-        String cleanJson = response.trim();
-        if (cleanJson.startsWith('```')) {
-          final lines = cleanJson.split('\n');
-          if (lines.first.startsWith('```')) lines.removeAt(0);
-          if (lines.last.startsWith('```')) lines.removeLast();
-          cleanJson = lines.join('\n').trim();
-        }
-        
+        final cleanJson = _cleanJsonString(response);
         final List decoded = jsonDecode(cleanJson);
         if (_activeQuizGenerationToken != currentToken) return;
         setState(() {
@@ -2400,14 +2412,7 @@ The JSON object must have exactly these keys:
     try {
       final response = await _geminiService.sendMessageOneShot(prompt, systemInstruction: systemInstruction);
       if (response != null && response.trim().isNotEmpty) {
-        String cleanJson = response.trim();
-        if (cleanJson.startsWith('```')) {
-          final lines = cleanJson.split('\n');
-          if (lines.first.startsWith('```')) lines.removeAt(0);
-          if (lines.last.startsWith('```')) lines.removeLast();
-          cleanJson = lines.join('\n').trim();
-        }
-
+        final cleanJson = _cleanJsonString(response);
         final Map<String, dynamic> decoded = jsonDecode(cleanJson);
         setState(() {
           if (_riddlesMode == 'riddle') {
@@ -2942,5 +2947,22 @@ The JSON object must have exactly these keys:
         type: InAppNotificationType.success,
       );
     });
+  }
+
+  String _cleanJsonString(String response) {
+    String clean = response.trim();
+    int firstList = clean.indexOf('[');
+    int lastList = clean.lastIndexOf(']');
+    int firstObj = clean.indexOf('{');
+    int lastObj = clean.lastIndexOf('}');
+    if (firstList != -1 && lastList != -1 && lastList > firstList) {
+      if (firstObj == -1 || firstList < firstObj) {
+        return clean.substring(firstList, lastList + 1);
+      }
+    }
+    if (firstObj != -1 && lastObj != -1 && lastObj > firstObj) {
+      return clean.substring(firstObj, lastObj + 1);
+    }
+    return clean;
   }
 }

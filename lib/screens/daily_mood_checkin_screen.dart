@@ -69,6 +69,11 @@ Keep the tone supportive, premium, and clean. Make it directly actionable today.
             'Mood checked in! Reflection saved to your journal.',
             type: InAppNotificationType.success,
           );
+
+          final isDownMood = _selectedEmoji >= 0 && _selectedEmoji <= 2;
+          if (isDownMood) {
+            _showProactiveChatPrompt(moodLabel);
+          }
         }
       } else {
         if (mounted) {
@@ -84,6 +89,59 @@ Keep the tone supportive, premium, and clean. Make it directly actionable today.
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _showProactiveChatPrompt(String mood) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        final theme = context.read<AppTheme>();
+        return AlertDialog(
+          backgroundColor: theme.brandDark,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: PrimaryText(
+            text: 'MindPilot Support ❤️',
+            color: theme.accentTxt,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          content: SecondaryText(
+            text: 'We notice you are feeling $mood today. Would you like to chat with your MindPilot Assistant for comforting scriptures, focus tasks, and guided reflection questions?',
+            color: theme.accentTxt.withOpacity(0.8),
+            fontSize: 13,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: SecondaryText(
+                text: 'Not Now',
+                color: theme.accentTxt.withOpacity(0.6),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryBase,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                context.push(AiChatScreen(proactiveMood: mood));
+              },
+              child: const PrimaryText(
+                text: 'Talk to Assistant',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override

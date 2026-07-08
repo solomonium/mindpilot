@@ -3,8 +3,9 @@ import 'package:mindpilot/export.dart';
 
 class AiChatScreen extends StatefulWidget {
   final String? initialMessage;
+  final String? proactiveMood;
 
-  const AiChatScreen({super.key, this.initialMessage});
+  const AiChatScreen({super.key, this.initialMessage, this.proactiveMood});
 
   @override
   State<AiChatScreen> createState() => _AiChatScreenState();
@@ -15,29 +16,80 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   final Map<int, Color> _bubbleColors = {};
+  int _lastMessageCount = 0;
 
   @override
   void initState() {
     super.initState();
     AppHelper.setScreenshotProtection(true);
+    
+    final chatProvider = context.read<ChatProvider>();
+    chatProvider.addListener(_onChatProviderChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().initChat();
-      if (widget.initialMessage != null &&
+      chatProvider.initChat();
+      if (widget.proactiveMood != null) {
+        _sendProactiveMoodPrompt(widget.proactiveMood!);
+      } else if (widget.initialMessage != null &&
           widget.initialMessage!.trim().isNotEmpty) {
         _messageController.text = widget.initialMessage!.trim();
       }
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted) {
-          _scrollToBottom();
-        }
-      });
     });
+  }
+
+  Future<void> _sendProactiveMoodPrompt(String mood) async {
+    final chatStore = context.read<ChatProvider>();
+    final isPro = context.read<AppAuthProvider>().isPro;
+
+    if (!chatStore.canSendMessage(isPro)) {
+      AppHelper.showPaywall(context, feature: 'Unlimited AI Chat');
+      return;
+    }
+
+    final prompt = """
+The user has checked in feeling **$mood** today.
+Please proactively greet them warmly, and provide:
+1. Three comforting, encouraging scripture references (with full book, chapter, and verse).
+2. Two actionable focus tasks or mindfulness exercises they can perform in the app to clear their mind.
+3. Two guided reflection questions to help them process their current feeling.
+
+Keep the tone extremely supportive, premium, and structured. Use bullet points for readability.
+""";
+
+    chatStore.addMessage("Help me process feeling $mood today", true);
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await chatStore.geminiService.sendMessage(prompt);
+      if (mounted && response != null && response.isNotEmpty) {
+        chatStore.addMessage(response, false);
+      }
+    } catch (e) {
+      if (mounted) {
+        context.showInAppNotification('Error: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
   void dispose() {
-    // AppHelper.setScreenshotProtection(false);
+    try {
+      context.read<ChatProvider>().removeListener(_onChatProviderChanged);
+    } catch (_) {}
     super.dispose();
+  }
+
+  void _onChatProviderChanged() {
+    if (!mounted) return;
+    final chatProvider = context.read<ChatProvider>();
+    if (chatProvider.messages.length != _lastMessageCount) {
+      _lastMessageCount = chatProvider.messages.length;
+      _scrollToBottom();
+    }
   }
 
   void _scrollToBottom() {

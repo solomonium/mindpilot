@@ -13,7 +13,9 @@ class GroupLobbyScreen extends StatefulWidget {
 class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
   final TextEditingController _groupNameController = TextEditingController();
   final TextEditingController _inviteEmailController = TextEditingController();
-  final TextEditingController _bibleChapterController = TextEditingController(text: 'Romans 8');
+  final TextEditingController _bibleChapterController = TextEditingController(
+    text: 'Romans 8',
+  );
   late TextEditingController _questionsPerPlayerController;
 
   bool _gamePushed = false;
@@ -24,7 +26,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
   void initState() {
     super.initState();
     final provider = context.read<GroupQuizProvider>();
-    _questionsPerPlayerController = TextEditingController(text: '${provider.questionsPerParticipant}');
+    _questionsPerPlayerController = TextEditingController(
+      text: '${provider.questionsPerParticipant}',
+    );
     _inviteEmailController.addListener(_onEmailChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -46,7 +50,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
           provider.listenToGroup(widget.groupId!);
         } else {
           if (mounted) {
-            context.showInAppNotification("Access to group quiz requires watching an ad.");
+            context.showInAppNotification(
+              "Access to group quiz requires watching an ad.",
+            );
             Navigator.pop(context);
           }
         }
@@ -93,10 +99,12 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
     if (isPro) return true;
 
     final prefs = await SharedPreferences.getInstance();
-    int sessionsAccessed = prefs.getInt('group_quiz_sessions_accessed_count') ?? 0;
+    int sessionsAccessed =
+        prefs.getInt('group_quiz_sessions_accessed_count') ?? 0;
 
     if (targetGroupId != null) {
-      final isAlreadyUnlocked = prefs.getBool('group_quiz_unlocked_$targetGroupId') ?? false;
+      final isAlreadyUnlocked =
+          prefs.getBool('group_quiz_unlocked_$targetGroupId') ?? false;
       if (isAlreadyUnlocked) {
         return true;
       }
@@ -104,7 +112,10 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
 
     if (sessionsAccessed < 3) {
       sessionsAccessed++;
-      await prefs.setInt('group_quiz_sessions_accessed_count', sessionsAccessed);
+      await prefs.setInt(
+        'group_quiz_sessions_accessed_count',
+        sessionsAccessed,
+      );
       if (targetGroupId != null) {
         await prefs.setBool('group_quiz_unlocked_$targetGroupId', true);
       }
@@ -121,10 +132,16 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: theme.brandDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: Row(
             children: [
-              const Icon(Icons.play_circle_fill, color: Color(0xFFF59E0B), size: 24),
+              const Icon(
+                Icons.play_circle_fill,
+                color: Color(0xFFF59E0B),
+                size: 24,
+              ),
               8.horizontalSpace,
               const PrimaryText(
                 text: 'Unlock Group Quiz 👥',
@@ -135,7 +152,8 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
             ],
           ),
           content: const SecondaryText(
-            text: 'You have used your 3 free group quiz sessions. Watch a short video ad to unlock access to this lobby.',
+            text:
+                'You have used your 3 free group quiz sessions. Watch a short video ad to unlock access to this lobby.',
             color: Colors.white70,
             fontSize: 13,
           ),
@@ -144,10 +162,7 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
               onPressed: () {
                 Navigator.pop(dialogContext, false);
               },
-              child: SecondaryText(
-                text: 'Cancel',
-                color: Colors.white38,
-              ),
+              child: SecondaryText(text: 'Cancel', color: Colors.white38),
             ),
             TextButton(
               onPressed: () {
@@ -206,7 +221,7 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
   void _onEmailChanged() {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
     final text = _inviteEmailController.text.trim();
-    if (text.length < 2) {
+    if (text.isEmpty) {
       context.read<GroupQuizProvider>().clearSuggestions();
       return;
     }
@@ -233,13 +248,16 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
     if (groupId != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('group_quiz_unlocked_$groupId', true);
-      
+
       // PREFILL custom topic text with the room name
       _bibleChapterController.text = name;
       provider.scopeValue = name;
 
       provider.listenToGroup(groupId);
-      context.showInAppNotification('Group created successfully!', type: InAppNotificationType.success);
+      context.showInAppNotification(
+        'Group created successfully!',
+        type: InAppNotificationType.success,
+      );
     } else {
       context.showInAppNotification('Failed to create group');
     }
@@ -256,11 +274,18 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
     if (provider.activeGroupId == null) return;
 
     final name = provider.groupData?['name'] ?? 'Bible Quiz';
-    final error = await provider.inviteUserByEmail(provider.activeGroupId!, name, email);
-    
+    final error = await provider.inviteUserByEmail(
+      provider.activeGroupId!,
+      name,
+      email,
+    );
+
     if (!mounted) return;
     if (error == null) {
-      context.showInAppNotification('Invitation sent successfully!', type: InAppNotificationType.success);
+      context.showInAppNotification(
+        'Invitation sent successfully!',
+        type: InAppNotificationType.success,
+      );
       _inviteEmailController.clear();
       provider.clearSuggestions();
     } else {
@@ -275,38 +300,50 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
   void _showUnregisteredInviteDialog(String email) {
     AppTheme theme = context.read<AppTheme>();
     final provider = context.read<GroupQuizProvider>();
-    final groupName = provider.groupData?['name'] ?? 'Bible Quiz';
+    final groupName = provider.groupData?['name'] ?? 'Quiz Group';
     final groupId = provider.activeGroupId ?? '';
+    final scopeType = provider.scopeType;
+    final scopeValue = provider.scopeValue;
 
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: theme.brandDark,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const PrimaryText(text: 'User Not Found 👥'),
           content: SecondaryText(
-            text: 'The email "$email" is not registered on MindPilot. Would you like to invite them via WhatsApp to install the app and join this group?',
+            text:
+                'The email "$email" is not registered on MindPilot. Share a link so they can download the app and join directly!',
             color: theme.accentTxt.withOpacity(0.8),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: SecondaryText(text: 'Cancel', color: theme.accentTxt.withOpacity(0.6)),
+              child: SecondaryText(
+                text: 'Cancel',
+                color: theme.accentTxt.withOpacity(0.6),
+              ),
             ),
             TextButton(
-              onPressed: () async {
+              onPressed: () {
                 Navigator.pop(dialogContext);
-                
-                final inviteText = 
-                    'Hey! Join my Bible Quiz group "$groupName" on MindPilot! 📖✨\n\n'
-                    '1. Download the app.\n'
-                    '2. Copy this entire message to your clipboard.\n'
-                    '3. Open the app to join directly!\n\n'
-                    'Invite Code: mindpilot-group-invite:$groupId:$groupName';
-
-                await ShareService.shareToWhatsApp(inviteText);
+                if (context.mounted) {
+                  AppShareSheet.showForGroup(
+                    context,
+                    groupId: groupId,
+                    groupName: groupName,
+                    scopeType: scopeType,
+                    scopeValue: scopeValue,
+                  );
+                }
               },
-              child: PrimaryText(text: 'Invite via WhatsApp', color: theme.primaryBase),
+              child: PrimaryText(
+                text: 'Share Invite',
+                color: theme.primaryBase,
+              ),
             ),
           ],
         );
@@ -314,32 +351,52 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
     );
   }
 
-  void _showRemoveMemberConfirmDialog(String memberUid, String memberName, GroupQuizProvider provider, AppTheme theme) {
+  void _showRemoveMemberConfirmDialog(
+    String memberUid,
+    String memberName,
+    GroupQuizProvider provider,
+    AppTheme theme,
+  ) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: theme.brandDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const PrimaryText(text: 'Remove Player? 🚪'),
           content: SecondaryText(
-            text: 'Are you sure you want to remove "$memberName" from this group room?',
+            text:
+                'Are you sure you want to remove "$memberName" from this group room?',
             color: theme.accentTxt.withOpacity(0.8),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: SecondaryText(text: 'Cancel', color: theme.accentTxt.withOpacity(0.6)),
+              child: SecondaryText(
+                text: 'Cancel',
+                color: theme.accentTxt.withOpacity(0.6),
+              ),
             ),
             TextButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
-                final error = await provider.removeMemberFromGroup(provider.activeGroupId!, memberUid);
+                final error = await provider.removeMemberFromGroup(
+                  provider.activeGroupId!,
+                  memberUid,
+                );
                 if (mounted) {
                   if (error != null) {
-                    context.showInAppNotification(error, type: InAppNotificationType.error);
+                    context.showInAppNotification(
+                      error,
+                      type: InAppNotificationType.error,
+                    );
                   } else {
-                    context.showInAppNotification('$memberName removed from group.', type: InAppNotificationType.success);
+                    context.showInAppNotification(
+                      '$memberName removed from group.',
+                      type: InAppNotificationType.success,
+                    );
                   }
                 }
               },
@@ -353,12 +410,14 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
 
   void _proceedToStartGame() async {
     final provider = context.read<GroupQuizProvider>();
-    
+
     // Save settings local state into provider scope settings
     if (provider.scopeType == 'chapter' || provider.scopeType == 'custom') {
       final text = _bibleChapterController.text.trim();
       if (text.isEmpty) {
-        final label = provider.scopeType == 'chapter' ? 'chapter (e.g. Genesis 1)' : 'custom topic';
+        final label = provider.scopeType == 'chapter'
+            ? 'chapter (e.g. Genesis 1)'
+            : 'custom topic';
         context.showInAppNotification('Please specify a $label');
         return;
       }
@@ -368,7 +427,91 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
     final error = await provider.startGame();
     if (!mounted) return;
     if (error != null) {
-      context.showInAppNotification(error, type: InAppNotificationType.error);
+      _handleGenerationFailure(error, true);
+    }
+  }
+
+  Future<void> _handleGenerationFailure(String errorMsg, bool isStartGame) async {
+    final provider = context.read<GroupQuizProvider>();
+    final authProvider = context.read<AppAuthProvider>();
+
+    // Only present this if the user is Freemium and it is an AI generation/connection error
+    if (authProvider.userType != "Pro Member" &&
+        (errorMsg.contains("AI connection failed") ||
+         errorMsg.contains("AI generated an invalid format") ||
+         errorMsg.contains("Failed to get response"))) {
+      
+      final theme = context.read<AppTheme>();
+      final watchAd = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: theme.brandDark,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const PrimaryText(text: 'AI Connection Error 🤖'),
+          content: SecondaryText(
+            text: 'Question generation failed on the free server. Would you like to use the faster Gemini server for free by watching a short ad?',
+            color: theme.accentTxt.withOpacity(0.8),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: SecondaryText(
+                text: 'Cancel',
+                color: theme.accentTxt.withOpacity(0.6),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryBase,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const PrimaryText(
+                text: 'Watch Ad',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (watchAd == true) {
+        if (!mounted) return;
+        provider.setLoading(true);
+        await AdService.instance.showRewardedAd(
+          onUserEarnedReward: (ad, reward) async {
+            // Temporarily set Gemini Pro access
+            GeminiService().setIsPro(true);
+            String? newErr;
+            if (isStartGame) {
+              newErr = await provider.startGame();
+            } else {
+              newErr = await provider.preGenerateQuestions();
+            }
+            // Reset to Freemium status
+            GeminiService().setIsPro(false);
+
+            if (mounted) {
+              provider.setLoading(false);
+              if (newErr != null) {
+                context.showInAppNotification(newErr, type: InAppNotificationType.error);
+              } else {
+                context.showInAppNotification('AI generated questions successfully using Gemini!', type: InAppNotificationType.success);
+              }
+            }
+          },
+          onAdFailedToShow: () {
+            if (mounted) {
+              provider.setLoading(false);
+              context.showInAppNotification('Failed to load ad. Please try again.', type: InAppNotificationType.error);
+            }
+          },
+        );
+      }
+    } else {
+      context.showInAppNotification(errorMsg, type: InAppNotificationType.error);
     }
   }
 
@@ -379,22 +522,30 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: theme.brandDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const PrimaryText(text: 'Pending Invitations 👥'),
           content: SecondaryText(
-            text: 'Some friends have not accepted the invitation yet. Do you want to wait for them or start the quiz anyway?',
+            text:
+                'Some friends have not accepted the invitation yet. Do you want to wait for them or start the quiz anyway?',
             color: theme.accentTxt.withOpacity(0.8),
           ),
           actions: <Widget>[
             TextButton(
-              child: SecondaryText(text: 'Wait for them', color: theme.accentTxt.withOpacity(0.6)),
+              child: SecondaryText(
+                text: 'Wait for them',
+                color: theme.accentTxt.withOpacity(0.6),
+              ),
               onPressed: () => Navigator.pop(dialogContext),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primaryBase,
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () {
                 Navigator.pop(dialogContext);
@@ -414,8 +565,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
 
   void _startGame() {
     final provider = context.read<GroupQuizProvider>();
-    final membersMap = provider.groupData?['members'] as Map<String, dynamic>? ?? {};
-    
+    final membersMap =
+        provider.groupData?['members'] as Map<String, dynamic>? ?? {};
+
     int pendingCount = 0;
     membersMap.forEach((uid, val) {
       if (val['status'] == 'pending') {
@@ -438,11 +590,15 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
 
     // If we were listening to a specific group and it gets disbanded:
-    if (_isListening && provider.activeGroupId == null && provider.groupData == null) {
+    if (_isListening &&
+        provider.activeGroupId == null &&
+        provider.groupData == null) {
       _isListening = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          context.showInAppNotification('The group lobby has been disbanded by the creator.');
+          context.showInAppNotification(
+            'The group lobby has been disbanded by the creator.',
+          );
           context.read<HomeProvider>().navIndex = 2;
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
@@ -452,24 +608,32 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
     }
 
     // Check if we need to auto-navigate to the active game
-    if (provider.gameData != null && provider.gameData!['status'] == 'playing') {
+    if (provider.gameData != null &&
+        provider.gameData!['status'] == 'playing') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_gamePushed) {
           _gamePushed = true;
-          AnalyticsService.logGroupQuizAction('joined', groupId: provider.activeGroupId);
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              settings: const RouteSettings(name: 'GroupQuizScreen'),
-              builder: (_) => GroupQuizScreen(groupId: provider.activeGroupId!),
-            ),
-          ).then((_) {
-            _gamePushed = false;
-          });
+          AnalyticsService.logGroupQuizAction(
+            'joined',
+            groupId: provider.activeGroupId,
+          );
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  settings: const RouteSettings(name: 'GroupQuizScreen'),
+                  builder: (_) =>
+                      GroupQuizScreen(groupId: provider.activeGroupId!),
+                ),
+              )
+              .then((_) {
+                _gamePushed = false;
+              });
         }
       });
     }
 
-    final hasGroup = provider.activeGroupId != null && provider.groupData != null;
+    final hasGroup =
+        provider.activeGroupId != null && provider.groupData != null;
 
     return PopScope(
       onPopInvoked: (didPop) {
@@ -485,7 +649,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: PrimaryText(
-            text: hasGroup ? (provider.groupData?['name'] ?? 'Lobby') : 'Bible Quiz Lobby',
+            text: hasGroup
+                ? (provider.groupData?['name'] ?? 'Lobby')
+                : 'Quiz Lobby',
             color: theme.accentTxt,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -493,10 +659,10 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
           centerTitle: true,
           leading: Icon(Icons.arrow_back_ios, color: theme.accentTxt, size: 20)
               .rippleClick(() {
-            provider.leaveGroup();
-            context.read<HomeProvider>().navIndex = 2;
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          }),
+                provider.leaveGroup();
+                context.read<HomeProvider>().navIndex = 2;
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }),
         ),
         body: Stack(
           children: [
@@ -526,10 +692,14 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
               child: (widget.groupId != null && provider.activeGroupId == null)
                   ? Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(theme.primaryBase),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          theme.primaryBase,
+                        ),
                       ),
                     )
-                  : (hasGroup ? _buildLobby(theme, provider, currentUid) : _buildCreateGroupView(theme)),
+                  : (hasGroup
+                        ? _buildLobby(theme, provider, currentUid)
+                        : _buildCreateGroupView(theme)),
             ),
             if (provider.isLoading)
               Positioned.fill(
@@ -542,16 +712,22 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                         child: GlassContainer(
                           padding: const EdgeInsets.all(32),
-                          border: Border.all(color: theme.primaryBase.withOpacity(0.3), width: 1.5),
+                          border: Border.all(
+                            color: theme.primaryBase.withOpacity(0.3),
+                            width: 1.5,
+                          ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(theme.primaryBase),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  theme.primaryBase,
+                                ),
                               ),
                               24.verticalSpace,
                               PrimaryText(
-                                text: 'Generating ${_getScopeFriendlyName(provider.scopeType, provider.scopeValue)} Quiz... 📖',
+                                text:
+                                    'Generating ${_getScopeFriendlyName(provider.scopeType, provider.scopeValue)} Quiz... 📖',
                                 color: theme.accentTxt,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -559,7 +735,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                               ),
                               8.verticalSpace,
                               SecondaryText(
-                                text: (provider.scopeType == 'general' || provider.scopeType == 'chapter')
+                                text:
+                                    (provider.scopeType == 'general' ||
+                                        provider.scopeType == 'chapter')
                                     ? 'Creating scripture questions. This can take up to a minute.'
                                     : 'Creating quiz questions. This can take up to a minute.',
                                 color: theme.accentTxt.withOpacity(0.6),
@@ -605,7 +783,8 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
         ),
         16.verticalSpace,
         SecondaryText(
-          text: 'Challenge your friends to study scripture together in real-time. Create a room name to get started!',
+          text:
+              'Challenge your friends to study scripture together in real-time. Create a room name to get started!',
           color: theme.accentTxt.withOpacity(0.6),
           textAlign: TextAlign.center,
         ),
@@ -621,21 +800,23 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
           textColor: Colors.white,
         ),
         24.verticalSpace,
-        CustomButton(
-          label: 'Create Room',
-          onPressed: _createGroup,
-        ),
+        CustomButton(label: 'Create Room', onPressed: _createGroup),
       ],
     );
   }
 
   // Active lobby with settings, roster, and invitations
-  Widget _buildLobby(AppTheme theme, GroupQuizProvider provider, String? currentUid) {
+  Widget _buildLobby(
+    AppTheme theme,
+    GroupQuizProvider provider,
+    String? currentUid,
+  ) {
     final groupData = provider.groupData!;
     final isCreator = groupData['createdBy'] == currentUid;
 
     final membersMap = groupData['members'] as Map<String, dynamic>? ?? {};
-    final List<MapEntry<String, dynamic>> membersList = membersMap.entries.toList();
+    final List<MapEntry<String, dynamic>> membersList = membersMap.entries
+        .toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 40.0),
@@ -671,13 +852,25 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                 Widget statusIcon;
                 Color statusColor;
                 if (status == 'accepted') {
-                  statusIcon = const Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 18);
+                  statusIcon = const Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.greenAccent,
+                    size: 18,
+                  );
                   statusColor = Colors.greenAccent;
                 } else if (status == 'rejected') {
-                  statusIcon = const Icon(Icons.cancel_outlined, color: Colors.redAccent, size: 18);
+                  statusIcon = const Icon(
+                    Icons.cancel_outlined,
+                    color: Colors.redAccent,
+                    size: 18,
+                  );
                   statusColor = Colors.redAccent;
                 } else {
-                  statusIcon = const Icon(Icons.hourglass_empty_outlined, color: Colors.amber, size: 18);
+                  statusIcon = const Icon(
+                    Icons.hourglass_empty_outlined,
+                    color: Colors.amber,
+                    size: 18,
+                  );
                   statusColor = Colors.amber;
                 }
 
@@ -713,14 +906,22 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
-                          if (isCreator && !isSelf && (status == 'pending' || status == 'accepted')) ...[
+                          if (isCreator &&
+                              !isSelf &&
+                              (status == 'pending' ||
+                                  status == 'accepted')) ...[
                             8.horizontalSpace,
                             Icon(
                               Icons.remove_circle_outline,
                               color: theme.errorPrimary,
                               size: 18,
                             ).rippleClick(() {
-                              _showRemoveMemberConfirmDialog(uid, name, provider, theme);
+                              _showRemoveMemberConfirmDialog(
+                                uid,
+                                name,
+                                provider,
+                                theme,
+                              );
                             }),
                           ],
                         ],
@@ -744,7 +945,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                     text: 'Invite Friends',
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: isGenerating ? theme.accentTxt.withOpacity(0.4) : theme.accentTxt,
+                    color: isGenerating
+                        ? theme.accentTxt.withOpacity(0.4)
+                        : theme.accentTxt,
                   ),
                   12.verticalSpace,
                   Row(
@@ -754,7 +957,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                         child: CustomTextField(
                           textController: _inviteEmailController,
                           autoFocus: false,
-                          hintText: isGenerating ? 'Quiz is starting...' : 'friend@email.com',
+                          hintText: isGenerating
+                              ? 'Quiz is starting...'
+                              : 'friend@email.com',
                           textInputType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.send,
                           labelText: '',
@@ -770,15 +975,23 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                           height: 52,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isGenerating ? Colors.white10 : theme.primaryBase,
+                              backgroundColor: isGenerating
+                                  ? Colors.white10
+                                  : theme.primaryBase,
                               foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                             ),
                             onPressed: isGenerating ? null : _sendInvite,
                             child: PrimaryText(
                               text: 'Invite',
-                              color: isGenerating ? theme.accentTxt.withOpacity(0.3) : Colors.black,
+                              color: isGenerating
+                                  ? theme.accentTxt.withOpacity(0.3)
+                                  : Colors.black,
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
@@ -787,7 +1000,8 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                       ),
                     ],
                   ),
-                  if (provider.emailSuggestions.isNotEmpty && !isGenerating) ...[
+                  if (provider.emailSuggestions.isNotEmpty &&
+                      !isGenerating) ...[
                     8.verticalSpace,
                     GlassContainer(
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -808,7 +1022,11 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                               color: theme.accentTxt.withValues(alpha: 0.6),
                               fontSize: 11,
                             ),
-                            trailing: Icon(Icons.arrow_forward_rounded, color: theme.primaryBase, size: 16),
+                            trailing: Icon(
+                              Icons.arrow_forward_rounded,
+                              color: theme.primaryBase,
+                              size: 16,
+                            ),
                             onTap: () {
                               _inviteEmailController.text = email;
                               provider.clearSuggestions();
@@ -822,6 +1040,57 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
               );
             },
           ),
+          // Share Group Link / QR — visible to creator only
+          if (isCreator) ...[
+            12.verticalSpace,
+            GestureDetector(
+              onTap: () {
+                final provider = context.read<GroupQuizProvider>();
+                final groupId = provider.activeGroupId ?? '';
+                final groupName = provider.groupData?['name'] ?? 'Quiz Group';
+                final scopeType = provider.scopeType;
+                final scopeValue = provider.scopeValue;
+                AppShareSheet.showForGroup(
+                  context,
+                  groupId: groupId,
+                  groupName: groupName,
+                  scopeType: scopeType,
+                  scopeValue: scopeValue,
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 20,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.primaryBase.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: theme.primaryBase.withOpacity(0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.qr_code_2_rounded,
+                      color: theme.primaryBase,
+                      size: 18,
+                    ),
+                    8.horizontalSpace,
+                    PrimaryText(
+                      text: 'Share / QR Invite',
+                      color: theme.primaryBase,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           24.verticalSpace,
 
           // Game Settings (Creator can edit, others view read-only)
@@ -848,10 +1117,14 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SecondaryText(text: 'Questions per player', color: theme.accentTxt),
+                              SecondaryText(
+                                text: 'Questions per player',
+                                color: theme.accentTxt,
+                              ),
                               4.verticalSpace,
                               SecondaryText(
-                                text: 'Total: ${provider.questionCount} questions (${provider.acceptedMembersCount} players)',
+                                text:
+                                    'Total: ${provider.questionCount} questions (${provider.acceptedMembersCount} players)',
                                 fontSize: 12,
                                 color: theme.accentTxt.withValues(alpha: 0.5),
                               ),
@@ -866,37 +1139,58 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                               textAlign: TextAlign.center,
                               enabled: !isGenerating,
                               style: TextStyle(
-                                color: isGenerating ? theme.primaryBase.withOpacity(0.5) : theme.primaryBase,
+                                color: isGenerating
+                                    ? theme.primaryBase.withOpacity(0.5)
+                                    : theme.primaryBase,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                               ),
                               decoration: InputDecoration(
                                 isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 8,
+                                ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(color: theme.primaryBase.withValues(alpha: 0.3)),
+                                  borderSide: BorderSide(
+                                    color: theme.primaryBase.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 disabledBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(color: theme.primaryBase.withValues(alpha: 0.1)),
+                                  borderSide: BorderSide(
+                                    color: theme.primaryBase.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(color: theme.primaryBase),
+                                  borderSide: BorderSide(
+                                    color: theme.primaryBase,
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                               controller: _questionsPerPlayerController,
                               onChanged: (val) {
                                 final parsed = int.tryParse(val);
-                                if (parsed != null && parsed > 0 && parsed <= 15) {
+                                if (parsed != null &&
+                                    parsed > 0 &&
+                                    parsed <= 15) {
                                   provider.questionsPerParticipant = parsed;
                                 }
                               },
                             ),
                           )
                         else
-                          PrimaryText(text: '${provider.questionsPerParticipant}', color: theme.primaryBase, fontWeight: FontWeight.bold),
+                          PrimaryText(
+                            text: '${provider.questionsPerParticipant}',
+                            color: theme.primaryBase,
+                            fontWeight: FontWeight.bold,
+                          ),
                       ],
                     ),
                     const Divider(color: Colors.white10, height: 24),
@@ -905,24 +1199,42 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        SecondaryText(text: 'Timer per Question', color: theme.accentTxt),
+                        SecondaryText(
+                          text: 'Timer per Question',
+                          color: theme.accentTxt,
+                        ),
                         if (isCreator)
                           DropdownButton<int>(
                             value: provider.timerSeconds,
                             dropdownColor: theme.brandDark,
                             underline: const SizedBox(),
                             style: TextStyle(
-                              color: isGenerating ? theme.primaryBase.withOpacity(0.5) : theme.primaryBase,
+                              color: isGenerating
+                                  ? theme.primaryBase.withOpacity(0.5)
+                                  : theme.primaryBase,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
-                            items: [15, 30, 45, 60].map((t) => DropdownMenuItem(value: t, child: Text('$t seconds'))).toList(),
-                            onChanged: isGenerating ? null : (v) {
-                              if (v != null) provider.timerSeconds = v;
-                            },
+                            items: [15, 30, 45, 60]
+                                .map(
+                                  (t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text('$t seconds'),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: isGenerating
+                                ? null
+                                : (v) {
+                                    if (v != null) provider.timerSeconds = v;
+                                  },
                           )
                         else
-                          PrimaryText(text: '${provider.timerSeconds}s', color: theme.primaryBase, fontWeight: FontWeight.bold),
+                          PrimaryText(
+                            text: '${provider.timerSeconds}s',
+                            color: theme.primaryBase,
+                            fontWeight: FontWeight.bold,
+                          ),
                       ],
                     ),
                     const Divider(color: Colors.white10, height: 24),
@@ -931,7 +1243,10 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        SecondaryText(text: 'Trivia Scope', color: theme.accentTxt),
+                        SecondaryText(
+                          text: 'Trivia Scope',
+                          color: theme.accentTxt,
+                        ),
                         16.horizontalSpace,
                         if (isCreator)
                           Expanded(
@@ -943,30 +1258,61 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                                 dropdownColor: theme.brandDark,
                                 underline: const SizedBox(),
                                 style: TextStyle(
-                                  color: isGenerating ? theme.primaryBase.withOpacity(0.5) : theme.primaryBase,
+                                  color: isGenerating
+                                      ? theme.primaryBase.withOpacity(0.5)
+                                      : theme.primaryBase,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                 ),
                                 items: [
-                                  const DropdownMenuItem(value: 'general', child: Text('General Bible Knowledge')),
-                                  const DropdownMenuItem(value: 'chapter', child: Text('Specific Chapter Study')),
-                                  const DropdownMenuItem(value: 'tech', child: Text('Technology & Coding')),
-                                  const DropdownMenuItem(value: 'science', child: Text('Science & Physics')),
-                                  const DropdownMenuItem(value: 'english', child: Text('English & Literature')),
-                                  const DropdownMenuItem(value: 'economics', child: Text('Economics & Finance')),
-                                  const DropdownMenuItem(value: 'mindfulness', child: Text('Personality & Mindfulness')),
-                                  const DropdownMenuItem(value: 'custom', child: Text('Custom Topic')),
+                                  const DropdownMenuItem(
+                                    value: 'general',
+                                    child: Text('General Bible Knowledge'),
+                                  ),
+                                  const DropdownMenuItem(
+                                    value: 'chapter',
+                                    child: Text('Specific Chapter Study'),
+                                  ),
+                                  const DropdownMenuItem(
+                                    value: 'tech',
+                                    child: Text('Technology & Coding'),
+                                  ),
+                                  const DropdownMenuItem(
+                                    value: 'science',
+                                    child: Text('Science & Physics'),
+                                  ),
+                                  const DropdownMenuItem(
+                                    value: 'english',
+                                    child: Text('English & Literature'),
+                                  ),
+                                  const DropdownMenuItem(
+                                    value: 'economics',
+                                    child: Text('Economics & Finance'),
+                                  ),
+                                  const DropdownMenuItem(
+                                    value: 'mindfulness',
+                                    child: Text('Personality & Mindfulness'),
+                                  ),
+                                  const DropdownMenuItem(
+                                    value: 'custom',
+                                    child: Text('Custom Topic'),
+                                  ),
                                 ],
-                                onChanged: isGenerating ? null : (v) {
-                                  if (v != null) {
-                                    provider.scopeType = v;
-                                    if (v == 'custom') {
-                                      final roomName = provider.groupData?['name'] ?? '';
-                                      provider.scopeValue = roomName;
-                                      _bibleChapterController.text = roomName;
-                                    }
-                                  }
-                                },
+                                onChanged: isGenerating
+                                    ? null
+                                    : (v) {
+                                        if (v != null) {
+                                          provider.scopeType = v;
+                                          if (v == 'custom') {
+                                            final roomName =
+                                                provider.groupData?['name'] ??
+                                                '';
+                                            provider.scopeValue = roomName;
+                                            _bibleChapterController.text =
+                                                roomName;
+                                          }
+                                        }
+                                      },
                               ),
                             ),
                           )
@@ -978,18 +1324,18 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                                 text: provider.scopeType == 'general'
                                     ? 'General Bible Knowledge'
                                     : provider.scopeType == 'chapter'
-                                        ? 'Specific Chapter Study'
-                                        : provider.scopeType == 'tech'
-                                            ? 'Technology & Coding'
-                                            : provider.scopeType == 'science'
-                                                ? 'Science & Physics'
-                                                : provider.scopeType == 'english'
-                                                    ? 'English & Literature'
-                                                    : provider.scopeType == 'economics'
-                                                        ? 'Economics & Finance'
-                                                        : provider.scopeType == 'mindfulness'
-                                                            ? 'Personality & Mindfulness'
-                                                            : 'Custom Topic',
+                                    ? 'Specific Chapter Study'
+                                    : provider.scopeType == 'tech'
+                                    ? 'Technology & Coding'
+                                    : provider.scopeType == 'science'
+                                    ? 'Science & Physics'
+                                    : provider.scopeType == 'english'
+                                    ? 'English & Literature'
+                                    : provider.scopeType == 'economics'
+                                    ? 'Economics & Finance'
+                                    : provider.scopeType == 'mindfulness'
+                                    ? 'Personality & Mindfulness'
+                                    : 'Custom Topic',
                                 color: theme.primaryBase,
                                 fontWeight: FontWeight.bold,
                                 textOverflow: TextOverflow.ellipsis,
@@ -1000,7 +1346,8 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                     ),
 
                     // 4. Chapter/Topic textfield if Chapter or Custom Topic is selected
-                    if (provider.scopeType == 'chapter' || provider.scopeType == 'custom') ...[
+                    if (provider.scopeType == 'chapter' ||
+                        provider.scopeType == 'custom') ...[
                       16.verticalSpace,
                       const Divider(color: Colors.white10, height: 1),
                       16.verticalSpace,
@@ -1008,10 +1355,14 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                         CustomTextField(
                           textController: _bibleChapterController,
                           autoFocus: false,
-                          hintText: provider.scopeType == 'chapter' ? 'e.g. Romans 8' : 'e.g. World History',
+                          hintText: provider.scopeType == 'chapter'
+                              ? 'e.g. Romans 8'
+                              : 'e.g. World History',
                           textInputType: TextInputType.text,
                           textInputAction: TextInputAction.done,
-                          labelText: provider.scopeType == 'chapter' ? 'Bible Book & Chapter' : 'Enter Custom Topic',
+                          labelText: provider.scopeType == 'chapter'
+                              ? 'Bible Book & Chapter'
+                              : 'Enter Custom Topic',
                           labelColor: Colors.white,
                           textColor: Colors.white,
                           readOnly: isGenerating,
@@ -1024,10 +1375,16 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             SecondaryText(
-                              text: provider.scopeType == 'chapter' ? 'Target Chapter' : 'Custom Topic',
+                              text: provider.scopeType == 'chapter'
+                                  ? 'Target Chapter'
+                                  : 'Custom Topic',
                               color: theme.accentTxt,
                             ),
-                            PrimaryText(text: provider.scopeValue, color: theme.primaryBase, fontWeight: FontWeight.bold),
+                            PrimaryText(
+                              text: provider.scopeValue,
+                              color: theme.primaryBase,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ],
                         ),
                     ],
@@ -1042,7 +1399,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
           if (isCreator) ...[
             Builder(
               builder: (context) {
-                final membersMap = provider.groupData?['members'] as Map<String, dynamic>? ?? {};
+                final membersMap =
+                    provider.groupData?['members'] as Map<String, dynamic>? ??
+                    {};
                 int acceptedCountExcludingSelf = 0;
                 membersMap.forEach((uid, val) {
                   if (uid != currentUid && val['status'] == 'accepted') {
@@ -1057,7 +1416,8 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                     if (!canStart) ...[
                       Center(
                         child: SecondaryText(
-                          text: '⚠️ Waiting for at least one invited friend to accept the invitation before starting.',
+                          text:
+                              '⚠️ Waiting for at least one invited friend to accept the invitation before starting.',
                           color: Colors.amber.withValues(alpha: 0.8),
                           fontSize: 13,
                           textAlign: TextAlign.center,
@@ -1065,11 +1425,84 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                       ),
                       16.verticalSpace,
                     ],
+                    // Pre-generation section for host
+                    Builder(
+                      builder: (context) {
+                        final isGeneratingQs =
+                            groupData['isGeneratingQuestions'] == true;
+                        final qsReady = groupData['questionsReady'] == true;
+
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: CustomButton(
+                                    label: isGeneratingQs
+                                        ? 'Generating...'
+                                        : (qsReady
+                                              ? 'Regenerate Questions'
+                                              : 'Generate Questions'),
+                                    loading: isGeneratingQs,
+                                    onPressed: isGeneratingQs
+                                        ? null
+                                        : () async {
+                                            final err = await provider
+                                                .preGenerateQuestions();
+                                            if (context.mounted &&
+                                                err != null) {
+                                              _handleGenerationFailure(err, false);
+                                            }
+                                          },
+                                    backgroundColor: qsReady
+                                        ? Colors.white10
+                                        : theme.primaryBase.withOpacity(0.08),
+                                    textColor: qsReady
+                                        ? theme.accentTxt
+                                        : theme.primaryBase,
+                                    isOutline: qsReady,
+                                    borderColor: qsReady
+                                        ? theme.accentTxt.withOpacity(0.3)
+                                        : null,
+                                  ),
+                                ),
+                                if (qsReady) ...[
+                                  12.horizontalSpace,
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.greenAccent.withOpacity(
+                                          0.5,
+                                        ),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.check_rounded,
+                                      color: Colors.greenAccent,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            16.verticalSpace,
+                          ],
+                        );
+                      },
+                    ),
                     CustomButton(
                       label: 'Start Game',
                       onPressed: canStart ? _startGame : null,
-                      backgroundColor: canStart ? theme.primaryBase : Colors.white10,
-                      textColor: canStart ? Colors.black : theme.accentTxt.withValues(alpha: 0.3),
+                      backgroundColor: canStart
+                          ? theme.primaryBase
+                          : Colors.white10,
+                      textColor: canStart
+                          ? Colors.black
+                          : theme.accentTxt.withValues(alpha: 0.3),
                     ),
                     16.verticalSpace,
                     CustomButton(
@@ -1080,7 +1513,9 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                       onPressed: () {
                         provider.leaveGroup();
                         context.read<HomeProvider>().navIndex = 2;
-                        Navigator.of(context).popUntil((route) => route.isFirst);
+                        Navigator.of(
+                          context,
+                        ).popUntil((route) => route.isFirst);
                       },
                     ),
                   ],
@@ -1097,10 +1532,15 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                   const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white70,
+                    ),
                   ),
                   16.horizontalSpace,
-                  const SecondaryText(text: 'Waiting for Host to start the quiz...'),
+                  const SecondaryText(
+                    text: 'Waiting for Host to start the quiz...',
+                  ),
                 ],
               ),
             ),

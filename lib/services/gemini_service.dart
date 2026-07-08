@@ -1,3 +1,4 @@
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:mindpilot/export.dart';
 
 class GeminiService {
@@ -12,6 +13,12 @@ class GeminiService {
   String? _userName;
   String _aiTone = 'Balanced';
   String _aiPersonality = 'Encouraging';
+  bool _isPro = false;
+
+  void setIsPro(bool isPro) {
+    _isPro = isPro;
+    safePrint('GeminiService: Updated isPro to $_isPro');
+  }
 
   bool get isInitialized => _apiKey != null && _apiKey!.isNotEmpty;
 
@@ -35,16 +42,152 @@ class GeminiService {
     _apiKey = apiKey;
   }
 
+  List<Content> _convertToGenerativeContent() {
+    final List<Content> contents = [];
+    for (final msg in _messages) {
+      final role = msg['role'];
+      final content = msg['content'] ?? '';
+      if (role == 'user') {
+        contents.add(Content.text(content));
+      } else if (role == 'assistant' || role == 'model') {
+        contents.add(Content.model([TextPart(content)]));
+      }
+    }
+    return contents;
+  }
+
+  Future<String?> _sendDirectGemini({
+    required List<Content> contents,
+    String? systemInstruction,
+  }) async {
+    final geminiApiKey = dotenv.env['GEMINI_API_KEY'];
+    if (geminiApiKey == null || geminiApiKey.isEmpty) {
+      safePrint('GeminiService: GEMINI_API_KEY is not configured in .env.');
+      return null;
+    }
+
+    try {
+      final model = GenerativeModel(
+        model: 'gemini-2.5-flash',
+        apiKey: geminiApiKey,
+        systemInstruction: systemInstruction != null && systemInstruction.isNotEmpty
+            ? Content.system(systemInstruction)
+            : null,
+      );
+
+      final response = await model.generateContent(contents);
+      final responseText = response.text;
+      if (responseText != null && responseText.isNotEmpty) {
+        safePrint('GeminiService: Direct Gemini API success.');
+        _logUsage(
+          model: 'gemini-2.5-flash',
+          source: 'direct',
+          promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
+          responseTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
+          totalTokens: response.usageMetadata?.totalTokenCount ?? 0,
+        );
+        return responseText;
+      }
+    } catch (e) {
+      safePrint('GeminiService Direct API Error: $e');
+      _logUsage(
+        model: 'gemini-2.5-flash',
+        source: 'direct',
+        promptTokens: 0,
+        responseTokens: 0,
+        totalTokens: 0,
+        status: 'failed',
+        errorMessage: e.toString(),
+      );
+    }
+    return null;
+  }
+
+  Future<String?> _sendOpenRouter({
+    required List<String> models,
+    required List<Map<String, String>> messages,
+    int maxTokens = 1500,
+  }) async {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      return null;
+    }
+
+    for (var i = 0; i < models.length; i++) {
+      final model = models[i];
+      try {
+        final dio = Dio();
+        const url = 'https://openrouter.ai/api/v1/chat/completions';
+
+         if (i > 0) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+
+        final response = await dio.post(
+          url,
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer $_apiKey',
+              'Content-Type': 'application/json',
+              'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
+              'X-Title': 'MindPilot',
+            },
+            validateStatus: (status) => status! < 500,
+            receiveTimeout: const Duration(seconds: 30),
+            sendTimeout: const Duration(seconds: 30),
+          ),
+          data: {
+            'model': model,
+            'messages': messages,
+            'max_tokens': maxTokens,
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final content = response.data['choices'][0]['message']['content'] as String;
+          final usage = response.data['usage'];
+          if (usage != null) {
+            _logUsage(
+              model: model,
+              source: 'openrouter',
+              promptTokens: usage['prompt_tokens'] as int? ?? 0,
+              responseTokens: usage['completion_tokens'] as int? ?? 0,
+              totalTokens: usage['total_tokens'] as int? ?? 0,
+            );
+          } else {
+            _logUsage(
+              model: model,
+              source: 'openrouter',
+              promptTokens: 0,
+              responseTokens: 0,
+              totalTokens: 0,
+            );
+          }
+          return content;
+        } else {
+          safePrint('OpenRouter Issue ($model): ${response.statusCode}');
+          continue;
+        }
+      } catch (e) {
+        safePrint('AI ATTEMPT ERROR ($model): $e');
+        continue;
+      }
+    }
+    _logUsage(
+      model: models.isNotEmpty ? models.last : 'unknown',
+      source: 'openrouter',
+      promptTokens: 0,
+      responseTokens: 0,
+      totalTokens: 0,
+      status: 'failed',
+      errorMessage: 'All attempted models failed.',
+    );
+    return null;
+  }
+
   Future<String?> sendMessage(String message) async {
     // Auto-initialize if apiKey is missing
     if (_apiKey == null || _apiKey!.isEmpty) {
       _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception(
-        "AI not initialized. Please check your OpenRouter API key.",
-      );
     }
 
     if (_messages.isEmpty) {
@@ -72,68 +215,63 @@ class GeminiService {
 
     _messages.add({'role': 'user', 'content': message});
 
-    // 1. Get the list of models
+    if (_isPro) {
+      // 1. Try Direct Google Gemini Pro SDK
+      final systemMessage = _messages.firstWhere(
+        (m) => m['role'] == 'system',
+        orElse: () => <String, String>{},
+      );
+      final systemInstruction = systemMessage.isNotEmpty ? systemMessage['content'] : null;
+
+      final directResponse = await _sendDirectGemini(
+        contents: _convertToGenerativeContent(),
+        systemInstruction: systemInstruction,
+      );
+      if (directResponse != null) {
+        _messages.add({'role': 'assistant', 'content': directResponse});
+        return directResponse;
+      }
+
+      // 2. Fallback to OpenRouter Premium Models
+      safePrint('GeminiService: Direct Gemini API failed or unconfigured. Trying premium models via OpenRouter.');
+      final openRouterProResponse = await _sendOpenRouter(
+        models: [
+          'google/gemini-2.5-pro',
+          'google/gemini-2.5-flash',
+        ],
+        messages: _messages,
+      );
+      if (openRouterProResponse != null) {
+        _messages.add({'role': 'assistant', 'content': openRouterProResponse});
+        return openRouterProResponse;
+      }
+    }
+
+    // Freemium or Fallback for Pro
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      throw Exception(
+        "AI not initialized. Please check your OpenRouter API key.",
+      );
+    }
+
     List<String> modelsToTry = _availableModels.isNotEmpty
         ? List<String>.from(_availableModels)
         : [
-            'google/gemini-flash-1.5-8b:free',
-            'mistralai/mistral-7b-instruct:free',
-            'google/gemini-2.0-flash-exp:free',
+            'meta-llama/llama-3.3-70b-instruct:free',
+            'google/gemma-4-31b-it:free',
+            'meta-llama/llama-3.2-3b-instruct:free',
           ];
 
-    // 2. SHUFFLE the list to "span across" all providers and avoid exhaustion
     modelsToTry.shuffle();
-
-    // 3. Take a larger slice (top 15) to ensure wide coverage
     final finalModels = modelsToTry.take(15).toList();
 
-    for (var i = 0; i < finalModels.length; i++) {
-      final model = finalModels[i];
-      try {
-        final dio = Dio();
-        const url = 'https://openrouter.ai/api/v1/chat/completions';
-
-        // Add a 1-second delay between retries to prevent 429 errors
-        if (i > 0) {
-          await Future.delayed(const Duration(seconds: 1));
-        }
-
-        final response = await dio.post(
-          url,
-          options: Options(
-            headers: {
-              'Authorization': 'Bearer $_apiKey',
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
-              'X-Title': 'MindPilot',
-            },
-            validateStatus: (status) => status! < 500,
-            receiveTimeout: const Duration(seconds: 30),
-            sendTimeout: const Duration(seconds: 30),
-          ),
-          data: {'model': model, 'messages': _messages},
-        );
-
-        if (response.statusCode == 200) {
-          final text =
-              response.data['choices'][0]['message']['content'] as String;
-          _messages.add({'role': 'assistant', 'content': text});
-          return text;
-        } else {
-          // If payment or rate limit, log but continue to try other models
-          safePrint('OpenRouter Issue ($model): ${response.statusCode}');
-          if (i == finalModels.length - 1) {
-            throw Exception("OpenRouter Error: ${response.statusCode}");
-          }
-          continue;
-        }
-      } catch (e) {
-        safePrint('AI ATTEMPT ERROR ($model): $e');
-        if (i == finalModels.length - 1) rethrow;
-        continue;
-      }
+    final response = await _sendOpenRouter(models: finalModels, messages: _messages);
+    if (response != null) {
+      _messages.add({'role': 'assistant', 'content': response});
+      return response;
     }
-    return null;
+
+    throw Exception("Failed to get response from AI models.");
   }
 
   Future<String?> sendMessageOneShot(String message, {String? systemInstruction}) async {
@@ -141,6 +279,37 @@ class GeminiService {
       _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
     }
 
+    if (_isPro) {
+      // 1. Try Direct Google Gemini Pro SDK
+      final directResponse = await _sendDirectGemini(
+        contents: [Content.text(message)],
+        systemInstruction: systemInstruction,
+      );
+      if (directResponse != null) {
+        return directResponse;
+      }
+
+      // 2. Fallback to OpenRouter Premium Models
+      safePrint('GeminiService OneShot: Direct Gemini API failed or unconfigured. Trying premium models via OpenRouter.');
+      final List<Map<String, String>> messages = [];
+      if (systemInstruction != null && systemInstruction.isNotEmpty) {
+        messages.add({'role': 'system', 'content': systemInstruction});
+      }
+      messages.add({'role': 'user', 'content': message});
+
+      final openRouterProResponse = await _sendOpenRouter(
+        models: [
+          'google/gemini-2.5-pro',
+          'google/gemini-2.5-flash',
+        ],
+        messages: messages,
+      );
+      if (openRouterProResponse != null) {
+        return openRouterProResponse;
+      }
+    }
+
+    // Freemium or Fallback for Pro
     if (_apiKey == null || _apiKey!.isEmpty) {
       throw Exception(
         "AI not initialized. Please check your OpenRouter API key.",
@@ -156,57 +325,22 @@ class GeminiService {
     List<String> modelsToTry = _availableModels.isNotEmpty
         ? List<String>.from(_availableModels)
         : [
-            'google/gemini-flash-1.5-8b:free',
-            'mistralai/mistral-7b-instruct:free',
-            'google/gemini-2.0-flash-exp:free',
+            'meta-llama/llama-3.3-70b-instruct:free',
+            'google/gemma-4-31b-it:free',
+            'meta-llama/llama-3.2-3b-instruct:free',
           ];
 
     modelsToTry.shuffle();
     final finalModels = modelsToTry.take(15).toList();
 
-    for (var i = 0; i < finalModels.length; i++) {
-      final model = finalModels[i];
-      try {
-        final dio = Dio();
-        const url = 'https://openrouter.ai/api/v1/chat/completions';
-
-        if (i > 0) {
-          await Future.delayed(const Duration(seconds: 1));
-        }
-
-        final response = await dio.post(
-          url,
-          options: Options(
-            headers: {
-              'Authorization': 'Bearer $_apiKey',
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
-              'X-Title': 'MindPilot',
-            },
-            validateStatus: (status) => status! < 500,
-            receiveTimeout: const Duration(seconds: 30),
-            sendTimeout: const Duration(seconds: 30),
-          ),
-          data: {'model': model, 'messages': messages},
-        );
-
-        if (response.statusCode == 200) {
-          return response.data['choices'][0]['message']['content'] as String;
-        } else {
-          safePrint('OpenRouter Issue ($model): ${response.statusCode}');
-          if (i == finalModels.length - 1) {
-            throw Exception("OpenRouter Error: ${response.statusCode}");
-          }
-          continue;
-        }
-      } catch (e) {
-        safePrint('AI ATTEMPT ERROR ($model): $e');
-        if (i == finalModels.length - 1) rethrow;
-        continue;
-      }
+    final response = await _sendOpenRouter(models: finalModels, messages: messages);
+    if (response != null) {
+      return response;
     }
-    return null;
+
+    throw Exception("Failed to get response from AI models.");
   }
+
 
   Future<List<String>> listModels(String apiKey) async {
     try {
@@ -242,5 +376,33 @@ class GeminiService {
 
   void resetChat() {
     _messages.clear();
+  }
+
+  void _logUsage({
+    required String model,
+    required String source,
+    required int promptTokens,
+    required int responseTokens,
+    required int totalTokens,
+    String status = 'success',
+    String? errorMessage,
+  }) {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      FirebaseFirestore.instance.collection('api_usage').add({
+        'userId': user?.uid ?? 'unknown',
+        'userEmail': user?.email ?? 'unknown',
+        'timestamp': FieldValue.serverTimestamp(),
+        'model': model,
+        'source': source,
+        'promptTokens': promptTokens,
+        'responseTokens': responseTokens,
+        'totalTokens': totalTokens,
+        'status': status,
+        'errorMessage': errorMessage,
+      });
+    } catch (e) {
+      safePrint('GeminiService Log Usage Error: $e');
+    }
   }
 }

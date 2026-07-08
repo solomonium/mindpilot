@@ -23,3 +23,7 @@ export 'tasks_list_screen.dart';
 export 'daily_hub_screen.dart';
 export 'bible_main_screen.dart';
 export 'quiz_scope_selection_screen.dart';
+export 'qr_scan_join_screen.dart';
+export 'profile/recent_api_requests_screen.dart';
+export 'profile/all_registered_users_screen.dart';
+

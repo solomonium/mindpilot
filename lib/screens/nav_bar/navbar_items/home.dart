@@ -129,11 +129,13 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24),
+              padding: const EdgeInsets.only(top: 24, bottom: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              Row(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
@@ -292,8 +294,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+              ),
               16.verticalSpace,
-              Consumer<GroupQuizProvider>(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Consumer<GroupQuizProvider>(
                 builder: (context, provider, _) {
                   if (provider.restoredGroupId == null) return const SizedBox.shrink();
                   return Padding(
@@ -370,9 +375,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-              LevelProgressBar(xp: authStore.xp, level: authStore.level),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: LevelProgressBar(xp: authStore.xp, level: authStore.level),
+              ),
               16.verticalSpace,
-              AnimatedContainer(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
                 child: GlassContainer(
@@ -693,6 +704,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+              ),
               20.verticalSpace,
 
               // ─── Google Calendar Card (Google users only) ───────────────
@@ -701,7 +713,9 @@ class _HomeScreenState extends State<HomeScreen> {
               //   20.verticalSpace,
               // ],
 
-              Row(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   PrimaryText(
@@ -712,12 +726,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+              ),
               16.verticalSpace,
-              _buildGoalBasedQuickActions(context, theme, authStore.personalization),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: _buildGoalBasedQuickActions(context, theme, authStore.personalization),
+              ),
               20.verticalSpace,
-              _buildDailyHubRow(context, theme, authStore),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: _buildDailyHubRow(context, theme, authStore),
+              ),
               20.verticalSpace,
-              Row(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   PrimaryText(
@@ -778,8 +801,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   }),
                 ],
               ),
+              ),
               16.verticalSpace,
-              Consumer2<JournalProvider, TaskProvider>(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Consumer2<JournalProvider, TaskProvider>(
                 builder: (context, journal, taskStore, _) {
                   final totalMinutes = journal.totalFocusMinutes;
                   final hours = totalMinutes ~/ 60;
@@ -821,8 +847,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
+              ),
               32.verticalSpace,
-              Row(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   PrimaryText(
@@ -840,8 +869,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ).rippleClick(() => context.push(const TasksListScreen())),
                 ],
               ),
+              ),
               16.verticalSpace,
-              Consumer<TaskProvider>(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Consumer<TaskProvider>(
                 builder: (context, taskStore, _) {
                   if (taskStore.tasks.isEmpty) {
                     return Container(
@@ -917,6 +949,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     }).toList(),
                   );
                 },
+              ),
               ),
               110.verticalSpace,
             ],
@@ -1241,10 +1274,10 @@ class _HomeScreenState extends State<HomeScreen> {
         width: 1,
       ),
       child: SizedBox(
-        height: 100,
+        height: 105,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(8),
@@ -1254,8 +1287,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Icon(icon, color: color, size: 20),
             ),
+            8.verticalSpace,
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 PrimaryText(
                   text: title,
@@ -1264,6 +1298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: theme.accentTxt,
                   maxLines: 1,
                   textOverflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
                 4.verticalSpace,
                 SecondaryText(
@@ -1272,6 +1307,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: theme.accentTxt.withOpacity(0.55),
                   maxLines: 1,
                   textOverflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
