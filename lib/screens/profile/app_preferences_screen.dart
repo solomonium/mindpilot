@@ -58,8 +58,8 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    theme.brandDark.withOpacity(0.4),
-                    theme.brandDark.withOpacity(0.8),
+                    theme.brandDark.withValues(alpha: 0.4),
+                    theme.brandDark.withValues(alpha: 0.8),
                     theme.brandDark,
                   ],
                 ),
@@ -162,7 +162,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                 8.verticalSpace,
                 SecondaryText(
                   text: 'How often should we send you a mental boost?',
-                  color: theme.accentTxt.withOpacity(0.5),
+                  color: theme.accentTxt.withValues(alpha: 0.5),
                   fontSize: 13,
                 ),
                 16.verticalSpace,
@@ -178,7 +178,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
   Widget _insightFrequencySelector(BuildContext context) {
     AppTheme theme = context.watch();
     final authProvider = context.watch<AppAuthProvider>();
-    final intervals = [0, 3, 6, 12];
+    final intervals = [0, 3];
 
     return Wrap(
       spacing: 12,
@@ -190,7 +190,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
           gradient: isSelected ? theme.glassGradient : null,
           border: isSelected
               ? Border.all(color: theme.primaryBase, width: 2)
-              : Border.all(color: theme.accentTxt.withOpacity(0.1), width: 1.5),
+              : Border.all(color: theme.accentTxt.withValues(alpha: 0.1), width: 1.5),
           child: PrimaryText(
             text: hours == 0 ? 'Off' : '$hours Hours',
             fontSize: 13,
@@ -224,14 +224,14 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
         content: SecondaryText(
           text:
               'To receive alerts and sounds, please enable notifications in your device settings.',
-          color: theme.accentTxt.withOpacity(0.7),
+          color: theme.accentTxt.withValues(alpha: 0.7),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: SecondaryText(
               text: 'Cancel',
-              color: theme.accentTxt.withOpacity(0.5),
+              color: theme.accentTxt.withValues(alpha: 0.5),
             ),
           ),
           TextButton(
@@ -262,14 +262,14 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
       gradient: isSelected ? theme.glassGradient : null,
       border: isSelected
           ? Border.all(color: theme.primaryBase, width: 2)
-          : Border.all(color: theme.accentTxt.withOpacity(0.1), width: 1.5),
+          : Border.all(color: theme.accentTxt.withValues(alpha: 0.1), width: 1.5),
       child: Row(
         children: [
           Icon(
             icon,
             color: isSelected
                 ? theme.primaryBase
-                : theme.accentTxt.withOpacity(0.7),
+                : theme.accentTxt.withValues(alpha: 0.7),
             size: 24,
           ),
           16.horizontalSpace,
@@ -312,7 +312,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: theme.primaryBase,
+            activeThumbColor: theme.primaryBase,
           ),
         ],
       ),

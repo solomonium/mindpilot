@@ -319,7 +319,7 @@ class AppAuthProvider extends BaseProvider {
             _location = doc.data()?['location'];
             _country = doc.data()?['country'];
             final loadedHours = doc.data()?['insightIntervalHours'] ?? 3;
-            _insightIntervalHours = (loadedHours == 1 || loadedHours == 2) ? 3 : loadedHours;
+            _insightIntervalHours = (loadedHours == 0) ? 0 : 3;
             _xp = doc.data()?['xp'] ?? 0;
             _level = doc.data()?['level'] ?? EngagementService().levelFromXp(_xp);
             _referralCode = doc.data()?['referralCode'];

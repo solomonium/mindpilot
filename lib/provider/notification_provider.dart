@@ -255,7 +255,12 @@ class NotificationProvider extends ChangeNotifier {
           "Use **bold markers** for the feature names and the 'Quick Tip' label.";
       
       safePrint("Explaining Insight: $_dailyInsight");
-      final response = await gemini.sendMessage(prompt);
+      final response = await gemini.sendMessageOneShot(
+        prompt,
+        feature: 'daily_insight',
+        maxTokens: 600,
+        cacheKey: 'daily_insight:$_dailyInsight',
+      );
       
       if (response == null || response.isEmpty) {
         throw Exception("Empty response from AI");

@@ -51,7 +51,11 @@ Continue the analysis naturally.
 """;
 
     try {
-      final response = await _geminiService.sendMessage(prompt);
+      final response = await _geminiService.sendMessageOneShot(
+        prompt,
+        feature: 'decision_continuation',
+        maxTokens: 1200,
+      );
       if (response != null) {
         setState(() {
           _currentAnalysis += "\n\n$response";

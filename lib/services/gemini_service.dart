@@ -59,6 +59,8 @@ class GeminiService {
   Future<String?> _sendDirectGemini({
     required List<Content> contents,
     String? systemInstruction,
+    required String feature,
+    int maxTokens = 1000,
   }) async {
     final geminiApiKey = dotenv.env['GEMINI_API_KEY'];
     if (geminiApiKey == null || geminiApiKey.isEmpty) {
@@ -75,12 +77,16 @@ class GeminiService {
             : null,
       );
 
-      final response = await model.generateContent(contents);
+      final response = await model.generateContent(
+        contents,
+        generationConfig: GenerationConfig(maxOutputTokens: maxTokens),
+      );
       final responseText = response.text;
       if (responseText != null && responseText.isNotEmpty) {
         safePrint('GeminiService: Direct Gemini API success.');
         _logUsage(
           model: 'gemini-2.5-flash',
+          feature: feature,
           source: 'direct',
           promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
           responseTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
@@ -92,6 +98,7 @@ class GeminiService {
       safePrint('GeminiService Direct API Error: $e');
       _logUsage(
         model: 'gemini-2.5-flash',
+        feature: feature,
         source: 'direct',
         promptTokens: 0,
         responseTokens: 0,
@@ -106,6 +113,7 @@ class GeminiService {
   Future<String?> _sendOpenRouter({
     required List<String> models,
     required List<Map<String, String>> messages,
+    required String feature,
     int maxTokens = 1500,
   }) async {
     if (_apiKey == null || _apiKey!.isEmpty) {
@@ -148,6 +156,7 @@ class GeminiService {
           if (usage != null) {
             _logUsage(
               model: model,
+              feature: feature,
               source: 'openrouter',
               promptTokens: usage['prompt_tokens'] as int? ?? 0,
               responseTokens: usage['completion_tokens'] as int? ?? 0,
@@ -156,6 +165,7 @@ class GeminiService {
           } else {
             _logUsage(
               model: model,
+              feature: feature,
               source: 'openrouter',
               promptTokens: 0,
               responseTokens: 0,
@@ -174,6 +184,7 @@ class GeminiService {
     }
     _logUsage(
       model: models.isNotEmpty ? models.last : 'unknown',
+      feature: feature,
       source: 'openrouter',
       promptTokens: 0,
       responseTokens: 0,
@@ -184,8 +195,76 @@ class GeminiService {
     return null;
   }
 
-  Future<String?> sendMessage(String message) async {
-    // Auto-initialize if apiKey is missing
+  Future<void> _summarizeOlderMessages() async {
+    if (_messages.length <= 10) return;
+
+    bool hasPreviousSummary = _messages.length > 1 &&
+        _messages[1]['role'] == 'system' &&
+        _messages[1]['content'] != null &&
+        _messages[1]['content']!.startsWith('Summary of previous conversation:');
+
+    int startIdx = hasPreviousSummary ? 2 : 1;
+    int endIdx = _messages.length - 6;
+
+    if (endIdx <= startIdx) return;
+
+    final messagesToSummarize = _messages.sublist(startIdx, endIdx);
+    
+    final conversationText = messagesToSummarize.map((m) {
+      final role = m['role'] == 'user' ? 'User' : 'Assistant';
+      return '$role: ${m['content']}';
+    }).join('\n');
+
+    final summaryPrompt = 'Summarize the key context, facts, and decisions from the following conversation history briefly in 1-2 paragraphs:\n\n$conversationText';
+
+    try {
+      safePrint('GeminiService: Summarizing ${messagesToSummarize.length} older messages...');
+      final summary = await sendMessageOneShot(
+        summaryPrompt,
+        feature: 'summary',
+        preferFlash: true,
+        maxTokens: 250,
+        systemInstruction: 'You are a helpful assistant. Provide a brief, objective summary of the conversation context to serve as history. Keep it concise.',
+      );
+
+      if (summary != null && summary.isNotEmpty) {
+        String newSummaryContent = 'Summary of previous conversation:\n$summary';
+        if (hasPreviousSummary) {
+          final oldSummary = _messages[1]['content']!.replaceFirst('Summary of previous conversation:\n', '');
+          final combinedPrompt = 'Combine these two summaries of a conversation history into a single concise summary (max 3 paragraphs):\n\nSummary 1:\n$oldSummary\n\nSummary 2:\n$summary';
+          final combinedSummary = await sendMessageOneShot(
+            combinedPrompt,
+            feature: 'summary',
+            preferFlash: true,
+            maxTokens: 350,
+            systemInstruction: 'Combine the summaries cleanly and concisely.',
+          );
+          if (combinedSummary != null && combinedSummary.isNotEmpty) {
+            newSummaryContent = 'Summary of previous conversation:\n$combinedSummary';
+          }
+        }
+
+        _messages.removeRange(startIdx, endIdx);
+        
+        if (hasPreviousSummary) {
+          _messages[1] = {'role': 'system', 'content': newSummaryContent};
+        } else {
+          _messages.insert(1, {'role': 'system', 'content': newSummaryContent});
+        }
+        safePrint('GeminiService: Successfully summarized older messages. New _messages length: ${_messages.length}');
+      }
+    } catch (e) {
+      safePrint('GeminiService: Error summarizing older messages: $e');
+    }
+  }
+
+  Future<String?> sendMessage(
+    String message, {
+    required String feature,
+    int maxTokens = 2000,
+    bool preferFlash = true,
+    String? cacheKey,
+  }) async {
     if (_apiKey == null || _apiKey!.isEmpty) {
       _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
     }
@@ -208,64 +287,89 @@ class GeminiService {
             "When relevant to these focus areas, suggest using the **Decision Analyzer** for choices and **Focus Sessions** for concentration.";
       }
 
+      context +=
+          "Crucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it.";
+
       if (context.isNotEmpty) {
         _messages.add({'role': 'system', 'content': context});
       }
     }
 
+    await _summarizeOlderMessages();
+
     _messages.add({'role': 'user', 'content': message});
 
+    String? response;
+
     if (_isPro) {
-      // 1. Try Direct Google Gemini Pro SDK
       final systemMessage = _messages.firstWhere(
         (m) => m['role'] == 'system',
         orElse: () => <String, String>{},
       );
       final systemInstruction = systemMessage.isNotEmpty ? systemMessage['content'] : null;
 
-      final directResponse = await _sendDirectGemini(
+      response = await _sendDirectGemini(
         contents: _convertToGenerativeContent(),
         systemInstruction: systemInstruction,
+        feature: feature,
+        maxTokens: maxTokens,
       );
-      if (directResponse != null) {
-        _messages.add({'role': 'assistant', 'content': directResponse});
-        return directResponse;
+      if (response != null) {
+        _messages.add({'role': 'assistant', 'content': response});
+        return response;
       }
 
-      // 2. Fallback to OpenRouter Premium Models
       safePrint('GeminiService: Direct Gemini API failed or unconfigured. Trying premium models via OpenRouter.');
-      final openRouterProResponse = await _sendOpenRouter(
-        models: [
-          'google/gemini-2.5-pro',
-          'google/gemini-2.5-flash',
-        ],
+      final List<String> proModels = preferFlash
+          ? ['google/gemini-2.5-flash', 'google/gemini-2.5-pro']
+          : ['google/gemini-2.5-pro', 'google/gemini-2.5-flash'];
+
+      response = await _sendOpenRouter(
+        models: proModels,
         messages: _messages,
+        feature: feature,
+        maxTokens: maxTokens,
       );
-      if (openRouterProResponse != null) {
-        _messages.add({'role': 'assistant', 'content': openRouterProResponse});
-        return openRouterProResponse;
+      if (response != null) {
+        _messages.add({'role': 'assistant', 'content': response});
+        return response;
       }
     }
 
-    // Freemium or Fallback for Pro
     if (_apiKey == null || _apiKey!.isEmpty) {
       throw Exception(
         "AI not initialized. Please check your OpenRouter API key.",
       );
     }
 
-    List<String> modelsToTry = _availableModels.isNotEmpty
-        ? List<String>.from(_availableModels)
-        : [
-            'meta-llama/llama-3.3-70b-instruct:free',
-            'google/gemma-4-31b-it:free',
-            'meta-llama/llama-3.2-3b-instruct:free',
-          ];
+    List<String> modelsToTry;
+    if (preferFlash) {
+      modelsToTry = [
+        'google/gemini-2.5-flash:free',
+        'google/gemini-flash-1.5-8b:free',
+        'google/gemini-2.5-flash',
+        'google/gemini-2.0-flash-exp:free',
+        'meta-llama/llama-3.2-3b-instruct:free',
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'google/gemma-4-31b-it:free',
+      ];
+    } else {
+      modelsToTry = _availableModels.isNotEmpty
+          ? List<String>.from(_availableModels)
+          : [
+              'meta-llama/llama-3.3-70b-instruct:free',
+              'google/gemma-4-31b-it:free',
+              'meta-llama/llama-3.2-3b-instruct:free',
+            ];
+      modelsToTry.shuffle();
+    }
 
-    modelsToTry.shuffle();
-    final finalModels = modelsToTry.take(15).toList();
-
-    final response = await _sendOpenRouter(models: finalModels, messages: _messages);
+    response = await _sendOpenRouter(
+      models: modelsToTry,
+      messages: _messages,
+      feature: feature,
+      maxTokens: maxTokens,
+    );
     if (response != null) {
       _messages.add({'role': 'assistant', 'content': response});
       return response;
@@ -274,42 +378,73 @@ class GeminiService {
     throw Exception("Failed to get response from AI models.");
   }
 
-  Future<String?> sendMessageOneShot(String message, {String? systemInstruction}) async {
+  Future<String?> sendMessageOneShot(
+    String message, {
+    String? systemInstruction,
+    required String feature,
+    int maxTokens = 2500,
+    bool preferFlash = true,
+    String? cacheKey,
+  }) async {
     if (_apiKey == null || _apiKey!.isEmpty) {
       _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
     }
 
+    String defaultSystemInstruction = systemInstruction ?? '';
+    if (defaultSystemInstruction.isEmpty) {
+      String context = "";
+      if (_userName != null && _userName!.isNotEmpty) {
+        context +=
+            "The user's name is $_userName. Please address them as $_userName when greeting them or providing feedback. ";
+      }
+      context +=
+          "Your response style should be **$_aiTone** and your personality should be **$_aiPersonality**. ";
+      if (_personalization.isNotEmpty) {
+        context +=
+            "The user has selected the following focus areas: ${_personalization.join(', ')}. "
+            "Please tailor your advice, tone, and recommendations to align with these goals. "
+            "When relevant to these focus areas, suggest using the **Decision Analyzer** for choices and **Focus Sessions** for concentration.";
+      }
+      defaultSystemInstruction = context;
+    }
+
+    final String completeInstruction = "$defaultSystemInstruction\nCrucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it.".trim();
+
+    String? response;
+
     if (_isPro) {
-      // 1. Try Direct Google Gemini Pro SDK
-      final directResponse = await _sendDirectGemini(
+      response = await _sendDirectGemini(
         contents: [Content.text(message)],
-        systemInstruction: systemInstruction,
+        systemInstruction: completeInstruction,
+        feature: feature,
+        maxTokens: maxTokens,
       );
-      if (directResponse != null) {
-        return directResponse;
+      if (response != null) {
+        return response;
       }
 
-      // 2. Fallback to OpenRouter Premium Models
       safePrint('GeminiService OneShot: Direct Gemini API failed or unconfigured. Trying premium models via OpenRouter.');
       final List<Map<String, String>> messages = [];
-      if (systemInstruction != null && systemInstruction.isNotEmpty) {
-        messages.add({'role': 'system', 'content': systemInstruction});
+      if (completeInstruction.isNotEmpty) {
+        messages.add({'role': 'system', 'content': completeInstruction});
       }
       messages.add({'role': 'user', 'content': message});
 
-      final openRouterProResponse = await _sendOpenRouter(
-        models: [
-          'google/gemini-2.5-pro',
-          'google/gemini-2.5-flash',
-        ],
+      final List<String> proModels = preferFlash
+          ? ['google/gemini-2.5-flash', 'google/gemini-2.5-pro']
+          : ['google/gemini-2.5-pro', 'google/gemini-2.5-flash'];
+
+      response = await _sendOpenRouter(
+        models: proModels,
         messages: messages,
+        feature: feature,
+        maxTokens: maxTokens,
       );
-      if (openRouterProResponse != null) {
-        return openRouterProResponse;
+      if (response != null) {
+        return response;
       }
     }
 
-    // Freemium or Fallback for Pro
     if (_apiKey == null || _apiKey!.isEmpty) {
       throw Exception(
         "AI not initialized. Please check your OpenRouter API key.",
@@ -317,30 +452,45 @@ class GeminiService {
     }
 
     final List<Map<String, String>> messages = [];
-    if (systemInstruction != null && systemInstruction.isNotEmpty) {
-      messages.add({'role': 'system', 'content': systemInstruction});
+    if (completeInstruction.isNotEmpty) {
+      messages.add({'role': 'system', 'content': completeInstruction});
     }
     messages.add({'role': 'user', 'content': message});
 
-    List<String> modelsToTry = _availableModels.isNotEmpty
-        ? List<String>.from(_availableModels)
-        : [
-            'meta-llama/llama-3.3-70b-instruct:free',
-            'google/gemma-4-31b-it:free',
-            'meta-llama/llama-3.2-3b-instruct:free',
-          ];
+    List<String> modelsToTry;
+    if (preferFlash) {
+      modelsToTry = [
+        'google/gemini-2.5-flash:free',
+        'google/gemini-flash-1.5-8b:free',
+        'google/gemini-2.5-flash',
+        'google/gemini-2.0-flash-exp:free',
+        'meta-llama/llama-3.2-3b-instruct:free',
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'google/gemma-4-31b-it:free',
+      ];
+    } else {
+      modelsToTry = _availableModels.isNotEmpty
+          ? List<String>.from(_availableModels)
+          : [
+              'meta-llama/llama-3.3-70b-instruct:free',
+              'google/gemma-4-31b-it:free',
+              'meta-llama/llama-3.2-3b-instruct:free',
+            ];
+      modelsToTry.shuffle();
+    }
 
-    modelsToTry.shuffle();
-    final finalModels = modelsToTry.take(15).toList();
-
-    final response = await _sendOpenRouter(models: finalModels, messages: messages);
+    response = await _sendOpenRouter(
+      models: modelsToTry,
+      messages: messages,
+      feature: feature,
+      maxTokens: maxTokens,
+    );
     if (response != null) {
       return response;
     }
 
     throw Exception("Failed to get response from AI models.");
   }
-
 
   Future<List<String>> listModels(String apiKey) async {
     try {
@@ -352,7 +502,6 @@ class GeminiService {
 
       if (response.statusCode == 200) {
         final List data = response.data['data'];
-        // Filter for free models and those likely to be free/low-cost
         final models = data
             .map((m) => m['id'].toString())
             .where((id) => id.contains(':free') || id.contains('flash'))
@@ -367,7 +516,6 @@ class GeminiService {
       safePrint('List Models Error: $e');
     }
 
-    // Ultimate fallback if API fails
     return [
       'mistralai/mistral-7b-instruct:free',
       'google/gemini-flash-1.5-8b:free',
@@ -378,8 +526,11 @@ class GeminiService {
     _messages.clear();
   }
 
+
+
   void _logUsage({
     required String model,
+    required String feature,
     required String source,
     required int promptTokens,
     required int responseTokens,
@@ -394,6 +545,7 @@ class GeminiService {
         'userEmail': user?.email ?? 'unknown',
         'timestamp': FieldValue.serverTimestamp(),
         'model': model,
+        'feature': feature,
         'source': source,
         'promptTokens': promptTokens,
         'responseTokens': responseTokens,
@@ -406,3 +558,4 @@ class GeminiService {
     }
   }
 }
+

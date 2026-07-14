@@ -74,7 +74,11 @@ class _DecisionAnalyzerScreenState extends State<DecisionAnalyzerScreen> {
       selectedFeeling: emojiLabels[selectedEmoji],
     );
 
-    final response = await _geminiService.sendMessage(prompt);
+    final response = await _geminiService.sendMessageOneShot(
+      prompt,
+      feature: 'decision',
+      maxTokens: 1500,
+    );
     
     if (response != null) {
       await auth.useDecisionCredit();

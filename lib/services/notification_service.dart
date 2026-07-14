@@ -309,6 +309,14 @@ class NotificationService {
         context.read<AppAuthProvider>().updateFcmToken(token);
       } catch (_) {}
     }
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+          'fcmToken': token,
+        });
+      }
+    } catch (_) {}
   }
 
   void _startForegroundAlarmChecker() {

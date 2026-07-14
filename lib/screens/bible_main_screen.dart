@@ -365,7 +365,12 @@ Ensure the output is beautifully styled in Markdown. Crucial: Make sure all sect
 """;
 
     try {
-      final response = await _geminiService.sendMessage(prompt);
+      final response = await _geminiService.sendMessageOneShot(
+        prompt,
+        feature: 'bible_explanation',
+        maxTokens: 1500,
+        cacheKey: 'bible_chapter:$_selectedBook:$_selectedChapter',
+      );
       if (mounted && response != null) {
         setState(() {
           _aiExplanation = response;
@@ -422,7 +427,12 @@ Format nicely using Markdown. Crucial: Make sure the Bible verse text itself is 
 """;
 
     try {
-      final response = await _geminiService.sendMessage(prompt);
+      final response = await _geminiService.sendMessageOneShot(
+        prompt,
+        feature: 'bible_verse_explanation',
+        maxTokens: 800,
+        cacheKey: 'bible_verse:$_selectedBook:$_selectedChapter:$vNum',
+      );
       if (mounted && response != null) {
         if (!isPro) {
           await authStore.incrementExplanationCount();
@@ -520,7 +530,12 @@ Format the response beautifully in Markdown. Crucial: Make sure any quoted Bible
 """;
 
     try {
-      final response = await _geminiService.sendMessage(prompt);
+      final response = await _geminiService.sendMessageOneShot(
+        prompt,
+        feature: 'bible_highlight_explanation',
+        maxTokens: 800,
+        cacheKey: 'bible_highlight:$text',
+      );
       if (mounted && response != null) {
         if (!isPro) {
           await authStore.incrementExplanationCount();
@@ -718,13 +733,22 @@ Each question object in the array must have the following keys:
 - "question": The question text.
 - "options": An array of exactly 4 strings for choices.
 - "answer": The index (0 to 3) of the correct option.
-- "explanation": A brief explanation of the correct answer.
+- "explanation": A brief explanation of the correct answer. ${
+  (_quizScopeType == 'general' || _quizScopeType == 'chapter')
+    ? 'For Bible-related questions, the "explanation" MUST start with the specific Bible book, chapter, and verse backing it up (e.g., "John 3:16"), followed by a one-line short explanation of the answer (e.g., "John 3:16 - God so loved the world that He gave His only Son...").'
+    : ''
+}
 
 CRITICAL ACCURACY REQUIREMENT:
 - You MUST double check the correctness of the generated "answer" index.
 - The "answer" index MUST correspond exactly to the index (0 to 3) of the correct answer in the "options" array.
 - For example, if Jesus is the correct option and is placed at index 1 of the options list, the "answer" index MUST be 1. Do not mismatch them.
 - Ensure the question details are completely accurate, using undisputed facts.
+${
+  (_quizScopeType == 'general' || _quizScopeType == 'chapter')
+    ? '- For Bible-related questions, you MUST verify the facts strictly against the actual Bible text and state the exact verse reference to prevent incorrect answers.'
+    : ''
+}
 
 Return ONLY the raw JSON array. Do not include markdown code block formatting (no ```json or ```). Just raw JSON.
 """;
@@ -734,6 +758,9 @@ Return ONLY the raw JSON array. Do not include markdown code block formatting (n
       final response = await _geminiService.sendMessageOneShot(
         prompt,
         systemInstruction: systemInstruction,
+        feature: 'bible_quiz',
+        maxTokens: 2500,
+        cacheKey: 'bible_quiz:$_quizScopeType:${_chapterOrTopicController.text.trim()}:$_questionCount',
       );
       
       if (_activeQuizGenerationToken != currentToken) return;
@@ -2410,7 +2437,13 @@ The JSON object must have exactly these keys:
     }
 
     try {
-      final response = await _geminiService.sendMessageOneShot(prompt, systemInstruction: systemInstruction);
+      final response = await _geminiService.sendMessageOneShot(
+        prompt,
+        systemInstruction: systemInstruction,
+        feature: 'riddle_joke',
+        maxTokens: 800,
+        cacheKey: 'riddle_joke:$_riddlesMode:$categoryText',
+      );
       if (response != null && response.trim().isNotEmpty) {
         final cleanJson = _cleanJsonString(response);
         final Map<String, dynamic> decoded = jsonDecode(cleanJson);

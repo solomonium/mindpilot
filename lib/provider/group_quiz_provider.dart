@@ -764,7 +764,12 @@ class GroupQuizProvider extends ChangeNotifier {
         "- You MUST double check the correctness of the generated correctAnswerIndex.\n"
         "- The correctAnswerIndex MUST correspond exactly to the index (0 to 3) of the correct answer in the options array.\n"
         "- For example, if 'Noah' is the correct option and is placed at index 2 of the options list, correctAnswerIndex MUST be 2. Do not mismatch them.\n"
-        "- Ensure the question details are theologically and historically accurate, using undisputed facts.";
+        "- Ensure the question details are theologically and historically accurate, using undisputed facts.\n"
+        "${
+          (_scopeType == 'general' || _scopeType == 'chapter')
+            ? '- For Bible-related questions, you MUST verify the facts strictly against the actual Bible text and ensure they are 100% correct.'
+            : ''
+        }";
 
     return prompt;
   }
@@ -873,6 +878,9 @@ class GroupQuizProvider extends ChangeNotifier {
       final response = await _geminiService.sendMessageOneShot(
         prompt,
         systemInstruction: systemInstruction,
+        feature: 'group_quiz',
+        maxTokens: 2500,
+        cacheKey: 'group_quiz:$_scopeType:$_scopeValue:$countToGenerate:${askedQuestions.join(",")}',
       );
 
       if (_activeGenerationToken != currentToken) {
@@ -999,6 +1007,9 @@ class GroupQuizProvider extends ChangeNotifier {
         final response = await _geminiService.sendMessageOneShot(
           prompt,
           systemInstruction: systemInstruction,
+          feature: 'group_quiz',
+          maxTokens: 2500,
+          cacheKey: 'group_quiz:$_scopeType:$_scopeValue:$questionCount:${askedQuestions.join(",")}',
         );
 
         if (_activeGenerationToken != currentToken) {

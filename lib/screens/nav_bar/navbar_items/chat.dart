@@ -60,7 +60,11 @@ Keep the tone extremely supportive, premium, and structured. Use bullet points f
     setState(() => _isLoading = true);
 
     try {
-      final response = await chatStore.geminiService.sendMessage(prompt);
+      final response = await chatStore.geminiService.sendMessage(
+        prompt,
+        feature: 'chat',
+        maxTokens: 1000,
+      );
       if (mounted && response != null && response.isNotEmpty) {
         chatStore.addMessage(response, false);
       }
@@ -136,7 +140,11 @@ User: $text
 """;
 
     try {
-      final response = await chatStore.geminiService.sendMessage(prompt);
+      final response = await chatStore.geminiService.sendMessage(
+        prompt,
+        feature: 'chat',
+        maxTokens: 1200,
+      );
 
       if (mounted) {
         chatStore.incrementMessageCount();

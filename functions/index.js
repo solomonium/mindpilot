@@ -246,23 +246,26 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
             const lastInsight = userData.lastInsightTime;
             const fcmToken = userData.fcmToken;
 
-            // Per-user interval in hours (convert to Ms)
+            // Force interval to be 3 hours (10,800,000 ms) for all users (old and new)
+            // unless they have explicitly disabled insights (userIntervalHours === 0)
             let userIntervalHours = userData.insightIntervalHours;
-            // If interval is 1 or 2 hours, increase to 3 hours as users complained of too many notifications
-            if (userIntervalHours === 1 || userIntervalHours === 2) {
-                userIntervalHours = 3;
+            if (userIntervalHours === undefined || userIntervalHours === null) {
+                userIntervalHours = 3; // Default for new/unset users
+            } else if (userIntervalHours !== 0) {
+                userIntervalHours = 3; // Default/force for old users
             }
-            const userIntervalMs = (userIntervalHours && userIntervalHours > 0)
-                ? (userIntervalHours * 3600000)
-                : defaultIntervalMs;
+
+            const userIntervalMs = userIntervalHours * 3600000;
 
             let shouldSend = false;
-            if (!lastInsight) {
-                shouldSend = true;
-            } else {
-                const diffMs = now.toMillis() - lastInsight.toMillis();
-                if (diffMs >= userIntervalMs) {
+            if (userIntervalMs > 0) {
+                if (!lastInsight) {
                     shouldSend = true;
+                } else {
+                    const diffMs = now.toMillis() - lastInsight.toMillis();
+                    if (diffMs >= userIntervalMs) {
+                        shouldSend = true;
+                    }
                 }
             }
 
