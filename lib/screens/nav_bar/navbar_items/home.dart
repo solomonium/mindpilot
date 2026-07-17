@@ -1,4 +1,5 @@
 import 'package:mindpilot/export.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -8,6 +9,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final FlutterTts _welcomeTts = FlutterTts();
   bool _isInsightExpanded = false;
   String? _lastAutoExpandedContent;
 
@@ -43,7 +45,50 @@ class _HomeScreenState extends State<HomeScreen> {
       if (GoogleCalendarService().isGoogleUser) {
         _fetchCalendarEvents(requestPermission: false);
       }
+
+      // TTS Welcome
+      try {
+        final authStore = context.read<AppAuthProvider>();
+        final user = authStore.user;
+        final email = authStore.email ?? user?.email;
+        final emailPrefix = (email != null && email.contains('@'))
+            ? (email.contains('privaterelay.appleid.com') ? 'User' : email.split('@').first.capitalize())
+            : 'User';
+
+        String displayNameToUse = 'User';
+        if (authStore.displayName != null && authStore.displayName!.trim().isNotEmpty) {
+          displayNameToUse = authStore.displayName!;
+        } else if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
+          displayNameToUse = user.displayName!;
+        } else if (emailPrefix.trim().isNotEmpty) {
+          displayNameToUse = emailPrefix;
+        }
+        _speakWelcome(displayNameToUse);
+      } catch (e) {
+        safePrint("Welcome greeting setup error: $e");
+      }
     });
+  }
+
+  Future<void> _speakWelcome(String name) async {
+    try {
+      final greeting = TimeTeller.tellTimeOfTheDay();
+      final firstName = name.split(' ').first;
+      final readyText = R.S.readyToMake;
+
+      await _welcomeTts.stop();
+      await _welcomeTts.setLanguage("en-US");
+      await _welcomeTts.setSpeechRate(0.5);
+      await _welcomeTts.speak("$greeting, $firstName. $readyText");
+    } catch (e) {
+      safePrint("TTS Welcome Error: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _welcomeTts.stop();
+    super.dispose();
   }
 
   Future<void> _fetchCalendarEvents({bool requestPermission = true}) async {
@@ -1058,6 +1103,14 @@ class _HomeScreenState extends State<HomeScreen> {
         'color': const Color(0xFF10B981),
         'nav': -4,
       },
+      {
+        'key': 'interview',
+        'title': 'AI Interview Recruiter',
+        'subtitle': 'Practice mock interviews',
+        'icon': Icons.mic_external_on_outlined,
+        'color': const Color(0xFFEC4899),
+        'nav': -5,
+      },
     ];
 
     void handleTap(int nav) {
@@ -1071,6 +1124,8 @@ class _HomeScreenState extends State<HomeScreen> {
         context.push(const JournalEntriesScreen());
       } else if (nav == -4) {
         context.push(const DailyMoodCheckInScreen());
+      } else if (nav == -5) {
+        context.push(const AiInterviewCoachScreen());
       }
     }
 
@@ -1158,6 +1213,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   selected[5]['color'] as Color,
                   onTap: () => handleTap(selected[5]['nav'] as int),
                 ),
+              ),
+            ],
+          ),
+        ),
+        12.verticalSpace,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _actionCard(
+                  context,
+                  selected[6]['title'] as String,
+                  selected[6]['subtitle'] as String,
+                  selected[6]['icon'] as IconData,
+                  selected[6]['color'] as Color,
+                  onTap: () => handleTap(selected[6]['nav'] as int),
+                ),
+              ),
+              12.horizontalSpace,
+              const Expanded(
+                child: SizedBox.shrink(),
               ),
             ],
           ),

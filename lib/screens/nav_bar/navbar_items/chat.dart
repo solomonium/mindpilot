@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class AiChatScreen extends StatefulWidget {
   final String? initialMessage;
@@ -17,10 +18,16 @@ class _AiChatScreenState extends State<AiChatScreen> {
   bool _isLoading = false;
   final Map<int, Color> _bubbleColors = {};
   int _lastMessageCount = 0;
+  
+  // TTS State
+  final FlutterTts _chatTts = FlutterTts();
+  int? _playingMessageIndex;
+  String _chatTtsState = 'stopped'; // 'stopped', 'playing', 'paused'
 
   @override
   void initState() {
     super.initState();
+    _chatTts.stop();
     AppHelper.setScreenshotProtection(true);
     
     final chatProvider = context.read<ChatProvider>();
@@ -81,6 +88,7 @@ Keep the tone extremely supportive, premium, and structured. Use bullet points f
 
   @override
   void dispose() {
+    _stopChatTts();
     try {
       context.read<ChatProvider>().removeListener(_onChatProviderChanged);
     } catch (_) {}
@@ -124,7 +132,10 @@ Keep the tone extremely supportive, premium, and structured. Use bullet points f
     _messageController.clear();
     _scrollToBottom();
 
-    setState(() => _isLoading = true);
+    _stopChatTts();
+    setState(() {
+      _isLoading = true;
+    });
 
     final prompt =
         """
@@ -347,6 +358,95 @@ User: $text
     });
   }
 
+  Widget _ttsIcon(BuildContext context, String text, int index) {
+    AppTheme theme = context.watch();
+    final isActive = _playingMessageIndex == index;
+    final isPlaying = isActive && _chatTtsState == 'playing';
+    final isPaused = isActive && _chatTtsState == 'paused';
+
+    if (!isActive || _chatTtsState == 'stopped') {
+      return Icon(
+        Icons.volume_up_rounded,
+        color: theme.accentTxt.withValues(alpha: 0.4),
+        size: 16,
+      ).rippleClick(() => _playChatTts(text, index));
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          color: theme.primaryBase,
+          size: 16,
+        ).rippleClick(() => _pauseChatTts(text, index)),
+        6.horizontalSpace,
+        Icon(
+          Icons.stop_rounded,
+          color: theme.accentTxt.withValues(alpha: 0.4),
+          size: 16,
+        ).rippleClick(() => _stopChatTts()),
+      ],
+    );
+  }
+
+  Future<void> _playChatTts(String text, int index) async {
+    await _chatTts.stop();
+    await _chatTts.setLanguage("en-US");
+    await _chatTts.setSpeechRate(0.48);
+    _chatTts.setCompletionHandler(() {
+      if (mounted) {
+        setState(() {
+          _playingMessageIndex = null;
+          _chatTtsState = 'stopped';
+        });
+      }
+    });
+    setState(() {
+      _playingMessageIndex = index;
+      _chatTtsState = 'playing';
+    });
+    try {
+      await _chatTts.speak(text.replaceAll(RegExp(r'[*#_`]'), ''));
+    } catch (e) {
+      safePrint("TTS Chat Error: $e");
+      if (mounted) {
+        setState(() {
+          _playingMessageIndex = null;
+          _chatTtsState = 'stopped';
+        });
+      }
+    }
+  }
+
+  Future<void> _pauseChatTts(String text, int index) async {
+    if (_chatTtsState == 'playing') {
+      await _chatTts.pause();
+      setState(() => _chatTtsState = 'paused');
+    } else {
+      setState(() => _chatTtsState = 'playing');
+      try {
+        await _chatTts.speak(text.replaceAll(RegExp(r'[*#_`]'), ''));
+      } catch (e) {
+        safePrint("TTS Chat Resume Error: $e");
+        if (mounted) {
+          setState(() {
+            _playingMessageIndex = null;
+            _chatTtsState = 'stopped';
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _stopChatTts() async {
+    await _chatTts.stop();
+    setState(() {
+      _playingMessageIndex = null;
+      _chatTtsState = 'stopped';
+    });
+  }
+
   Widget _dateHeader(BuildContext context, DateTime dateTime) {
     AppTheme theme = context.watch();
 
@@ -434,6 +534,8 @@ User: $text
                           theme.accentTxt,
                           isReset: true,
                         ), // Reset
+                        8.horizontalSpace,
+                        _ttsIcon(context, text, index),
                         if (timeStr != null) ...[
                           12.horizontalSpace,
                           SecondaryText(

@@ -1,4 +1,5 @@
 import 'package:mindpilot/export.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final String analysis;
@@ -25,12 +26,42 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   late String _currentAnalysis;
   bool _isContinuing = false;
   final GeminiService _geminiService = GeminiService();
+  final FlutterTts _flutterTts = FlutterTts();
+  bool _isPlayingTts = false;
 
   @override
   void initState() {
     super.initState();
     _currentAnalysis = widget.analysis;
     _initializeGemini();
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
+  }
+
+  void _toggleTts() async {
+    if (_isPlayingTts) {
+      await _flutterTts.stop();
+      setState(() => _isPlayingTts = false);
+    } else {
+      await _flutterTts.setLanguage("en-US");
+      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.setPitch(1.0);
+      
+      _flutterTts.setCompletionHandler(() {
+        if (mounted) {
+          setState(() => _isPlayingTts = false);
+        }
+      });
+
+      setState(() => _isPlayingTts = true);
+      final cleanText = _currentAnalysis.replaceAll(RegExp(r'[*#_`]'), '');
+      await _flutterTts.speak(cleanText);
+    }
   }
 
   void _initializeGemini() async {
@@ -157,6 +188,14 @@ Continue the analysis naturally.
           child: Icon(Icons.chevron_left, color: theme.accentTxt),
         ).rippleClick(() => context.pop()),
         actions: [
+          IconButton(
+            icon: Icon(
+              _isPlayingTts ? Icons.volume_up : Icons.volume_mute,
+              color: _isPlayingTts ? theme.primaryBase : theme.accentTxt,
+            ),
+            onPressed: _toggleTts,
+          ),
+          12.horizontalSpace,
           Icon(Icons.share_outlined, color: theme.accentTxt).rippleClick(() {
             final user = context.read<AppAuthProvider>().user;
             final downloadUrl = ConfigService().updateUrl;

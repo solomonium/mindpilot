@@ -1,5 +1,7 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { AccessToken } = require("livekit-server-sdk");
 const admin = require("firebase-admin");
 const axios = require("axios");
 
@@ -821,5 +823,44 @@ exports.onGroupMemberJoined = onDocumentUpdated("groups/{groupId}", async (event
         }
     } catch (error) {
         console.error("Error in onGroupMemberJoined:", error);
+    }
+});
+
+// HTTP Callable function to generate LiveKit tokens
+exports.getLiveKitToken = onCall(async (request) => {
+    // Check if user is authenticated
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
+    }
+
+    const { roomName, participantName } = request.data;
+    if (!roomName || !participantName) {
+        throw new HttpsError("invalid-argument", "roomName and participantName are required.");
+    }
+
+    // Retrieve LiveKit credentials from environment variables
+    const apiKey = process.env.LIVEKIT_API_KEY || "devkey";
+    const apiSecret = process.env.LIVEKIT_API_SECRET || "secret";
+    const apiUrl = process.env.LIVEKIT_API_URL || "ws://localhost:7880";
+
+    try {
+        const at = new AccessToken(apiKey, apiSecret, {
+            identity: participantName,
+            name: participantName,
+        });
+
+        at.addGrant({
+            roomJoin: true,
+            room: roomName,
+            canPublish: true,
+            canPublishData: true,
+            canSubscribe: true,
+        });
+
+        const token = await at.toJwt();
+        return { token, url: apiUrl };
+    } catch (error) {
+        console.error("Error generating LiveKit token:", error);
+        throw new HttpsError("internal", "Failed to generate token: " + error.message);
     }
 });

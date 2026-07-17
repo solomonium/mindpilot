@@ -26,4 +26,6 @@ export 'quiz_scope_selection_screen.dart';
 export 'qr_scan_join_screen.dart';
 export 'profile/recent_api_requests_screen.dart';
 export 'profile/all_registered_users_screen.dart';
+export 'voice_bible_study_screen.dart';
+export 'ai_interview_coach_screen.dart';
 

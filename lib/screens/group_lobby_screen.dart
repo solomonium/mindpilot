@@ -663,6 +663,25 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                 context.read<HomeProvider>().navIndex = 2;
                 Navigator.of(context).popUntil((route) => route.isFirst);
               }),
+          actions: [
+            if (hasGroup && provider.liveKitService.isConnected) ...[
+              IconButton(
+                icon: Icon(
+                  provider.liveKitService.isMicrophoneEnabled()
+                      ? Icons.mic
+                      : Icons.mic_off,
+                  color: provider.liveKitService.isMicrophoneEnabled()
+                      ? Colors.greenAccent
+                      : theme.accentTxt.withOpacity(0.5),
+                ),
+                onPressed: () {
+                  final enabled = provider.liveKitService.isMicrophoneEnabled();
+                  provider.liveKitService.toggleMicrophone(!enabled);
+                },
+              ),
+              12.horizontalSpace,
+            ],
+          ],
         ),
         body: Stack(
           children: [
@@ -874,6 +893,39 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                   statusColor = Colors.amber;
                 }
 
+                final isSpeaking = provider.liveKitService.isParticipantSpeaking(name) ||
+                    provider.liveKitService.isParticipantSpeaking(email) ||
+                    provider.liveKitService.isParticipantSpeaking(uid);
+
+                final isMuted = provider.liveKitService.isParticipantMuted(name) &&
+                    provider.liveKitService.isParticipantMuted(email) &&
+                    provider.liveKitService.isParticipantMuted(uid);
+
+                Widget voiceIndicator;
+                if (!provider.liveKitService.isConnected) {
+                  voiceIndicator = const SizedBox.shrink();
+                } else if (status != 'accepted') {
+                  voiceIndicator = const SizedBox.shrink();
+                } else if (isMuted) {
+                  voiceIndicator = const Icon(
+                    Icons.mic_off,
+                    color: Colors.redAccent,
+                    size: 16,
+                  );
+                } else if (isSpeaking) {
+                  voiceIndicator = const Icon(
+                    Icons.volume_up,
+                    color: Colors.greenAccent,
+                    size: 16,
+                  );
+                } else {
+                  voiceIndicator = const Icon(
+                    Icons.mic,
+                    color: Colors.white54,
+                    size: 16,
+                  );
+                }
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
                   child: Row(
@@ -898,6 +950,10 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
                       ),
                       Row(
                         children: [
+                          if (provider.liveKitService.isConnected && status == 'accepted') ...[
+                            voiceIndicator,
+                            10.horizontalSpace,
+                          ],
                           statusIcon,
                           6.horizontalSpace,
                           SecondaryText(

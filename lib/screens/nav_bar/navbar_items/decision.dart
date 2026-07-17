@@ -1,4 +1,5 @@
 import 'package:mindpilot/export.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class DecisionAnalyzerScreen extends StatefulWidget {
   const DecisionAnalyzerScreen({super.key});
@@ -14,6 +15,9 @@ class _DecisionAnalyzerScreenState extends State<DecisionAnalyzerScreen> {
   final GeminiService _geminiService = GeminiService();
   bool _isLoading = false;
 
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+
   final emojis = ['😫', '😤', '😕', '😐', '😊', '🤩'];
   final emojiLabels = [
     'Stressed',
@@ -28,6 +32,35 @@ class _DecisionAnalyzerScreenState extends State<DecisionAnalyzerScreen> {
   void initState() {
     super.initState();
     _initializeGemini();
+    _initSpeech();
+  }
+
+  void _initSpeech() async {
+    try {
+      await _speech.initialize();
+    } catch (e) {
+      safePrint("Speech recognition failed to initialize: $e");
+    }
+  }
+
+  void _listen() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize(
+        onStatus: (val) => safePrint('onStatus: $val'),
+        onError: (val) => safePrint('onError: $val'),
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          onResult: (val) => setState(() {
+            _controller.text = val.recognizedWords;
+          }),
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
   }
 
   void _initializeGemini() async {
@@ -190,19 +223,48 @@ class _DecisionAnalyzerScreenState extends State<DecisionAnalyzerScreen> {
                   GlassContainer(
                     padding: const EdgeInsets.all(16),
                     gradient: theme.glassGradient,
-                    child: TextField(
-                      controller: _controller,
-                      maxLines: 5,
-                      textCapitalization: TextCapitalization.sentences,
-                      style: TextStyle(color: theme.accentTxt, fontSize: 16),
-                      decoration: InputDecoration(
-                        hintText: 'I am thinking about quitting my job...',
-                        border: InputBorder.none,
-                        hintStyle: TextStyle(
-                          color: theme.accentTxt.withOpacity(0.5),
-                          fontSize: 16,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: _controller,
+                          maxLines: 5,
+                          textCapitalization: TextCapitalization.sentences,
+                          style: TextStyle(color: theme.accentTxt, fontSize: 16),
+                          decoration: InputDecoration(
+                            hintText: 'I am thinking about quitting my job...',
+                            border: InputBorder.none,
+                            hintStyle: TextStyle(
+                              color: theme.accentTxt.withOpacity(0.5),
+                              fontSize: 16,
+                            ),
+                          ),
                         ),
-                      ),
+                        const Divider(color: Colors.white12, height: 1),
+                        4.verticalSpace,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (_isListening)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: SecondaryText(
+                                  text: 'Listening...',
+                                  color: theme.errorPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            IconButton(
+                              icon: Icon(
+                                _isListening ? Icons.mic : Icons.mic_none,
+                                color: _isListening ? theme.errorPrimary : theme.primaryBase,
+                              ),
+                              onPressed: _listen,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                   32.verticalSpace,

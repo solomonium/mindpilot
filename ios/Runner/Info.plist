@@ -88,5 +88,7 @@
 	<string>MindPilot needs camera access to scan QR codes for joining group quiz rooms.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>MindPilot needs photo library access so you can pick a QR code image to scan and join a group quiz.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MindPilot needs microphone access to join group voice study sessions.</string>
 </dict>
 </plist>

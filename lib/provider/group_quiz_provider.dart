@@ -8,10 +8,20 @@ class GroupQuizProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GeminiService _geminiService = GeminiService();
   final AudioPlayer _lobbyAudioPlayer = AudioPlayer();
+  final LiveKitService _liveKitService = LiveKitService();
+
+  LiveKitService get liveKitService => _liveKitService;
 
   GroupQuizProvider() {
     _initAudioContext();
     tryRestoreSession();
+    _initLiveKit();
+  }
+
+  void _initLiveKit() {
+    _liveKitService.onStateChanged = () {
+      notifyListeners();
+    };
   }
 
   void _initAudioContext() {
@@ -490,6 +500,7 @@ class GroupQuizProvider extends ChangeNotifier {
   void listenToGroup(String groupId) {
     _activeGroupId = groupId;
     _saveSession(groupId);
+    joinVoiceRoom();
     _groupSubscription?.cancel();
     _groupSubscription = _firestore
         .collection('groups')
@@ -650,7 +661,43 @@ class GroupQuizProvider extends ChangeNotifier {
     _gameData = null;
     _activeGroupId = null;
     _stopTimer();
+    _liveKitService.disconnect();
     notifyListeners();
+  }
+
+  Future<void> joinVoiceRoom() async {
+    final groupId = _activeGroupId;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (groupId == null || currentUser == null) return;
+
+    final name = currentUser.displayName ?? currentUser.email ?? currentUser.uid;
+    try {
+      await _liveKitService.joinRoom(
+        roomName: groupId,
+        participantName: name,
+      );
+    } catch (e) {
+      safePrint("Failed to join voice room: $e");
+    }
+  }
+
+  Future<void> joinCustomVoiceRoom(String roomName) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    final name = currentUser.displayName ?? currentUser.email ?? currentUser.uid;
+    try {
+      await _liveKitService.joinRoom(
+        roomName: roomName,
+        participantName: name,
+      );
+    } catch (e) {
+      safePrint("Failed to join custom voice room $roomName: $e");
+    }
+  }
+
+  Future<void> leaveVoiceRoom() async {
+    await _liveKitService.disconnect();
   }
 
   /// Delete or leave a specific restored group session
@@ -900,7 +947,24 @@ class GroupQuizProvider extends ChangeNotifier {
       List<dynamic> parsedQuestions;
       try {
         final cleanJson = _cleanJsonString(response);
-        parsedQuestions = jsonDecode(cleanJson) as List<dynamic>;
+        final List decoded = jsonDecode(cleanJson);
+        final List<Map<String, dynamic>> normalized = [];
+        for (var item in decoded) {
+          if (item is Map) {
+            final map = Map<String, dynamic>.from(item);
+            final questionText = map['questionText'] ?? map['question'] ?? '';
+            final options = List<String>.from(map['options'] ?? []);
+            final correctAnswerIndex = map['correctAnswerIndex'] ?? map['answer'] ?? 0;
+            final explanation = map['explanation'] ?? '';
+            normalized.add({
+              'questionText': questionText,
+              'options': options,
+              'correctAnswerIndex': correctAnswerIndex,
+              'explanation': explanation,
+            });
+          }
+        }
+        parsedQuestions = normalized;
       } catch (e) {
         safePrint("Failed to parse JSON response: $e");
         await _firestore.collection('groups').doc(_activeGroupId!).update({
@@ -1027,7 +1091,24 @@ class GroupQuizProvider extends ChangeNotifier {
 
         try {
           final cleanJson = _cleanJsonString(response);
-          parsedQuestions = jsonDecode(cleanJson) as List<dynamic>;
+          final List decoded = jsonDecode(cleanJson);
+          final List<Map<String, dynamic>> normalized = [];
+          for (var item in decoded) {
+            if (item is Map) {
+              final map = Map<String, dynamic>.from(item);
+              final questionText = map['questionText'] ?? map['question'] ?? '';
+              final options = List<String>.from(map['options'] ?? []);
+              final correctAnswerIndex = map['correctAnswerIndex'] ?? map['answer'] ?? 0;
+              final explanation = map['explanation'] ?? '';
+              normalized.add({
+                'questionText': questionText,
+                'options': options,
+                'correctAnswerIndex': correctAnswerIndex,
+                'explanation': explanation,
+              });
+            }
+          }
+          parsedQuestions = normalized;
         } catch (e) {
           safePrint("Failed to parse JSON response: $e");
           if (_activeGenerationToken == currentToken) {
@@ -1491,6 +1572,7 @@ class GroupQuizProvider extends ChangeNotifier {
     _groupSubscription?.cancel();
     _gameSubscription?.cancel();
     _lobbyAudioPlayer.dispose();
+    _liveKitService.disconnect();
     super.dispose();
   }
 
