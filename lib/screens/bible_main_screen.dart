@@ -124,6 +124,7 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   String _bibleTtsState = 'stopped'; // 'stopped', 'playing', 'paused'
   String _explanationTtsState = 'stopped'; // 'stopped', 'playing', 'paused'
   String _riddleJokeTtsState = 'stopped'; // 'stopped', 'playing', 'paused'
+  double _bibleSpeechRate = 0.48;
 
   final TextEditingController _customReadController = TextEditingController();
 
@@ -182,6 +183,26 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   Future<void> _initData() async {
     await _loadLastReadChapter();
     await _fetchBibleChapter();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedRate = prefs.getDouble('bible_speech_rate');
+      if (savedRate != null) {
+        setState(() {
+          _bibleSpeechRate = savedRate;
+        });
+      }
+    } catch (e) {
+      safePrint("Error loading bible speech rate: $e");
+    }
+  }
+
+  Future<void> _saveSpeechRate(double rate) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('bible_speech_rate', rate);
+    } catch (e) {
+      safePrint("Error saving bible speech rate: $e");
+    }
   }
 
   void _initAudioContext() {
@@ -262,7 +283,7 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
         if (!wasPaused) {
           await _bibleTts.stop();
           await _bibleTts.setLanguage("en-US");
-          await _bibleTts.setSpeechRate(0.48);
+          await _bibleTts.setSpeechRate(_bibleSpeechRate);
           _bibleTts.setCompletionHandler(() {
             if (mounted) setState(() => _bibleTtsState = 'stopped');
           });
@@ -301,7 +322,7 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
         if (!wasPaused) {
           await _bibleTts.stop();
           await _bibleTts.setLanguage("en-US");
-          await _bibleTts.setSpeechRate(0.48);
+          await _bibleTts.setSpeechRate(_bibleSpeechRate);
           _bibleTts.setCompletionHandler(() {
             if (mounted) setState(() => _explanationTtsState = 'stopped');
           });
@@ -357,7 +378,7 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
         if (!wasPaused) {
           await _bibleTts.stop();
           await _bibleTts.setLanguage("en-US");
-          await _bibleTts.setSpeechRate(0.48);
+          await _bibleTts.setSpeechRate(_bibleSpeechRate);
           _bibleTts.setCompletionHandler(() {
             if (mounted) setState(() => _riddleJokeTtsState = 'stopped');
           });
@@ -1745,7 +1766,50 @@ $explanation
                   ),
                 ],
               ),
-              24.verticalSpace,
+              12.verticalSpace,
+              Row(
+                children: [
+                  Icon(Icons.speed, color: theme.accentTxt.withOpacity(0.6), size: 16),
+                  8.horizontalSpace,
+                  SecondaryText(
+                    text: 'Speed:',
+                    fontSize: 11,
+                    color: theme.accentTxt.withOpacity(0.8),
+                  ),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 2,
+                        activeTrackColor: theme.primaryBase,
+                        inactiveTrackColor: Colors.white24,
+                        thumbColor: theme.primaryBase,
+                        overlayColor: theme.primaryBase.withOpacity(0.2),
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                      ),
+                      child: Slider(
+                        value: _bibleSpeechRate,
+                        min: 0.2,
+                        max: 0.8,
+                        onChanged: (val) {
+                          setState(() {
+                            _bibleSpeechRate = val;
+                          });
+                          _bibleTts.setSpeechRate(val);
+                          _saveSpeechRate(val);
+                        },
+                      ),
+                    ),
+                  ),
+                  SecondaryText(
+                    text: '${_bibleSpeechRate.toStringAsFixed(2)}x',
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: theme.accentTxt.withOpacity(0.8),
+                  ),
+                ],
+              ),
+              12.verticalSpace,
               
               // Verses view
               if (_verses.isNotEmpty) ...[

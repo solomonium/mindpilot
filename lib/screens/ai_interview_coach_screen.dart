@@ -20,6 +20,14 @@ class _AiInterviewCoachScreenState extends State<AiInterviewCoachScreen> {
   String _selectedLevel = 'Mid-level';
   int _selectedLength = 3; // 3, 5, 10
   bool _isSetupMode = true;
+  String _questionFocus = 'general';
+  final TextEditingController _customFieldController = TextEditingController();
+
+  String get _displayField {
+    return _selectedField == 'Other (type below)' && _customFieldController.text.trim().isNotEmpty
+        ? _customFieldController.text.trim()
+        : _selectedField;
+  }
 
   // Active interview state
   int _currentQuestionIndex = 0;
@@ -42,7 +50,8 @@ class _AiInterviewCoachScreenState extends State<AiInterviewCoachScreen> {
     'Medicine & Healthcare',
     'Finance & Investment',
     'General HR & Leadership',
-    'Marketing & Strategy'
+    'Marketing & Strategy',
+    'Other (type below)'
   ];
 
   final List<String> _levels = ['Entry-level', 'Mid-level', 'Senior/Lead'];
@@ -58,6 +67,7 @@ class _AiInterviewCoachScreenState extends State<AiInterviewCoachScreen> {
   void dispose() {
     _tts.stop();
     _speech.stop();
+    _customFieldController.dispose();
     super.dispose();
   }
 
@@ -75,16 +85,38 @@ class _AiInterviewCoachScreenState extends State<AiInterviewCoachScreen> {
   }
 
   Future<void> _startInterview() async {
+    final targetField = _selectedField == 'Other (type below)'
+        ? _customFieldController.text.trim()
+        : _selectedField;
+
+    if (_selectedField == 'Other (type below)' && targetField.isEmpty) {
+      context.showInAppNotification('Please specify your desired career field');
+      return;
+    }
+
     setState(() {
       _isSetupMode = false;
       _isAnalyzing = true;
     });
 
+    final String focusDescription;
+    if (_questionFocus == 'specific') {
+      focusDescription = """
+Specifically, the questions must focus deeply on the target field's specific technical skills, tools, frameworks, and programming languages.
+For example:
+- If the field is "Flutter Developer" or related, focus questions heavily on Flutter widgets, state management (e.g. Provider, Bloc), asynchronous programming in Dart, and Dart-specific language details.
+- If the field is "NodeJS Developer" or related, focus heavily on NodeJS event loops, express/nest frameworks, asynchronous Javascript, backend APIs, and database integrations.
+- For other fields, focus heavily on specific, core domain-level technical details, tools, and methodologies rather than generic concepts.""";
+    } else {
+      focusDescription = "The questions should cover general concepts, soft skills, high-level behavioral scenarios, and general industry practices suitable for the field.";
+    }
+
     // Generate tailored interview questions via Gemini
     final prompt = """
 You are an expert HR Manager and Technical Recruiter.
-Generate exactly $_selectedLength interview questions for a candidate applying for a $_selectedLevel position in $_selectedField.
-The questions must be highly realistic, covering technical concepts, architectural thinking, or behavioral scenarios relevant to $_selectedField.
+Generate exactly $_selectedLength interview questions for a candidate applying for a $_selectedLevel position in $targetField.
+$focusDescription
+The questions must be highly realistic and relevant to $targetField.
 
 Return ONLY a valid JSON list of strings representing the questions. Do not include markdown code block formatting (no ```json or ```). Just raw JSON.
 """;
@@ -223,7 +255,7 @@ Return ONLY a valid JSON list of strings representing the questions. Do not incl
 
     final prompt = """
 You are an elite Executive Career Coach and Technical Recruiter.
-Analyze this mock interview session for a $_selectedLevel position in $_selectedField:
+Analyze this mock interview session for a $_selectedLevel position in $_displayField:
 
 $qaBlock
 
@@ -391,6 +423,26 @@ Return ONLY the raw JSON map. Do not include markdown code block formatting.
               ),
             ),
           ),
+          if (_selectedField == 'Other (type below)') ...[
+            12.verticalSpace,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: TextField(
+                controller: _customFieldController,
+                style: TextStyle(color: theme.accentTxt, fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: 'Enter your custom career field...',
+                  hintStyle: TextStyle(color: theme.accentTxt.withOpacity(0.4)),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ],
           20.verticalSpace,
 
           // Level selection
@@ -414,6 +466,69 @@ Return ONLY the raw JSON map. Do not include markdown code block formatting.
                 },
               ),
             ),
+          ),
+          // Question Focus selector
+          PrimaryText(text: 'Question Focus', color: theme.accentTxt, fontSize: 14, fontWeight: FontWeight.bold),
+          12.verticalSpace,
+          Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: InkWell(
+                    onTap: () => setState(() => _questionFocus = 'general'),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _questionFocus == 'general' ? theme.primaryBase.withOpacity(0.1) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _questionFocus == 'general' ? theme.primaryBase : Colors.white12,
+                          width: _questionFocus == 'general' ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Center(
+                        child: PrimaryText(
+                          text: 'General',
+                          fontSize: 13,
+                          color: theme.accentTxt,
+                          fontWeight: _questionFocus == 'general' ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: InkWell(
+                    onTap: () => setState(() => _questionFocus = 'specific'),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _questionFocus == 'specific' ? theme.primaryBase.withOpacity(0.1) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _questionFocus == 'specific' ? theme.primaryBase : Colors.white12,
+                          width: _questionFocus == 'specific' ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Center(
+                        child: PrimaryText(
+                          text: 'Specific Technical',
+                          fontSize: 13,
+                          color: theme.accentTxt,
+                          fontWeight: _questionFocus == 'specific' ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           20.verticalSpace,
 
@@ -503,7 +618,7 @@ Return ONLY the raw JSON map. Do not include markdown code block formatting.
                 fontWeight: FontWeight.bold,
               ),
               SecondaryText(
-                text: '$_selectedField',
+                text: _displayField,
                 color: theme.primaryBase,
                 fontWeight: FontWeight.bold,
               ),
@@ -652,7 +767,7 @@ Return ONLY the raw JSON map. Do not include markdown code block formatting.
           8.verticalSpace,
           Center(
             child: SecondaryText(
-              text: '$_selectedField ($_selectedLevel)',
+              text: '$_displayField ($_selectedLevel) • ${_questionFocus == 'specific' ? 'Specific' : 'General'}',
               color: Colors.white60,
             ),
           ),

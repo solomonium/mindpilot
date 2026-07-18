@@ -135,14 +135,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                     appProvider.dailyReminderEnabled = v;
                   },
                 ),
-                _switchTile(
-                  context,
-                  'Daily Mood Check-In',
-                  appProvider.dailyMoodCheckInEnabled,
-                  (v) {
-                    appProvider.dailyMoodCheckInEnabled = v;
-                  },
-                ),
+
                 _switchTile(
                   context,
                   'Daily Bible Quiz',

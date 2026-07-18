@@ -60,7 +60,7 @@ class AppProvider extends BaseProvider {
     }
   }
 
-  bool _dailyMoodCheckInEnabled = true;
+  bool _dailyMoodCheckInEnabled = false;
   bool get dailyMoodCheckInEnabled => _dailyMoodCheckInEnabled;
 
   set dailyMoodCheckInEnabled(bool val) {
@@ -126,9 +126,11 @@ class AppProvider extends BaseProvider {
     _dailyReminderEnabled =
         await SharedPrefs.getBool('DAILY_REMINDER_ENABLED') ?? true;
     _dailyMoodCheckInEnabled =
-        await SharedPrefs.getBool('DAILY_MOOD_CHECK_IN_ENABLED') ?? true;
+        await SharedPrefs.getBool('DAILY_MOOD_CHECK_IN_ENABLED') ?? false;
     if (_dailyMoodCheckInEnabled) {
       NotificationService().scheduleDailyMoodCheckInReminder();
+    } else {
+      NotificationService().cancelDailyMoodCheckInReminder();
     }
     _dailyBibleQuizReminderEnabled =
         await SharedPrefs.getBool('DAILY_BIBLE_QUIZ_REMINDER_ENABLED') ?? true;

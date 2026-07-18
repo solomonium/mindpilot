@@ -37,6 +37,7 @@ class Strings {
 
   /// Home Screen
   String get readyToMake => 'Ready to make today productive?';
+  String get welcomeBackSubtitle => 'Welcome back!';
   String get dailyInsight => 'Daily Insight';
   String get quickActions => 'Quick Actions';
   String get focusSession => 'Focus Session';

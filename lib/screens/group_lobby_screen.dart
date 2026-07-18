@@ -95,127 +95,7 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
   }
 
   Future<bool> _checkAdAccess(String? targetGroupId) async {
-    final isPro = context.read<AppAuthProvider>().isPro;
-    if (isPro) return true;
-
-    final prefs = await SharedPreferences.getInstance();
-    int sessionsAccessed =
-        prefs.getInt('group_quiz_sessions_accessed_count') ?? 0;
-
-    if (targetGroupId != null) {
-      final isAlreadyUnlocked =
-          prefs.getBool('group_quiz_unlocked_$targetGroupId') ?? false;
-      if (isAlreadyUnlocked) {
-        return true;
-      }
-    }
-
-    if (sessionsAccessed < 3) {
-      sessionsAccessed++;
-      await prefs.setInt(
-        'group_quiz_sessions_accessed_count',
-        sessionsAccessed,
-      );
-      if (targetGroupId != null) {
-        await prefs.setBool('group_quiz_unlocked_$targetGroupId', true);
-      }
-      return true;
-    }
-
-    if (!mounted) return false;
-    final theme = context.read<AppTheme>();
-    final Completer<bool> completer = Completer<bool>();
-
-    showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: theme.brandDark,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: Row(
-            children: [
-              const Icon(
-                Icons.play_circle_fill,
-                color: Color(0xFFF59E0B),
-                size: 24,
-              ),
-              8.horizontalSpace,
-              const PrimaryText(
-                text: 'Unlock Group Quiz 👥',
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ],
-          ),
-          content: const SecondaryText(
-            text:
-                'You have used your 3 free group quiz sessions. Watch a short video ad to unlock access to this lobby.',
-            color: Colors.white70,
-            fontSize: 13,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: SecondaryText(text: 'Cancel', color: Colors.white38),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
-              child: PrimaryText(
-                text: 'Watch Ad',
-                color: theme.primaryBase,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        );
-      },
-    ).then((watchAdSelected) {
-      if (watchAdSelected == true) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (spinnerContext) => Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(theme.primaryBase),
-            ),
-          ),
-        );
-
-        AdService.instance.showRewardedAd(
-          onUserEarnedReward: (ad, reward) async {
-            if (mounted) {
-              Navigator.pop(context);
-            }
-            if (targetGroupId != null) {
-              await prefs.setBool('group_quiz_unlocked_$targetGroupId', true);
-            }
-            completer.complete(true);
-          },
-          onAdFailedToShow: () {
-            if (mounted) {
-              Navigator.pop(context);
-              context.showInAppNotification(
-                "Ad not ready yet. Please try again in a few seconds.",
-                type: InAppNotificationType.error,
-              );
-            }
-            completer.complete(false);
-          },
-        );
-      } else {
-        completer.complete(false);
-      }
-    });
-
-    return completer.future;
+    return true;
   }
 
   void _onEmailChanged() {
@@ -441,74 +321,26 @@ class _GroupLobbyScreenState extends State<GroupLobbyScreen> {
          errorMsg.contains("AI generated an invalid format") ||
          errorMsg.contains("Failed to get response"))) {
       
-      final theme = context.read<AppTheme>();
-      final watchAd = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: theme.brandDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const PrimaryText(text: 'AI Connection Error 🤖'),
-          content: SecondaryText(
-            text: 'Question generation failed on the free server. Would you like to use the faster Gemini server for free by watching a short ad?',
-            color: theme.accentTxt.withOpacity(0.8),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: SecondaryText(
-                text: 'Cancel',
-                color: theme.accentTxt.withOpacity(0.6),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryBase,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const PrimaryText(
-                text: 'Watch Ad',
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      );
+      if (!mounted) return;
+      provider.setLoading(true);
+      // Temporarily set Gemini Pro access
+      GeminiService().setIsPro(true);
+      String? newErr;
+      if (isStartGame) {
+        newErr = await provider.startGame();
+      } else {
+        newErr = await provider.preGenerateQuestions();
+      }
+      // Reset to Freemium status
+      GeminiService().setIsPro(false);
 
-      if (watchAd == true) {
-        if (!mounted) return;
-        provider.setLoading(true);
-        await AdService.instance.showRewardedAd(
-          onUserEarnedReward: (ad, reward) async {
-            // Temporarily set Gemini Pro access
-            GeminiService().setIsPro(true);
-            String? newErr;
-            if (isStartGame) {
-              newErr = await provider.startGame();
-            } else {
-              newErr = await provider.preGenerateQuestions();
-            }
-            // Reset to Freemium status
-            GeminiService().setIsPro(false);
-
-            if (mounted) {
-              provider.setLoading(false);
-              if (newErr != null) {
-                context.showInAppNotification(newErr, type: InAppNotificationType.error);
-              } else {
-                context.showInAppNotification('AI generated questions successfully using Gemini!', type: InAppNotificationType.success);
-              }
-            }
-          },
-          onAdFailedToShow: () {
-            if (mounted) {
-              provider.setLoading(false);
-              context.showInAppNotification('Failed to load ad. Please try again.', type: InAppNotificationType.error);
-            }
-          },
-        );
+      if (mounted) {
+        provider.setLoading(false);
+        if (newErr != null) {
+          context.showInAppNotification(newErr, type: InAppNotificationType.error);
+        } else {
+          context.showInAppNotification('AI generated questions successfully using Gemini Pro!', type: InAppNotificationType.success);
+        }
       }
     } else {
       context.showInAppNotification(errorMsg, type: InAppNotificationType.error);
