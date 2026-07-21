@@ -20,6 +20,14 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   // Reading tab state
   String _selectedBook = 'John';
   int _selectedChapter = 3;
+  String _selectedTranslation = 'NLT';
+  final Map<String, String> _translations = {
+    'NLT': 'NLT',
+    'NIV': 'NIV',
+    'ESV': 'ESV',
+    'KJV': 'KJV',
+    'WEB': 'WEB',
+  };
   bool _isLoadingChapter = false;
   List<Map<String, dynamic>> _verses = [];
   String? _selectedText;
@@ -180,7 +188,17 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
     _initVoiceQuiz();
   }
 
+  Future<void> _loadSavedTranslation() async {
+    final val = await SharedPrefs.getString('SELECTED_BIBLE_TRANSLATION');
+    if (mounted && val.isNotEmpty && _translations.containsKey(val)) {
+      setState(() {
+        _selectedTranslation = val;
+      });
+    }
+  }
+
   Future<void> _initData() async {
+    await _loadSavedTranslation();
     await _loadLastReadChapter();
     await _fetchBibleChapter();
     try {
@@ -219,7 +237,6 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
             category: AVAudioSessionCategory.playback,
             options: {
               AVAudioSessionOptions.mixWithOthers,
-              AVAudioSessionOptions.defaultToSpeaker,
             },
           ),
         ),
@@ -681,15 +698,24 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
 
     try {
       final dio = Dio();
-      final url = 'https://bible-api.com/${Uri.encodeComponent(_selectedBook)}+$_selectedChapter';
+      final bookId = _books.indexOf(_selectedBook) + 1;
+      final url = 'https://bolls.life/get-text/$_selectedTranslation/$bookId/$_selectedChapter/';
       final response = await dio.get(url);
 
-      if (response.statusCode == 200) {
-        final data = response.data;
-        final list = List<Map<String, dynamic>>.from(data['verses']);
+      if (response.statusCode == 200 && response.data is List) {
+        final rawList = response.data as List;
+        final list = rawList.map((v) {
+          String textStr = v['text']?.toString() ?? '';
+          textStr = textStr.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+          return {
+            'verse': v['verse'] ?? 1,
+            'text': textStr,
+          };
+        }).toList();
+
         setState(() {
           _verses = list;
-          _chapterText = data['text'] as String?;
+          _chapterText = list.map((v) => "${v['verse']} ${v['text']}").join('\n');
         });
 
         // Save last read chapter
@@ -700,13 +726,38 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
         // Log daily streak / action complete
         await EngagementService().recordAction(EngagementAction.bibleChapterRead);
       } else {
-        if (mounted) {
-          context.showInAppNotification('Failed to load chapter. Status: ${response.statusCode}');
-        }
+        throw Exception("Failed to load from Bolls.life");
       }
     } catch (e) {
-      if (mounted) {
-        context.showInAppNotification('Connection required to load Bible.');
+      safePrint("Bolls.life fetch failed, falling back to bible-api.com: $e");
+      try {
+        final dio = Dio();
+        final url = 'https://bible-api.com/${Uri.encodeComponent(_selectedBook)}+$_selectedChapter';
+        final response = await dio.get(url);
+
+        if (response.statusCode == 200) {
+          final data = response.data;
+          final list = List<Map<String, dynamic>>.from(data['verses']);
+          setState(() {
+            _verses = list;
+            _chapterText = data['text'] as String?;
+          });
+
+          // Save last read chapter
+          final chapterStr = '$_selectedBook $_selectedChapter';
+          await SharedPrefs.setString('LAST_READ_BIBLE_CHAPTER', chapterStr);
+          await _loadLastReadChapter();
+          
+          await EngagementService().recordAction(EngagementAction.bibleChapterRead);
+        } else {
+          if (mounted) {
+            context.showInAppNotification('Failed to load chapter. Status: ${response.statusCode}');
+          }
+        }
+      } catch (err) {
+        if (mounted) {
+          context.showInAppNotification('Connection required to load Bible.');
+        }
       }
     } finally {
       if (mounted) {
@@ -1560,13 +1611,44 @@ $explanation
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Book & Chapter Selectors
+              // Translation, Book & Chapter Selectors
               Row(
                 children: [
                   Expanded(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: theme.accentTxt.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _selectedTranslation,
+                        dropdownColor: theme.brandDark,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        style: TextStyle(color: theme.accentTxt, fontSize: 14),
+                        items: _translations.keys
+                            .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                            .toList(),
+                        onChanged: (val) async {
+                          if (val != null) {
+                            setState(() {
+                              _selectedTranslation = val;
+                            });
+                            await SharedPrefs.setString('SELECTED_BIBLE_TRANSLATION', val);
+                            _fetchBibleChapter();
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  8.horizontalSpace,
+                  Expanded(
                     flex: 3,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
                         color: theme.accentTxt.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(12),
@@ -1577,7 +1659,7 @@ $explanation
                         dropdownColor: theme.brandDark,
                         isExpanded: true,
                         underline: const SizedBox(),
-                        style: TextStyle(color: theme.accentTxt, fontSize: 15),
+                        style: TextStyle(color: theme.accentTxt, fontSize: 14),
                         items: _books.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
                         onChanged: (val) {
                           if (val != null) {
@@ -1594,11 +1676,11 @@ $explanation
                       ),
                     ),
                   ),
-                  12.horizontalSpace,
+                  8.horizontalSpace,
                   Expanded(
                     flex: 2,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
                         color: theme.accentTxt.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(12),
@@ -1609,7 +1691,7 @@ $explanation
                         dropdownColor: theme.brandDark,
                         isExpanded: true,
                         underline: const SizedBox(),
-                        style: TextStyle(color: theme.accentTxt, fontSize: 15),
+                        style: TextStyle(color: theme.accentTxt, fontSize: 14),
                         items: List.generate(_bibleBookChapters[_selectedBook] ?? 50, (index) => index + 1)
                             .map((c) => DropdownMenuItem(value: c, child: Text('Ch. $c')))
                             .toList(),

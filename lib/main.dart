@@ -4,11 +4,13 @@ import 'package:mindpilot/firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize AdService / AdMob SDK
-  await AdService.instance.initialize();
-
   try {
     await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('Failed to load .env file: $e');
+  }
+
+  try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
@@ -25,6 +27,20 @@ void main() async {
     };
   } catch (e) {
     debugPrint('Initialization failed: $e');
+  }
+
+  // Initialize NotificationService before appProvider or any background tasks schedule reminders
+  try {
+    await NotificationService().initialize();
+  } catch (e) {
+    debugPrint('NotificationService initialization failed: $e');
+  }
+
+  // Initialize AdService / AdMob SDK
+  try {
+    await AdService.instance.initialize();
+  } catch (e) {
+    debugPrint('AdService initialization failed: $e');
   }
 
   final appProvider = AppProvider();
@@ -61,22 +77,9 @@ void main() async {
 
 Future<void> _initializeBackgroundServices() async {
   try {
-    await GoogleSignIn.instance.initialize(
-      clientId: kIsWeb ? dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID'] : null,
-      serverClientId: dotenv.env['GOOGLE_SIGN_IN_SERVER_CLIENT_ID'],
-    );
-
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    await NotificationService().initialize();
-
     await AnalyticsService.logAppOpen();
     await PaymentService.initialize();
-
-    final isAllowed = await NotificationService().isNotificationsEnabled();
-
-    if (!isAllowed) {
-      await NotificationService().requestPermissions();
-    }
   } catch (e) {
     debugPrint('Background service initialization failed: $e');
   }

@@ -195,7 +195,8 @@ class NotificationService {
 
     tz.initializeTimeZones();
     try {
-      final String timeZoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
+      final tzInfo = await FlutterTimezone.getLocalTimezone();
+      final String timeZoneName = tzInfo.identifier;
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     } catch (e) {
       try {
@@ -312,9 +313,9 @@ class NotificationService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'fcmToken': token,
-        });
+        }, SetOptions(merge: true));
       }
     } catch (_) {}
   }
@@ -546,7 +547,7 @@ class NotificationService {
             audioFocus: AndroidAudioFocus.gainTransient,
           ),
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playback,
+            category: AVAudioSessionCategory.playAndRecord,
             options: {
               AVAudioSessionOptions.defaultToSpeaker,
               AVAudioSessionOptions.mixWithOthers,

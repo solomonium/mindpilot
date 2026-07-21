@@ -90,5 +90,7 @@
 	<string>MindPilot needs photo library access so you can pick a QR code image to scan and join a group quiz.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>MindPilot needs microphone access to join group voice study sessions.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>MindPilot needs speech recognition access to transcribe your spoken questions during voice Bible study sessions.</string>
 </dict>
 </plist>

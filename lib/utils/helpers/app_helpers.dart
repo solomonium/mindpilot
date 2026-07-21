@@ -48,6 +48,7 @@ class AppHelper {
   }
 
   static Future<void> setScreenshotProtection(bool enable) async {
+    if (!Platform.isAndroid) return;
     try {
       final context = R.N.navKey.currentContext;
       bool isPro = false;

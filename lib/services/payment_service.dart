@@ -35,8 +35,10 @@ class PaymentService {
       await Purchases.setLogLevel(LogLevel.debug);
       safePrint('RevenueCat successfully configured');
 
-      // Sync subscription status on launch
-      await syncSubscriptionStatus();
+      // Sync subscription status safely in background on launch
+      unawaited(syncSubscriptionStatus().catchError((e) {
+        safePrint('Error syncing RevenueCat subscription: $e');
+      }));
     } catch (e) {
       safePrint('Error initializing RevenueCat: $e');
     }
