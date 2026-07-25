@@ -70,7 +70,7 @@ class GeminiService {
 
     try {
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         apiKey: geminiApiKey,
         systemInstruction: systemInstruction != null && systemInstruction.isNotEmpty
             ? Content.system(systemInstruction)
@@ -85,7 +85,7 @@ class GeminiService {
       if (responseText != null && responseText.isNotEmpty) {
         safePrint('GeminiService: Direct Gemini API success.');
         _logUsage(
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.0-flash',
           feature: feature,
           source: 'direct',
           promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
@@ -97,7 +97,7 @@ class GeminiService {
     } catch (e) {
       safePrint('GeminiService Direct API Error: $e');
       _logUsage(
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         feature: feature,
         source: 'direct',
         promptTokens: 0,
@@ -117,8 +117,14 @@ class GeminiService {
     int maxTokens = 1500,
   }) async {
     if (_apiKey == null || _apiKey!.isEmpty) {
+      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    }
+    if (_apiKey == null || _apiKey!.isEmpty) {
       return null;
     }
+
+    final cleanKey = _apiKey!.trim();
+    String? lastError;
 
     for (var i = 0; i < models.length; i++) {
       final model = models[i];
@@ -126,20 +132,20 @@ class GeminiService {
         final dio = Dio();
         const url = 'https://openrouter.ai/api/v1/chat/completions';
 
-         if (i > 0) {
-          await Future.delayed(const Duration(seconds: 1));
+        if (i > 0) {
+          await Future.delayed(const Duration(milliseconds: 500));
         }
 
         final response = await dio.post(
           url,
           options: Options(
             headers: {
-              'Authorization': 'Bearer $_apiKey',
+              'Authorization': 'Bearer $cleanKey',
               'Content-Type': 'application/json',
               'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
               'X-Title': 'MindPilot',
             },
-            validateStatus: (status) => status! < 500,
+            validateStatus: (status) => status != null && status < 500,
             receiveTimeout: const Duration(seconds: 30),
             sendTimeout: const Duration(seconds: 30),
           ),
@@ -150,7 +156,7 @@ class GeminiService {
           },
         );
 
-        if (response.statusCode == 200) {
+        if (response.statusCode == 200 && response.data != null && response.data['choices'] != null && (response.data['choices'] as List).isNotEmpty) {
           final content = response.data['choices'][0]['message']['content'] as String;
           final usage = response.data['usage'];
           if (usage != null) {
@@ -174,11 +180,21 @@ class GeminiService {
           }
           return content;
         } else {
-          safePrint('OpenRouter Issue ($model): ${response.statusCode}');
+          final errorMsg = response.data != null && response.data['error'] != null
+              ? (response.data['error']['message'] ?? response.data['error'].toString())
+              : 'HTTP ${response.statusCode}';
+          safePrint('OpenRouter Issue ($model): $errorMsg (status: ${response.statusCode})');
+          lastError = '$model: $errorMsg (HTTP ${response.statusCode})';
+          
+          if (response.statusCode == 401 || response.statusCode == 402) {
+            safePrint('OpenRouter Authentication/Credit Error. Aborting further model retries.');
+            break;
+          }
           continue;
         }
       } catch (e) {
         safePrint('AI ATTEMPT ERROR ($model): $e');
+        lastError = '$model error: $e';
         continue;
       }
     }
@@ -190,7 +206,7 @@ class GeminiService {
       responseTokens: 0,
       totalTokens: 0,
       status: 'failed',
-      errorMessage: 'All attempted models failed.',
+      errorMessage: lastError ?? 'All attempted models failed.',
     );
     return null;
   }
@@ -321,8 +337,22 @@ class GeminiService {
 
       safePrint('GeminiService: Direct Gemini API failed or unconfigured. Trying premium models via OpenRouter.');
       final List<String> proModels = preferFlash
-          ? ['google/gemini-2.5-flash', 'google/gemini-2.5-pro']
-          : ['google/gemini-2.5-pro', 'google/gemini-2.5-flash'];
+          ? [
+              'google/gemini-2.0-flash-001',
+              'google/gemini-2.0-pro-exp-02-05:free',
+              'google/gemini-1.5-flash',
+              'google/gemini-1.5-pro',
+              'meta-llama/llama-3.3-70b-instruct:free',
+              'deepseek/deepseek-chat:free',
+            ]
+          : [
+              'google/gemini-2.0-pro-exp-02-05:free',
+              'google/gemini-2.0-flash-001',
+              'google/gemini-1.5-pro',
+              'google/gemini-1.5-flash',
+              'meta-llama/llama-3.3-70b-instruct:free',
+              'deepseek/deepseek-chat:free',
+            ];
 
       response = await _sendOpenRouter(
         models: proModels,
@@ -337,6 +367,9 @@ class GeminiService {
     }
 
     if (_apiKey == null || _apiKey!.isEmpty) {
+      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    }
+    if (_apiKey == null || _apiKey!.isEmpty) {
       throw Exception(
         "AI not initialized. Please check your OpenRouter API key.",
       );
@@ -345,21 +378,23 @@ class GeminiService {
     List<String> modelsToTry;
     if (preferFlash) {
       modelsToTry = [
-        'google/gemini-2.5-flash:free',
-        'google/gemini-flash-1.5-8b:free',
-        'google/gemini-2.5-flash',
         'google/gemini-2.0-flash-exp:free',
-        'meta-llama/llama-3.2-3b-instruct:free',
+        'google/gemini-2.0-flash-lite-preview-02-05:free',
         'meta-llama/llama-3.3-70b-instruct:free',
-        'google/gemma-4-31b-it:free',
+        'meta-llama/llama-3.2-3b-instruct:free',
+        'deepseek/deepseek-r1:free',
+        'deepseek/deepseek-chat:free',
+        'qwen/qwen-2.5-72b-instruct:free',
+        'mistralai/mistral-7b-instruct:free',
       ];
     } else {
       modelsToTry = _availableModels.isNotEmpty
           ? List<String>.from(_availableModels)
           : [
               'meta-llama/llama-3.3-70b-instruct:free',
-              'google/gemma-4-31b-it:free',
+              'deepseek/deepseek-chat:free',
               'meta-llama/llama-3.2-3b-instruct:free',
+              'mistralai/mistral-7b-instruct:free',
             ];
       modelsToTry.shuffle();
     }
@@ -431,8 +466,22 @@ class GeminiService {
       messages.add({'role': 'user', 'content': message});
 
       final List<String> proModels = preferFlash
-          ? ['google/gemini-2.5-flash', 'google/gemini-2.5-pro']
-          : ['google/gemini-2.5-pro', 'google/gemini-2.5-flash'];
+          ? [
+              'google/gemini-2.0-flash-001',
+              'google/gemini-2.0-pro-exp-02-05:free',
+              'google/gemini-1.5-flash',
+              'google/gemini-1.5-pro',
+              'meta-llama/llama-3.3-70b-instruct:free',
+              'deepseek/deepseek-chat:free',
+            ]
+          : [
+              'google/gemini-2.0-pro-exp-02-05:free',
+              'google/gemini-2.0-flash-001',
+              'google/gemini-1.5-pro',
+              'google/gemini-1.5-flash',
+              'meta-llama/llama-3.3-70b-instruct:free',
+              'deepseek/deepseek-chat:free',
+            ];
 
       response = await _sendOpenRouter(
         models: proModels,
@@ -445,6 +494,9 @@ class GeminiService {
       }
     }
 
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    }
     if (_apiKey == null || _apiKey!.isEmpty) {
       throw Exception(
         "AI not initialized. Please check your OpenRouter API key.",
@@ -460,21 +512,23 @@ class GeminiService {
     List<String> modelsToTry;
     if (preferFlash) {
       modelsToTry = [
-        'google/gemini-2.5-flash:free',
-        'google/gemini-flash-1.5-8b:free',
-        'google/gemini-2.5-flash',
         'google/gemini-2.0-flash-exp:free',
-        'meta-llama/llama-3.2-3b-instruct:free',
+        'google/gemini-2.0-flash-lite-preview-02-05:free',
         'meta-llama/llama-3.3-70b-instruct:free',
-        'google/gemma-4-31b-it:free',
+        'meta-llama/llama-3.2-3b-instruct:free',
+        'deepseek/deepseek-r1:free',
+        'deepseek/deepseek-chat:free',
+        'qwen/qwen-2.5-72b-instruct:free',
+        'mistralai/mistral-7b-instruct:free',
       ];
     } else {
       modelsToTry = _availableModels.isNotEmpty
           ? List<String>.from(_availableModels)
           : [
               'meta-llama/llama-3.3-70b-instruct:free',
-              'google/gemma-4-31b-it:free',
+              'deepseek/deepseek-chat:free',
               'meta-llama/llama-3.2-3b-instruct:free',
+              'mistralai/mistral-7b-instruct:free',
             ];
       modelsToTry.shuffle();
     }
@@ -497,10 +551,10 @@ class GeminiService {
       final dio = Dio();
       final response = await dio.get(
         'https://openrouter.ai/api/v1/models',
-        options: Options(headers: {'Authorization': 'Bearer $apiKey'}),
+        options: Options(headers: {'Authorization': 'Bearer ${apiKey.trim()}'}),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && response.data != null && response.data['data'] != null) {
         final List data = response.data['data'];
         final models = data
             .map((m) => m['id'].toString())
@@ -517,8 +571,9 @@ class GeminiService {
     }
 
     return [
+      'google/gemini-2.0-flash-exp:free',
+      'meta-llama/llama-3.3-70b-instruct:free',
       'mistralai/mistral-7b-instruct:free',
-      'google/gemini-flash-1.5-8b:free',
     ];
   }
 

@@ -306,7 +306,19 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
           });
         }
         
-        String textToSpeak = "$_selectedBook chapter $_selectedChapter. $_chapterText";
+        String spokenPassage;
+        if (_verses.isNotEmpty) {
+          spokenPassage = _verses
+              .map((v) => (v['text'] ?? '').toString().trim())
+              .where((t) => t.isNotEmpty)
+              .join(' ');
+        } else {
+          spokenPassage = _chapterText!
+              .replaceAll(RegExp(r'^\s*\d+\s*', multiLine: true), '')
+              .replaceAll(RegExp(r'\n\s*\d+\s*'), ' ');
+        }
+
+        String textToSpeak = "$_selectedBook chapter $_selectedChapter. $spokenPassage";
         await _bibleTts.speak(textToSpeak.replaceAll(RegExp(r'[*#_`]'), ''));
       } catch (e) {
         safePrint("TTS Read Chapter Error: $e");
@@ -1158,9 +1170,11 @@ Every time you are called, randomize the target books and generate a completely 
 """;
     }
 
+    final calculatedMaxTokens = (_questionCount * 250).clamp(2500, 6000);
+
     final prompt = """
 You are the **MindPilot Quiz Generator**. Generate a JSON array of multiple choice questions based on: $targetContext.
-The JSON array must contain exactly $_questionCount questions.
+The JSON array MUST contain EXACTLY $_questionCount questions. Do NOT wrap the array in an outer JSON object or key.
 
 $styleInstructions
 
@@ -1191,7 +1205,7 @@ ${
     : ''
 }
 
-Return ONLY the raw JSON array. Do not include markdown code block formatting (no ```json or ```). Just raw JSON.
+Return ONLY the raw JSON array containing exactly $_questionCount items. Do not include markdown code block formatting (no ```json or ```). Just raw JSON.
 """;
 
     try {
@@ -1200,46 +1214,97 @@ Return ONLY the raw JSON array. Do not include markdown code block formatting (n
         prompt,
         systemInstruction: systemInstruction,
         feature: 'bible_quiz',
-        maxTokens: 2500,
+        maxTokens: calculatedMaxTokens,
         cacheKey: 'bible_quiz:$_quizScopeType:${_chapterOrTopicController.text.trim()}:$_questionCount',
       );
       
       if (_activeQuizGenerationToken != currentToken) return;
       if (response != null) {
         final cleanJson = _cleanJsonString(response);
-        final List decoded = jsonDecode(cleanJson);
+        dynamic decoded;
+        try {
+          decoded = jsonDecode(cleanJson);
+        } catch (e) {
+          safePrint("JSON decode error, attempting object extraction: $e");
+          final objectMatches = RegExp(r'\{[^{}]*"question"[^{}]*\}', dotAll: true).allMatches(response);
+          if (objectMatches.isNotEmpty) {
+            final List<Map<String, dynamic>> extracted = [];
+            for (var m in objectMatches) {
+              try {
+                final item = jsonDecode(m.group(0)!);
+                if (item is Map) extracted.add(Map<String, dynamic>.from(item));
+              } catch (_) {}
+            }
+            if (extracted.isNotEmpty) {
+              decoded = extracted;
+            }
+          }
+        }
+
+        List rawList = [];
+        if (decoded is List) {
+          rawList = decoded;
+        } else if (decoded is Map) {
+          if (decoded['questions'] is List) {
+            rawList = decoded['questions'];
+          } else if (decoded['data'] is List) {
+            rawList = decoded['data'];
+          } else if (decoded['quiz'] is List) {
+            rawList = decoded['quiz'];
+          } else if (decoded['items'] is List) {
+            rawList = decoded['items'];
+          } else if (decoded.containsKey('question')) {
+            rawList = [decoded];
+          }
+        }
+
         final List<Map<String, dynamic>> parsed = [];
-        for (var item in decoded) {
+        for (var item in rawList) {
           if (item is Map) {
             final map = Map<String, dynamic>.from(item);
             final questionText = map['question'] ?? map['questionText'] ?? '';
             final optionsList = List<String>.from(map['options'] ?? []);
             final answerIdx = map['answer'] ?? map['correctAnswerIndex'] ?? 0;
             final explText = map['explanation'] ?? '';
-            parsed.add({
-              'question': questionText,
-              'options': optionsList,
-              'answer': answerIdx,
-              'explanation': explText,
-            });
+            if (questionText.isNotEmpty && optionsList.isNotEmpty) {
+              parsed.add({
+                'question': questionText,
+                'options': optionsList,
+                'answer': answerIdx,
+                'explanation': explText,
+              });
+            }
           }
         }
-        if (_activeQuizGenerationToken != currentToken) return;
-        setState(() {
-          _quizQuestions = parsed;
-        });
-        _playQuizStartedSoundAndVibrate();
-        if (!_voiceQuizMode) {
-          _startQuestionTimer();
+
+        // Top up with fallback questions if AI response was truncated or fewer questions were generated
+        if (parsed.length < _questionCount) {
+          final fallbacks = _getFallbackQuestions(_quizScopeType, _chapterOrTopicController.text.trim(), _questionCount);
+          for (var fb in fallbacks) {
+            if (parsed.length >= _questionCount) break;
+            parsed.add(fb);
+          }
         }
-        _connectSoloQuizVoiceRoom();
-        _speakActiveQuestion();
+
+        if (_activeQuizGenerationToken != currentToken) return;
+        if (parsed.isNotEmpty) {
+          setState(() {
+            _quizQuestions = parsed;
+          });
+          _playQuizStartedSoundAndVibrate();
+          if (!_voiceQuizMode) {
+            _startQuestionTimer();
+          }
+          _connectSoloQuizVoiceRoom();
+          _speakActiveQuestion();
+          return;
+        }
       }
     } catch (e) {
       safePrint("Solo quiz generation/parsing failed: $e");
       if (_activeQuizGenerationToken != currentToken) return;
       setState(() {
-        _quizQuestions = _getFallbackQuestions(_quizScopeType, _chapterOrTopicController.text.trim());
+        _quizQuestions = _getFallbackQuestions(_quizScopeType, _chapterOrTopicController.text.trim(), _questionCount);
       });
       _playQuizStartedSoundAndVibrate();
       if (!_voiceQuizMode) {
@@ -3837,10 +3902,11 @@ The JSON object must have exactly these keys:
     });
   }
 
-  List<Map<String, dynamic>> _getFallbackQuestions(String scopeType, String scopeValue) {
+  List<Map<String, dynamic>> _getFallbackQuestions(String scopeType, String scopeValue, int count) {
+    List<Map<String, dynamic>> basePool = [];
     switch (scopeType) {
       case 'tech':
-        return [
+        basePool = [
           {
             "question": "Which programming language is known for its safety and concurrency features, often used in systems programming?",
             "options": ["Python", "JavaScript", "Rust", "PHP"],
@@ -3863,10 +3929,23 @@ The JSON object must have exactly these keys:
             "options": ["Row", "Container", "MaterialApp", "Column"],
             "answer": 2,
             "explanation": "MaterialApp wraps the app to provide routing, theme, and material design structures."
-          }
+          },
+          {
+            "question": "What is the primary role of a version control system like Git?",
+            "options": ["Compile code", "Track file changes over time", "Deploy apps to server", "Manage database queries"],
+            "answer": 1,
+            "explanation": "Git tracks changes in source code during software development."
+          },
+          {
+            "question": "Which data structure uses LIFO (Last In, First Out) ordering?",
+            "options": ["Queue", "Stack", "Array", "Linked List"],
+            "answer": 1,
+            "explanation": "A Stack operates on a Last In, First Out (LIFO) basis."
+          },
         ];
+        break;
       case 'science':
-        return [
+        basePool = [
           {
             "question": "What is the chemical symbol for gold?",
             "options": ["Ag", "Au", "Fe", "Pb"],
@@ -3878,80 +3957,234 @@ The JSON object must have exactly these keys:
             "options": ["Venus", "Mars", "Jupiter", "Saturn"],
             "answer": 1,
             "explanation": "Mars is called the Red Planet because of iron oxide (rust) on its surface."
-          }
+          },
+          {
+            "question": "What is the speed of light in a vacuum approximately?",
+            "options": ["300,000 km/s", "150,000 km/s", "1,000,000 km/s", "30,000 km/s"],
+            "answer": 0,
+            "explanation": "Light travels at approximately 300,000 kilometers per second in a vacuum."
+          },
+          {
+            "question": "Which particle has a negative electric charge?",
+            "options": ["Proton", "Neutron", "Electron", "Photon"],
+            "answer": 2,
+            "explanation": "Electrons carry a negative fundamental electric charge."
+          },
+          {
+            "question": "What process do plants use to convert sunlight into food energy?",
+            "options": ["Respiration", "Photosynthesis", "Fermentation", "Transpiration"],
+            "answer": 1,
+            "explanation": "Photosynthesis converts light energy into chemical energy in plants."
+          },
         ];
+        break;
       case 'english':
-        return [
+        basePool = [
           {
             "question": "Who wrote the play 'Romeo and Juliet'?",
             "options": ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
             "answer": 1,
             "explanation": "William Shakespeare wrote the tragedy Romeo and Juliet early in his career."
-          }
+          },
+          {
+            "question": "Which of the following is a synonym for 'ephemeral'?",
+            "options": ["Eternal", "Fleeting", "Substantial", "Constant"],
+            "answer": 1,
+            "explanation": "Ephemeral means lasting for a very short time; fleeting."
+          },
+          {
+            "question": "What literary device involves attributing human characteristics to non-human things?",
+            "options": ["Metaphor", "Simile", "Personification", "Alliteration"],
+            "answer": 2,
+            "explanation": "Personification assigns human traits and emotions to non-human entities."
+          },
+          {
+            "question": "Identify the adjective in the sentence: 'The courageous knight defeated the dragon.'",
+            "options": ["courageous", "knight", "defeated", "dragon"],
+            "answer": 0,
+            "explanation": "'Courageous' describes the noun 'knight'."
+          },
+          {
+            "question": "Who wrote the epic poem 'Paradise Lost'?",
+            "options": ["John Milton", "Geoffrey Chaucer", "Lord Byron", "T.S. Eliot"],
+            "answer": 0,
+            "explanation": "John Milton published Paradise Lost in 1667."
+          },
         ];
+        break;
       case 'economics':
-        return [
+        basePool = [
           {
             "question": "What is the term for a general increase in prices and fall in the purchasing value of money?",
             "options": ["Deflation", "Stagnation", "Inflation", "Recession"],
             "answer": 2,
             "explanation": "Inflation is a general rise in price levels over time."
-          }
+          },
+          {
+            "question": "Which principle states that as price increases, quantity supplied increases?",
+            "options": ["Law of Demand", "Law of Supply", "Law of Diminishing Utility", "Fiscal Balance"],
+            "answer": 1,
+            "explanation": "The Law of Supply states that higher prices encourage suppliers to produce more."
+          },
+          {
+            "question": "What term describes a market structure dominated by a single seller?",
+            "options": ["Oligopoly", "Monopoly", "Monopsony", "Perfect Competition"],
+            "answer": 1,
+            "explanation": "A monopoly exists when a single seller controls the supply of a commodity."
+          },
+          {
+            "question": "What does GDP stand for?",
+            "options": ["Gross Domestic Product", "General Development Process", "Global Debt Ratio", "Government Direct Purchase"],
+            "answer": 0,
+            "explanation": "GDP stands for Gross Domestic Product."
+          },
+          {
+            "question": "Which institution regulates national monetary policy and money supply in many countries?",
+            "options": ["Stock Exchange", "Central Bank", "Commercial Bank", "Treasury Department"],
+            "answer": 1,
+            "explanation": "Central Banks oversee national monetary policy and money supply."
+          },
         ];
+        break;
       case 'mindfulness':
-        return [
+        basePool = [
           {
             "question": "Which of the following is a key component of mindfulness practice?",
             "options": ["Dwelling on the past", "Worrying about the future", "Non-judgmental present moment awareness", "Suppressing all thoughts"],
             "answer": 2,
             "explanation": "Mindfulness involves paying attention to the present moment without judgment."
-          }
-        ];
-      case 'custom':
-        return [
+          },
           {
-            "question": "Let's explore the topic: $scopeValue. Which is a general starting point for learning?",
-            "options": ["Read introductory articles", "Skip the basics", "Only test yourself", "Memorize advanced terms"],
+            "question": "What is emotional intelligence primarily concerned with?",
+            "options": ["IQ scores", "Recognizing and managing emotions", "Memory retention", "Physical strength"],
+            "answer": 1,
+            "explanation": "Emotional intelligence is the ability to perceive, understand, and manage emotions."
+          },
+          {
+            "question": "Which technique helps calm the nervous system during stress?",
+            "options": ["Deep diaphragmatic breathing", "Rapid shallow breathing", "Avoiding rest", "Consuming caffeine"],
             "answer": 0,
-            "explanation": "Starting with introductory articles helps build a foundation in $scopeValue."
-          }
+            "explanation": "Deep breathing activates the parasympathetic nervous system to promote relaxation."
+          },
+          {
+            "question": "What is the practice of expressing appreciation for good things in life called?",
+            "options": ["Gratitude", "Resentment", "Perfectionism", "Stoicism"],
+            "answer": 0,
+            "explanation": "Gratitude involves recognizing and feeling thankful for positive aspects of life."
+          },
+          {
+            "question": "How does growth mindset view challenges and failures?",
+            "options": ["As proof of inadequacy", "As opportunities to learn and grow", "As reasons to quit", "As permanent defects"],
+            "answer": 1,
+            "explanation": "A growth mindset sees challenges as pathways to developing skill and resilience."
+          },
         ];
+        break;
+      case 'custom':
+        final topic = scopeValue.isNotEmpty ? scopeValue : 'General Knowledge';
+        basePool = [
+          {
+            "question": "When studying '$topic', what is an effective foundational strategy?",
+            "options": ["Build core concepts step-by-step", "Skip fundamental principles", "Memorize without understanding", "Avoid practice exercises"],
+            "answer": 0,
+            "explanation": "Building core concepts step-by-step establishes a solid understanding of $topic."
+          },
+          {
+            "question": "Which method best reinforces long-term retention of concepts in '$topic'?",
+            "options": ["Active recall and spaced repetition", "Passive re-reading once", "Cramming overnight", "Skimming table of contents"],
+            "answer": 0,
+            "explanation": "Active recall combined with spaced repetition boosts long-term memory for $topic."
+          },
+          {
+            "question": "How can one deepen mastery in key areas of '$topic'?",
+            "options": ["Teach or explain the topic to others", "Never ask questions", "Ignore feedback", "Rely solely on intuition"],
+            "answer": 0,
+            "explanation": "Explaining concepts to others identifies knowledge gaps and solidifies mastery in $topic."
+          },
+          {
+            "question": "What is an effective approach to tackling complex problems in '$topic'?",
+            "options": ["Break the problem down into smaller parts", "Guess randomly", "Abandon difficult parts", "Rush without analyzing"],
+            "answer": 0,
+            "explanation": "Decomposing complex problems into smaller manageable steps leads to clearer solutions."
+          },
+          {
+            "question": "Why is regular self-assessment valuable when learning '$topic'?",
+            "options": ["It highlights strengths and areas for improvement", "It proves you know everything", "It replaces study time", "It prevents critical thinking"],
+            "answer": 0,
+            "explanation": "Self-assessment helps track progress and targets weak spots in $topic."
+          },
+        ];
+        break;
       default:
         // Bible general / chapter fallback
-        return [
+        basePool = [
           {
             "question": "Who built the ark as commanded by God?",
             "options": ["Moses", "Abraham", "Noah", "David"],
             "answer": 2,
-            "explanation": "Noah built the ark to save his family and animals from the flood as commanded in Genesis 6."
+            "explanation": "Genesis 6:14 - Noah built the ark to save his family and animals from the flood."
           },
           {
             "question": "What is the first book of the Bible?",
             "options": ["Exodus", "Genesis", "Matthew", "John"],
             "answer": 1,
-            "explanation": "Genesis is the opening book of the Bible, detailing the creation story."
+            "explanation": "Genesis 1:1 - Genesis is the opening book of the Bible, detailing creation."
           },
           {
             "question": "How many disciples did Jesus choose?",
             "options": ["10", "12", "7", "40"],
             "answer": 1,
-            "explanation": "Jesus chose 12 Apostles to follow him and spread his teachings."
+            "explanation": "Matthew 10:1-4 - Jesus chose 12 Apostles to follow him and spread his gospel."
+          },
+          {
+            "question": "Where was Jesus born according to scripture?",
+            "options": ["Nazareth", "Jerusalem", "Bethlehem", "Capernaum"],
+            "answer": 2,
+            "explanation": "Micah 5:2 / Matthew 2:1 - Jesus was born in Bethlehem as prophesied."
+          },
+          {
+            "question": "Which commandment comes with a promise of long life?",
+            "options": ["Honor your father and mother", "You shall not steal", "Remember the Sabbath day", "You shall not murder"],
+            "answer": 0,
+            "explanation": "Ephesians 6:2-3 / Exodus 20:12 - Honor your father and mother is the first commandment with a promise."
           },
         ];
+        break;
     }
+
+    if (basePool.isEmpty) return [];
+
+    final List<Map<String, dynamic>> result = [];
+    while (result.length < count) {
+      for (var q in basePool) {
+        if (result.length >= count) break;
+        result.add(Map<String, dynamic>.from(q));
+      }
+    }
+    return result;
   }
 
   String _cleanJsonString(String response) {
     String clean = response.trim();
+    if (clean.startsWith('```')) {
+      final firstNewLine = clean.indexOf('\n');
+      if (firstNewLine != -1) {
+        clean = clean.substring(firstNewLine + 1);
+      }
+      if (clean.endsWith('```')) {
+        clean = clean.substring(0, clean.length - 3);
+      }
+      clean = clean.trim();
+    }
+
     int firstList = clean.indexOf('[');
     int lastList = clean.lastIndexOf(']');
+    if (firstList != -1 && lastList != -1 && lastList > firstList) {
+      return clean.substring(firstList, lastList + 1);
+    }
+
     int firstObj = clean.indexOf('{');
     int lastObj = clean.lastIndexOf('}');
-    if (firstList != -1 && lastList != -1 && lastList > firstList) {
-      if (firstObj == -1 || firstList < firstObj) {
-        return clean.substring(firstList, lastList + 1);
-      }
-    }
     if (firstObj != -1 && lastObj != -1 && lastObj > firstObj) {
       return clean.substring(firstObj, lastObj + 1);
     }
