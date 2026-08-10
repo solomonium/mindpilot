@@ -15,9 +15,16 @@ class GeminiService {
   String _aiPersonality = 'Encouraging';
   bool _isPro = false;
 
+  String _selectedLlmProvider = 'Direct Gemini';
+
   void setIsPro(bool isPro) {
     _isPro = isPro;
     safePrint('GeminiService: Updated isPro to $_isPro');
+  }
+
+  void setLlmProvider(String provider) {
+    _selectedLlmProvider = provider;
+    safePrint('GeminiService: Updated LLM provider to $_selectedLlmProvider');
   }
 
   bool get isInitialized => _apiKey != null && _apiKey!.isNotEmpty;
@@ -37,7 +44,7 @@ class GeminiService {
 
   void init(
     String apiKey, {
-    String modelName = 'google/gemini-2.0-flash-exp:free',
+    String modelName = 'google/gemma-4-31b-it:free',
   }) {
     _apiKey = apiKey;
   }
@@ -56,11 +63,28 @@ class GeminiService {
     return contents;
   }
 
+  String _sanitizeDirectGeminiModel(String rawModelName) {
+    String name = rawModelName.trim();
+    name = name.replaceAll(RegExp(r'^google/'), '');
+    name = name.replaceAll(RegExp(r':free$'), '');
+    return name.isEmpty ? 'gemini-2.0-flash' : name;
+  }
+
+  String _sanitizeOpenRouterModel(String rawModel) {
+    String model = rawModel.trim();
+    if (model.isEmpty) return 'google/gemma-4-31b-it:free';
+    if (model.startsWith('gemini-') && !model.startsWith('google/')) {
+      model = 'google/$model';
+    }
+    return model;
+  }
+
   Future<String?> _sendDirectGemini({
     required List<Content> contents,
     String? systemInstruction,
     required String feature,
     int maxTokens = 1000,
+    String? overrideModel,
   }) async {
     final geminiApiKey = dotenv.env['GEMINI_API_KEY'];
     if (geminiApiKey == null || geminiApiKey.isEmpty) {
@@ -68,9 +92,15 @@ class GeminiService {
       return null;
     }
 
+    final String rawModelName = overrideModel ??
+        (ConfigService().directGeminiModel.isNotEmpty
+            ? ConfigService().directGeminiModel
+            : 'gemini-2.0-flash');
+    final String directModelName = _sanitizeDirectGeminiModel(rawModelName);
+
     try {
       final model = GenerativeModel(
-        model: 'gemini-2.0-flash',
+        model: directModelName,
         apiKey: geminiApiKey,
         systemInstruction: systemInstruction != null && systemInstruction.isNotEmpty
             ? Content.system(systemInstruction)
@@ -83,9 +113,9 @@ class GeminiService {
       );
       final responseText = response.text;
       if (responseText != null && responseText.isNotEmpty) {
-        safePrint('GeminiService: Direct Gemini API success.');
+        safePrint('GeminiService: Direct Gemini API success ($directModelName).');
         _logUsage(
-          model: 'gemini-2.0-flash',
+          model: directModelName,
           feature: feature,
           source: 'direct',
           promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
@@ -95,9 +125,36 @@ class GeminiService {
         return responseText;
       }
     } catch (e) {
-      safePrint('GeminiService Direct API Error: $e');
+      safePrint('GeminiService Direct API Error ($directModelName): $e');
+      
+      final fallbackChain = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+      int currentIdx = fallbackChain.indexOf(directModelName);
+      
+      if (currentIdx >= 0 && currentIdx < fallbackChain.length - 1) {
+        final nextModel = fallbackChain[currentIdx + 1];
+        safePrint('GeminiService: Retrying Direct Gemini API with fallback model ($nextModel)...');
+        return _sendDirectGemini(
+          contents: contents,
+          systemInstruction: systemInstruction,
+          feature: feature,
+          maxTokens: maxTokens,
+          overrideModel: nextModel,
+        );
+      } else if (currentIdx < 0) {
+        // If the failed model was not in the fallback chain, start the fallback chain
+        final nextModel = fallbackChain.first;
+        safePrint('GeminiService: Retrying Direct Gemini API with fallback model ($nextModel)...');
+        return _sendDirectGemini(
+          contents: contents,
+          systemInstruction: systemInstruction,
+          feature: feature,
+          maxTokens: maxTokens,
+          overrideModel: nextModel,
+        );
+      }
+
       _logUsage(
-        model: 'gemini-2.0-flash',
+        model: directModelName,
         feature: feature,
         source: 'direct',
         promptTokens: 0,
@@ -127,7 +184,7 @@ class GeminiService {
     String? lastError;
 
     for (var i = 0; i < models.length; i++) {
-      final model = models[i];
+      final model = _sanitizeOpenRouterModel(models[i]);
       try {
         final dio = Dio();
         const url = 'https://openrouter.ai/api/v1/chat/completions';
@@ -202,6 +259,89 @@ class GeminiService {
       model: models.isNotEmpty ? models.last : 'unknown',
       feature: feature,
       source: 'openrouter',
+      promptTokens: 0,
+      responseTokens: 0,
+      totalTokens: 0,
+      status: 'failed',
+      errorMessage: lastError ?? 'All attempted models failed.',
+    );
+    return null;
+  }
+
+  Future<String?> _sendAgentRouter({
+    required List<String> models,
+    required List<Map<String, String>> messages,
+    required String feature,
+    int maxTokens = 1500,
+  }) async {
+    final agentRouterApiKey = dotenv.env['AGENT_ROUTER_API_KEY'] ?? '';
+    if (agentRouterApiKey.isEmpty) {
+      safePrint('GeminiService: AGENT_ROUTER_API_KEY is not configured in .env.');
+      return null;
+    }
+
+    final cleanKey = agentRouterApiKey.trim();
+    String? lastError;
+
+    for (var i = 0; i < models.length; i++) {
+      final model = models[i];
+      try {
+        final dio = Dio();
+        const url = 'https://agentrouter.org/v1/chat/completions';
+
+        if (i > 0) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+
+        final response = await dio.post(
+          url,
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer $cleanKey',
+              'Content-Type': 'application/json',
+            },
+            validateStatus: (status) => status != null && status < 500,
+            receiveTimeout: const Duration(seconds: 30),
+            sendTimeout: const Duration(seconds: 30),
+          ),
+          data: {
+            'model': model,
+            'messages': messages,
+            'max_tokens': maxTokens,
+          },
+        );
+
+        if (response.statusCode == 200 && response.data != null && response.data['choices'] != null && (response.data['choices'] as List).isNotEmpty) {
+          final content = response.data['choices'][0]['message']['content'] as String;
+          final usage = response.data['usage'];
+          _logUsage(
+            model: model,
+            feature: feature,
+            source: 'agentrouter',
+            promptTokens: usage != null ? (usage['prompt_tokens'] as int? ?? 0) : 0,
+            responseTokens: usage != null ? (usage['completion_tokens'] as int? ?? 0) : 0,
+            totalTokens: usage != null ? (usage['total_tokens'] as int? ?? 0) : 0,
+          );
+          return content;
+        } else {
+          final errorMsg = response.data != null && response.data['error'] != null
+              ? (response.data['error']['message'] ?? response.data['error'].toString())
+              : 'HTTP ${response.statusCode}';
+          safePrint('AgentRouter Issue ($model): $errorMsg (status: ${response.statusCode})');
+          lastError = '$model: $errorMsg (HTTP ${response.statusCode})';
+          continue;
+        }
+      } catch (e) {
+        safePrint('AgentRouter ATTEMPT ERROR ($model): $e');
+        lastError = '$model error: $e';
+        continue;
+      }
+    }
+
+    _logUsage(
+      model: models.isNotEmpty ? models.last : 'unknown',
+      feature: feature,
+      source: 'agentrouter',
       promptTokens: 0,
       responseTokens: 0,
       totalTokens: 0,
@@ -317,91 +457,49 @@ class GeminiService {
 
     String? response;
 
-    if (_isPro) {
-      final systemMessage = _messages.firstWhere(
-        (m) => m['role'] == 'system',
-        orElse: () => <String, String>{},
-      );
-      final systemInstruction = systemMessage.isNotEmpty ? systemMessage['content'] : null;
+    final systemMessage = _messages.firstWhere(
+      (m) => m['role'] == 'system',
+      orElse: () => <String, String>{},
+    );
+    final systemInstruction = systemMessage.isNotEmpty ? systemMessage['content'] : null;
 
+    final String provider = _selectedLlmProvider;
+    if (provider == 'Direct Gemini') {
       response = await _sendDirectGemini(
         contents: _convertToGenerativeContent(),
         systemInstruction: systemInstruction,
         feature: feature,
         maxTokens: maxTokens,
       );
-      if (response != null) {
-        _messages.add({'role': 'assistant', 'content': response});
-        return response;
-      }
-
-      safePrint('GeminiService: Direct Gemini API failed or unconfigured. Trying premium models via OpenRouter.');
-      final List<String> proModels = preferFlash
-          ? [
-              'google/gemini-2.0-flash-001',
-              'google/gemini-2.0-pro-exp-02-05:free',
-              'google/gemini-1.5-flash',
-              'google/gemini-1.5-pro',
-              'meta-llama/llama-3.3-70b-instruct:free',
-              'deepseek/deepseek-chat:free',
-            ]
-          : [
-              'google/gemini-2.0-pro-exp-02-05:free',
-              'google/gemini-2.0-flash-001',
-              'google/gemini-1.5-pro',
-              'google/gemini-1.5-flash',
-              'meta-llama/llama-3.3-70b-instruct:free',
-              'deepseek/deepseek-chat:free',
-            ];
-
-      response = await _sendOpenRouter(
-        models: proModels,
+    } else if (provider == 'Agent Router') {
+      final configuredModels = ConfigService().agentRouterModels;
+      response = await _sendAgentRouter(
+        models: configuredModels,
         messages: _messages,
         feature: feature,
         maxTokens: maxTokens,
       );
-      if (response != null) {
-        _messages.add({'role': 'assistant', 'content': response});
-        return response;
-      }
-    }
-
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception(
-        "AI not initialized. Please check your OpenRouter API key.",
+    } else {
+      // OpenRouter provider (default)
+      final configuredModels = _isPro ? ConfigService().openRouterProModels : ConfigService().openRouterFreeModels;
+      response = await _sendOpenRouter(
+        models: configuredModels,
+        messages: _messages,
+        feature: feature,
+        maxTokens: maxTokens,
       );
     }
 
-    List<String> modelsToTry;
-    if (preferFlash) {
-      modelsToTry = [
-        'google/gemini-2.0-flash-exp:free',
-        'google/gemini-2.0-flash-lite-preview-02-05:free',
-        'meta-llama/llama-3.3-70b-instruct:free',
-        'meta-llama/llama-3.2-3b-instruct:free',
-        'deepseek/deepseek-r1:free',
-        'deepseek/deepseek-chat:free',
-        'qwen/qwen-2.5-72b-instruct:free',
-        'mistralai/mistral-7b-instruct:free',
-      ];
-    } else {
-      modelsToTry = _availableModels.isNotEmpty
-          ? List<String>.from(_availableModels)
-          : [
-              'meta-llama/llama-3.3-70b-instruct:free',
-              'deepseek/deepseek-chat:free',
-              'meta-llama/llama-3.2-3b-instruct:free',
-              'mistralai/mistral-7b-instruct:free',
-            ];
-      modelsToTry.shuffle();
+    if (response != null) {
+      _messages.add({'role': 'assistant', 'content': response});
+      return response;
     }
 
-    response = await _sendOpenRouter(
-      models: modelsToTry,
-      messages: _messages,
+    // Fallback if the selected provider fails
+    safePrint('GeminiService: Selected provider ($provider) failed. Falling back to Direct Gemini...');
+    response = await _sendDirectGemini(
+      contents: _convertToGenerativeContent(),
+      systemInstruction: systemInstruction,
       feature: feature,
       maxTokens: maxTokens,
     );
@@ -410,7 +508,20 @@ class GeminiService {
       return response;
     }
 
-    throw Exception("Failed to get response from AI models.");
+    // Ultimate Safety Net
+    response = await _sendDirectGemini(
+      contents: _convertToGenerativeContent(),
+      systemInstruction: systemInstruction,
+      feature: feature,
+      maxTokens: maxTokens,
+      overrideModel: 'gemini-2.5-flash',
+    );
+    if (response != null) {
+      _messages.add({'role': 'assistant', 'content': response});
+      return response;
+    }
+
+    throw Exception("Failed to get response from AI models. Please try again in a moment.");
   }
 
   Future<String?> sendMessageOneShot(
@@ -447,95 +558,48 @@ class GeminiService {
 
     String? response;
 
-    if (_isPro) {
-      response = await _sendDirectGemini(
-        contents: [Content.text(message)],
-        systemInstruction: completeInstruction,
-        feature: feature,
-        maxTokens: maxTokens,
-      );
-      if (response != null) {
-        return response;
-      }
-
-      safePrint('GeminiService OneShot: Direct Gemini API failed or unconfigured. Trying premium models via OpenRouter.');
-      final List<Map<String, String>> messages = [];
-      if (completeInstruction.isNotEmpty) {
-        messages.add({'role': 'system', 'content': completeInstruction});
-      }
-      messages.add({'role': 'user', 'content': message});
-
-      final List<String> proModels = preferFlash
-          ? [
-              'google/gemini-2.0-flash-001',
-              'google/gemini-2.0-pro-exp-02-05:free',
-              'google/gemini-1.5-flash',
-              'google/gemini-1.5-pro',
-              'meta-llama/llama-3.3-70b-instruct:free',
-              'deepseek/deepseek-chat:free',
-            ]
-          : [
-              'google/gemini-2.0-pro-exp-02-05:free',
-              'google/gemini-2.0-flash-001',
-              'google/gemini-1.5-pro',
-              'google/gemini-1.5-flash',
-              'meta-llama/llama-3.3-70b-instruct:free',
-              'deepseek/deepseek-chat:free',
-            ];
-
-      response = await _sendOpenRouter(
-        models: proModels,
-        messages: messages,
-        feature: feature,
-        maxTokens: maxTokens,
-      );
-      if (response != null) {
-        return response;
-      }
-    }
-
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception(
-        "AI not initialized. Please check your OpenRouter API key.",
-      );
-    }
-
     final List<Map<String, String>> messages = [];
     if (completeInstruction.isNotEmpty) {
       messages.add({'role': 'system', 'content': completeInstruction});
     }
     messages.add({'role': 'user', 'content': message});
 
-    List<String> modelsToTry;
-    if (preferFlash) {
-      modelsToTry = [
-        'google/gemini-2.0-flash-exp:free',
-        'google/gemini-2.0-flash-lite-preview-02-05:free',
-        'meta-llama/llama-3.3-70b-instruct:free',
-        'meta-llama/llama-3.2-3b-instruct:free',
-        'deepseek/deepseek-r1:free',
-        'deepseek/deepseek-chat:free',
-        'qwen/qwen-2.5-72b-instruct:free',
-        'mistralai/mistral-7b-instruct:free',
-      ];
+    final String provider = _selectedLlmProvider;
+    if (provider == 'Direct Gemini') {
+      response = await _sendDirectGemini(
+        contents: [Content.text(message)],
+        systemInstruction: completeInstruction,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
+    } else if (provider == 'Agent Router') {
+      final configuredModels = ConfigService().agentRouterModels;
+      response = await _sendAgentRouter(
+        models: configuredModels,
+        messages: messages,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
     } else {
-      modelsToTry = _availableModels.isNotEmpty
-          ? List<String>.from(_availableModels)
-          : [
-              'meta-llama/llama-3.3-70b-instruct:free',
-              'deepseek/deepseek-chat:free',
-              'meta-llama/llama-3.2-3b-instruct:free',
-              'mistralai/mistral-7b-instruct:free',
-            ];
-      modelsToTry.shuffle();
+      // OpenRouter provider (default)
+      final configuredModels = _isPro ? ConfigService().openRouterProModels : ConfigService().openRouterFreeModels;
+      response = await _sendOpenRouter(
+        models: configuredModels,
+        messages: messages,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
     }
 
-    response = await _sendOpenRouter(
-      models: modelsToTry,
-      messages: messages,
+    if (response != null) {
+      return response;
+    }
+
+    // Fallback if the selected provider fails
+    safePrint('GeminiService OneShot: Selected provider ($provider) failed. Falling back to Direct Gemini...');
+    response = await _sendDirectGemini(
+      contents: [Content.text(message)],
+      systemInstruction: completeInstruction,
       feature: feature,
       maxTokens: maxTokens,
     );
@@ -543,7 +607,19 @@ class GeminiService {
       return response;
     }
 
-    throw Exception("Failed to get response from AI models.");
+    // Ultimate Safety Net
+    response = await _sendDirectGemini(
+      contents: [Content.text(message)],
+      systemInstruction: completeInstruction,
+      feature: feature,
+      maxTokens: maxTokens,
+      overrideModel: 'gemini-2.5-flash',
+    );
+    if (response != null) {
+      return response;
+    }
+
+    throw Exception("Failed to get response from AI models. Please try again in a moment.");
   }
 
   Future<List<String>> listModels(String apiKey) async {
@@ -558,7 +634,13 @@ class GeminiService {
         final List data = response.data['data'];
         final models = data
             .map((m) => m['id'].toString())
-            .where((id) => id.contains(':free') || id.contains('flash'))
+            .where((id) {
+              if (_isPro) {
+                return id.contains(':free') || id.contains('flash') || id.contains('gpt') || id.contains('claude');
+              } else {
+                return id.endsWith(':free');
+              }
+            })
             .toList();
 
         if (models.isNotEmpty) {
@@ -570,11 +652,7 @@ class GeminiService {
       safePrint('List Models Error: $e');
     }
 
-    return [
-      'google/gemini-2.0-flash-exp:free',
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'mistralai/mistral-7b-instruct:free',
-    ];
+    return _isPro ? ConfigService().openRouterProModels : ConfigService().openRouterFreeModels;
   }
 
   void resetChat() {
@@ -607,9 +685,11 @@ class GeminiService {
         'totalTokens': totalTokens,
         'status': status,
         'errorMessage': errorMessage,
+      }).catchError((e) {
+        safePrint('GeminiService Log Usage Error (async): $e');
       });
     } catch (e) {
-      safePrint('GeminiService Log Usage Error: $e');
+      safePrint('GeminiService Log Usage Error (sync): $e');
     }
   }
 }

@@ -7,7 +7,7 @@ class ConfigService {
   factory ConfigService() => _instance;
   ConfigService._internal();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   // Default values
   int _quoteIntervalMs = 3600000; // 1 hour
@@ -19,6 +19,26 @@ class ConfigService {
   int _authenticatedUsersCount = 0;
 
   String _currentAppVersion = '1.0.1';
+
+  // Dynamic AI Model Configurations
+  List<String> _openRouterFreeModels = [
+    'google/gemma-4-31b-it:free',
+    'google/gemma-4-26b-a4b-it:free',
+    'openai/gpt-oss-20b:free',
+    'cohere/north-mini-code:free',
+    'poolside/laguna-s-2.1:free',
+  ];
+
+  List<String> _openRouterProModels = [
+    'anthropic/claude-3.5-sonnet',
+    'openai/gpt-4o',
+    'openai/gpt-4o-mini',
+    'anthropic/claude-3.5-haiku',
+    'deepseek/deepseek-chat',
+  ];
+
+  String _directGeminiModel = 'gemini-2.5-flash';
+  List<String> _agentRouterModels = [];
 
   int get quoteIntervalMs => _quoteIntervalMs;
   String get latestVersion => _latestVersion;
@@ -33,6 +53,10 @@ class ConfigService {
   String get shareUrl => _shareUrl;
   String get supportPhone => _supportPhone;
   int get authenticatedUsersCount => _authenticatedUsersCount;
+  List<String> get openRouterFreeModels => _openRouterFreeModels;
+  List<String> get openRouterProModels => _openRouterProModels;
+  String get directGeminiModel => _directGeminiModel;
+  List<String> get agentRouterModels => _agentRouterModels;
 
   Future<void> init() async {
     try {
@@ -58,7 +82,23 @@ class ConfigService {
         _supportPhone = data['support_phone'] ?? _supportPhone;
         _authenticatedUsersCount = data['authenticated_users_count'] ?? 0;
         
-        safePrint('✅ Remote Config Loaded: Interval=$_quoteIntervalMs, Version=$_latestVersion, AuthUsers=$_authenticatedUsersCount');
+        if (data['openrouter_free_models'] != null && (data['openrouter_free_models'] as List).isNotEmpty) {
+          _openRouterFreeModels = List<String>.from(data['openrouter_free_models']);
+        }
+
+        if (data['openrouter_pro_models'] != null && (data['openrouter_pro_models'] as List).isNotEmpty) {
+          _openRouterProModels = List<String>.from(data['openrouter_pro_models']);
+        }
+
+        if (data['direct_gemini_model'] != null && (data['direct_gemini_model'] as String).isNotEmpty) {
+          _directGeminiModel = data['direct_gemini_model'];
+        }
+
+        if (data['agent_router_models'] != null && (data['agent_router_models'] as List).isNotEmpty) {
+          _agentRouterModels = List<String>.from(data['agent_router_models']);
+        }
+
+        safePrint('✅ Remote Config Loaded: Interval=$_quoteIntervalMs, Version=$_latestVersion, AuthUsers=$_authenticatedUsersCount, FreeModels=${_openRouterFreeModels.length}, ProModels=${_openRouterProModels.length}, AgentRouterModels=${_agentRouterModels.length}, DirectModel=$_directGeminiModel');
       } else {
         safePrint('⚠️ Remote Config doc not found. Using defaults.');
       }

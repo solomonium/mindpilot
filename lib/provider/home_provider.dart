@@ -13,7 +13,10 @@ class HomeProvider extends BaseProvider {
     // Log screen view to Analytics
     final screenNames = ['Home', 'Focus', 'Decision', 'Journal', 'Profile'];
     if (val >= 0 && val < screenNames.length) {
-      AnalyticsService.logScreenView(screenNames[val]);
+      final screenName = screenNames[val];
+      AnalyticsService.logScreenView(screenName);
+      // Record last visited screen in Firestore for admin tracking
+      EngagementService().recordScreenVisit(screenName);
     }
   }
 

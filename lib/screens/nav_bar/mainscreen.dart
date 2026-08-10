@@ -36,9 +36,7 @@ class _MainScreenState extends State<MainScreen> {
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.playback,
-            options: {
-              AVAudioSessionOptions.mixWithOthers,
-            },
+            options: {AVAudioSessionOptions.mixWithOthers},
           ),
         ),
       );
@@ -56,6 +54,7 @@ class _MainScreenState extends State<MainScreen> {
     AppHelper.setScreenshotProtection(true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndPromptPermissions();
+      _checkAndPromptUnconfiguredPushNotifications();
       _listenForFeedbackToggle();
       _handlePendingNotification();
       _maybeShowChatFabTooltip();
@@ -69,7 +68,10 @@ class _MainScreenState extends State<MainScreen> {
     if (user == null) return;
 
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       if (!doc.exists) return;
 
       final data = doc.data();
@@ -122,7 +124,9 @@ class _MainScreenState extends State<MainScreen> {
                       decoration: BoxDecoration(
                         color: theme.accentTxt.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+                        border: Border.all(
+                          color: theme.accentTxt.withOpacity(0.1),
+                        ),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
@@ -133,25 +137,29 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                           dropdownColor: theme.brandDark,
                           isExpanded: true,
-                          icon: Icon(Icons.arrow_drop_down, color: theme.accentTxt),
-                          items: [
-                            'Google Search',
-                            'App Store / Play Store',
-                            'Social Media (Instagram/TikTok/Twitter)',
-                            'Reddit',
-                            'Friend / Recommendation',
-                            'Ad / Promotion',
-                            'Other',
-                          ].map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: PrimaryText(
-                                text: value,
-                                fontSize: 14,
-                                color: theme.accentTxt,
-                              ),
-                            );
-                          }).toList(),
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: theme.accentTxt,
+                          ),
+                          items:
+                              [
+                                'Google Search',
+                                'App Store / Play Store',
+                                'Social Media (Instagram/TikTok/Twitter)',
+                                'Reddit',
+                                'Friend / Recommendation',
+                                'Ad / Promotion',
+                                'Other',
+                              ].map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: PrimaryText(
+                                    text: value,
+                                    fontSize: 14,
+                                    color: theme.accentTxt,
+                                  ),
+                                );
+                              }).toList(),
                           onChanged: (val) {
                             setState(() {
                               selectedOption = val;
@@ -216,10 +224,7 @@ class _MainScreenState extends State<MainScreen> {
         content: const Text('Tap ASK anytime for personalized AI guidance'),
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Got it',
-          onPressed: () {},
-        ),
+        action: SnackBarAction(label: 'Got it', onPressed: () {}),
       ),
     );
   }
@@ -246,7 +251,141 @@ class _MainScreenState extends State<MainScreen> {
     if (!isAllowed) {
       await notificationService.requestPermissions();
     }
+  }
 
+  Future<void> _checkAndPromptUnconfiguredPushNotifications() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final data = doc.data();
+      final String? fcmToken = data?['fcmToken'] as String?;
+      final bool promptTriggeredByAdmin =
+          data?['promptPushNotification'] == true;
+
+      // Check if global admin prompt timestamp exists
+      final settingsDoc = await FirebaseFirestore.instance
+          .collection('app_config')
+          .doc('settings')
+          .get();
+      final Timestamp? globalPromptTs =
+          settingsDoc.data()?['force_push_prompt_timestamp'] as Timestamp?;
+      final int lastPrompted =
+          await SharedPrefs.getInt('LAST_PUSH_PROMPT_TIME') ?? 0;
+      final bool globalPromptDue =
+          globalPromptTs != null &&
+          globalPromptTs.millisecondsSinceEpoch > lastPrompted;
+
+      final bool isUnconfigured = (fcmToken == null || fcmToken.trim().isEmpty);
+
+      if ((isUnconfigured || promptTriggeredByAdmin || globalPromptDue) &&
+          mounted) {
+        // Show Push Notification Enable Sheet
+        _showEnablePushNotificationSheet(user.uid, promptTriggeredByAdmin);
+      }
+    } catch (e) {
+      debugPrint('Error checking push notification status: $e');
+    }
+  }
+
+  void _showEnablePushNotificationSheet(String uid, bool isDirectAdminTrigger) {
+    final theme = context.read<AppTheme>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (bottomSheetContext) {
+        return GlassContainer(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
+          gradient: theme.glassGradient,
+          borderRadius: 24,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.primaryBase.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.notifications_active_rounded,
+                  color: theme.primaryBase,
+                  size: 36,
+                ),
+              ),
+              16.verticalSpace,
+              PrimaryText(
+                text: 'Enable Push Notifications 🔔',
+                color: theme.accentTxt,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                textAlign: TextAlign.center,
+              ),
+              8.verticalSpace,
+              SecondaryText(
+                text:
+                    'Stay connected with daily growth insights, Bible quiz alerts, reflection prompts, and streak reminders directly on your phone.',
+                color: theme.accentTxt.withOpacity(0.7),
+                fontSize: 13,
+                textAlign: TextAlign.center,
+              ),
+              20.verticalSpace,
+              CustomButton(
+                label: 'Enable Notifications Now',
+                onPressed: () async {
+                  Navigator.pop(bottomSheetContext);
+                  await NotificationService().requestPermissions();
+                  await NotificationService().logDeviceToken();
+                  await SharedPrefs.setInt(
+                    'LAST_PUSH_PROMPT_TIME',
+                    DateTime.now().millisecondsSinceEpoch,
+                  );
+
+                  if (isDirectAdminTrigger) {
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .update({'promptPushNotification': false});
+                  }
+
+                  if (mounted) {
+                    context.showInAppNotification(
+                      'Push notifications configured successfully!',
+                      type: InAppNotificationType.success,
+                    );
+                  }
+                },
+              ),
+              10.verticalSpace,
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(bottomSheetContext);
+                  await SharedPrefs.setInt(
+                    'LAST_PUSH_PROMPT_TIME',
+                    DateTime.now().millisecondsSinceEpoch,
+                  );
+                },
+                child: SecondaryText(
+                  text: 'Remind Me Later',
+                  color: theme.accentTxt.withOpacity(0.5),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> checkAndroidPermissions() async {
+    final notificationService = NotificationService();
     if (Platform.isAndroid) {
       final alreadyPrompted =
           await SharedPrefs.getBool('FULL_SCREEN_PROMPT_SHOWN') ?? false;
@@ -394,7 +533,10 @@ class _MainScreenState extends State<MainScreen> {
                   actions: [
                     TextButton(
                       onPressed: () async {
-                        await SharedPrefs.setBool('FULL_SCREEN_PROMPT_SHOWN', true);
+                        await SharedPrefs.setBool(
+                          'FULL_SCREEN_PROMPT_SHOWN',
+                          true,
+                        );
                         Navigator.of(context).pop();
                       },
                       child: const Text(
@@ -427,7 +569,10 @@ class _MainScreenState extends State<MainScreen> {
                         });
 
                         if (hasFullScreen) {
-                          await SharedPrefs.setBool('FULL_SCREEN_PROMPT_SHOWN', true);
+                          await SharedPrefs.setBool(
+                            'FULL_SCREEN_PROMPT_SHOWN',
+                            true,
+                          );
                           if (context.mounted) {
                             Navigator.of(context).pop();
                             context.showInAppNotification(
@@ -489,15 +634,22 @@ class _MainScreenState extends State<MainScreen> {
       final text = data?.text;
       if (text == null || text.isEmpty) return;
 
-      final inviteRegExp = RegExp(r'mindpilot-group-invite:([a-zA-Z0-9_-]+):([^\n]*)');
+      final inviteRegExp = RegExp(
+        r'mindpilot-group-invite:([a-zA-Z0-9_-]+):([^\n]*)',
+      );
       final match = inviteRegExp.firstMatch(text);
       if (match != null) {
         final groupId = match.group(1);
         final groupName = match.group(2)?.trim();
         if (groupId != null && groupName != null) {
-          final lastPrompted = await SharedPrefs.getString('LAST_PROMPTED_CLIPBOARD_INVITE');
+          final lastPrompted = await SharedPrefs.getString(
+            'LAST_PROMPTED_CLIPBOARD_INVITE',
+          );
           if (lastPrompted == groupId) return;
-          await SharedPrefs.setString('LAST_PROMPTED_CLIPBOARD_INVITE', groupId);
+          await SharedPrefs.setString(
+            'LAST_PROMPTED_CLIPBOARD_INVITE',
+            groupId,
+          );
 
           // Clear clipboard text to avoid infinite prompting loops
           await Clipboard.setData(const ClipboardData(text: ''));
@@ -519,15 +671,19 @@ class _MainScreenState extends State<MainScreen> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: theme.brandDark,
-          title: const PrimaryText(text: 'Join Bible Quiz Group? 📖'),
+          title: const PrimaryText(text: 'Join Quiz Group? 📖'),
           content: SecondaryText(
-            text: 'We found an invite code on your clipboard to join: "$groupName". Would you like to join?',
+            text:
+                'We found an invite code on your clipboard to join: "$groupName". Would you like to join?',
             color: theme.accentTxt.withOpacity(0.8),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: SecondaryText(text: 'Ignore', color: theme.accentTxt.withOpacity(0.6)),
+              child: SecondaryText(
+                text: 'Ignore',
+                color: theme.accentTxt.withOpacity(0.6),
+              ),
             ),
             TextButton(
               onPressed: () async {
@@ -535,7 +691,9 @@ class _MainScreenState extends State<MainScreen> {
                 try {
                   final currentUser = FirebaseAuth.instance.currentUser;
                   if (currentUser == null) {
-                    context.showInAppNotification('Please sign in first to join groups.');
+                    context.showInAppNotification(
+                      'Please sign in first to join groups.',
+                    );
                     return;
                   }
 
@@ -607,7 +765,9 @@ class _MainScreenState extends State<MainScreen> {
               Scaffold(
                 backgroundColor: Colors.transparent,
                 extendBody: true,
-                floatingActionButton: store.navIndex == 0 ? const GlowingChatFab() : null,
+                floatingActionButton: store.navIndex == 0
+                    ? const GlowingChatFab()
+                    : null,
                 bottomNavigationBar: const BottomNav(),
                 body: IndexedStack(
                   index: store.navIndex,
@@ -631,7 +791,8 @@ class _MainScreenState extends State<MainScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
                       final inviteDoc = snapshot.data!.docs.first;
-                      final inviteData = inviteDoc.data() as Map<String, dynamic>;
+                      final inviteData =
+                          inviteDoc.data() as Map<String, dynamic>;
                       final invitationId = inviteDoc.id;
                       final groupId = inviteData['groupId'] ?? '';
                       final groupName = inviteData['groupName'] ?? '';
@@ -690,12 +851,19 @@ class _MainScreenState extends State<MainScreen> {
         child: Center(
           child: GlassContainer(
             padding: const EdgeInsets.all(28),
-            border: Border.all(color: theme.primaryBase.withOpacity(0.3), width: 1.5),
+            border: Border.all(
+              color: theme.primaryBase.withOpacity(0.3),
+              width: 1.5,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.mark_email_unread_rounded, color: Colors.deepPurpleAccent, size: 50),
+                const Icon(
+                  Icons.mark_email_unread_rounded,
+                  color: Colors.deepPurpleAccent,
+                  size: 50,
+                ),
                 16.verticalSpace,
                 PrimaryText(
                   text: 'Pending Bible Quiz Invite! 📖',
@@ -706,7 +874,8 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 16.verticalSpace,
                 SecondaryText(
-                  text: '$senderName has invited you to join the Bible Quiz group "$groupName".',
+                  text:
+                      '$senderName has invited you to join the Bible Quiz group "$groupName".',
                   color: theme.accentTxt.withOpacity(0.8),
                   fontSize: 14,
                   textAlign: TextAlign.center,
@@ -724,7 +893,9 @@ class _MainScreenState extends State<MainScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          settings: const RouteSettings(name: 'GroupLobbyScreen'),
+                          settings: const RouteSettings(
+                            name: 'GroupLobbyScreen',
+                          ),
                           builder: (_) => GroupLobbyScreen(groupId: groupId),
                         ),
                       );
@@ -738,7 +909,10 @@ class _MainScreenState extends State<MainScreen> {
                   borderColor: theme.errorPrimary,
                   textColor: theme.errorPrimary,
                   onPressed: () async {
-                    await context.read<GroupQuizProvider>().rejectInvitation(groupId, invitationId);
+                    await context.read<GroupQuizProvider>().rejectInvitation(
+                      groupId,
+                      invitationId,
+                    );
                   },
                 ),
               ],

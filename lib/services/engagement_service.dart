@@ -132,9 +132,26 @@ class EngagementService {
     try {
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'lastAppOpen': FieldValue.serverTimestamp(),
+        'lastActive': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
       safePrint('Error recording last app open: $e');
+    }
+  }
+
+  /// Records the last screen the user visited so admins can see
+  /// their most recent in-app location alongside [lastActive].
+  Future<void> recordScreenVisit(String screenName) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'lastVisitedScreen': screenName,
+        'lastVisitedScreenAt': FieldValue.serverTimestamp(),
+        'lastActive': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      safePrint('Error recording screen visit: $e');
     }
   }
 
@@ -186,6 +203,7 @@ class EngagementService {
         final updates = <String, dynamic>{
           'xp': xp,
           'level': level,
+          'lastActive': FieldValue.serverTimestamp(),
         };
         if (streakUpdated) {
           updates['streak'] = streak;

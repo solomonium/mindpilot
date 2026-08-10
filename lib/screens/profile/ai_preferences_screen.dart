@@ -10,9 +10,11 @@ class AiPreferencesScreen extends StatefulWidget {
 class _AiPreferencesScreenState extends State<AiPreferencesScreen> {
   String _selectedTone = 'Balanced';
   String _selectedPersonality = 'Encouraging';
+  String _selectedProvider = 'Direct Gemini';
 
   final List<String> _tones = ['Concise', 'Balanced', 'Detailed'];
   final List<String> _personalities = ['Encouraging', 'Logical', 'Direct'];
+  final List<String> _providers = ['Direct Gemini', 'OpenRouter', 'Agent Router'];
 
   @override
   void initState() {
@@ -20,6 +22,7 @@ class _AiPreferencesScreenState extends State<AiPreferencesScreen> {
     final authProvider = context.read<AppAuthProvider>();
     _selectedTone = authProvider.aiTone;
     _selectedPersonality = authProvider.aiPersonality;
+    _selectedProvider = authProvider.selectedLlmProvider;
   }
 
   @override
@@ -97,6 +100,17 @@ class _AiPreferencesScreenState extends State<AiPreferencesScreen> {
                   _selectedPersonality,
                   (val) => setState(() => _selectedPersonality = val),
                 ),
+                24.verticalSpace,
+                _sectionTitle(theme, 'AI Model Provider'),
+                16.verticalSpace,
+                _preferenceCard(
+                  theme,
+                  'Preferred Gateway',
+                  'Select the AI gateway service used for assistant tasks.',
+                  _providers,
+                  _selectedProvider,
+                  (val) => setState(() => _selectedProvider = val),
+                ),
                 32.verticalSpace,
                 _sectionTitle(theme, R.S.chatManagement),
                 16.verticalSpace,
@@ -142,6 +156,7 @@ class _AiPreferencesScreenState extends State<AiPreferencesScreen> {
                     await authProvider.updateAiPreferences(
                       _selectedTone,
                       _selectedPersonality,
+                      _selectedProvider,
                     );
                     if (mounted) {
                       context.showInAppNotification(

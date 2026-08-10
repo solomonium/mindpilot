@@ -16,6 +16,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  bool _showScrollToBottomFAB = false;
   final Map<int, Color> _bubbleColors = {};
   int _lastMessageCount = 0;
   
@@ -29,6 +30,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
     super.initState();
     _chatTts.stop();
     AppHelper.setScreenshotProtection(true);
+    _scrollController.addListener(_onScroll);
     
     final chatProvider = context.read<ChatProvider>();
     chatProvider.addListener(_onChatProviderChanged);
@@ -41,6 +43,12 @@ class _AiChatScreenState extends State<AiChatScreen> {
           widget.initialMessage!.trim().isNotEmpty) {
         _messageController.text = widget.initialMessage!.trim();
       }
+      _scrollToBottom(animate: false);
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          _scrollToBottom(animate: false);
+        }
+      });
     });
   }
 
@@ -89,10 +97,23 @@ Keep the tone extremely supportive, premium, and structured. Use bullet points f
   @override
   void dispose() {
     _stopChatTts();
+    _scrollController.removeListener(_onScroll);
     try {
       context.read<ChatProvider>().removeListener(_onChatProviderChanged);
     } catch (_) {}
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    final isFarFromBottom = (maxScroll - currentScroll) > 150;
+    if (isFarFromBottom != _showScrollToBottomFAB) {
+      setState(() {
+        _showScrollToBottomFAB = isFarFromBottom;
+      });
+    }
   }
 
   void _onChatProviderChanged() {
@@ -100,18 +121,23 @@ Keep the tone extremely supportive, premium, and structured. Use bullet points f
     final chatProvider = context.read<ChatProvider>();
     if (chatProvider.messages.length != _lastMessageCount) {
       _lastMessageCount = chatProvider.messages.length;
-      _scrollToBottom();
+      _scrollToBottom(animate: true);
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        if (animate) {
+          _scrollController.animateTo(
+            maxScroll,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _scrollController.jumpTo(maxScroll);
+        }
       }
     });
   }
@@ -330,6 +356,51 @@ User: $text
                 ),
               _messageInput(context),
             ],
+          ),
+          Positioned(
+            bottom: 145,
+            right: 16,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _showScrollToBottomFAB ? 1.0 : 0.0,
+              child: IgnorePointer(
+                ignoring: !_showScrollToBottomFAB,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.primaryBase.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: theme.brandDark.withValues(alpha: 0.95),
+                    shape: CircleBorder(
+                      side: BorderSide(
+                        color: theme.primaryBase.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => _scrollToBottom(animate: true),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: theme.primaryBase,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

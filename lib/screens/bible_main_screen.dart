@@ -308,14 +308,19 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
         
         String spokenPassage;
         if (_verses.isNotEmpty) {
-          spokenPassage = _verses
-              .map((v) => (v['text'] ?? '').toString().trim())
-              .where((t) => t.isNotEmpty)
-              .join(' ');
+          spokenPassage = _verses.map((v) {
+            String text = (v['text'] ?? '').toString();
+            text = text.replaceAll(RegExp(r'<[^>]*>'), '').replaceAll(RegExp(r'[*#_`]'), '');
+            // Strip leading verse numbers e.g. "1 ", "1. ", "[1] ", "(1) ", "1:1 "
+            text = text.replaceAll(RegExp(r'^\s*\(?\[?\d+(?:\:\d+)?\]?\)?[\.\:]?\s*'), '');
+            return text.trim();
+          }).where((t) => t.isNotEmpty).join(' ');
         } else {
-          spokenPassage = _chapterText!
-              .replaceAll(RegExp(r'^\s*\d+\s*', multiLine: true), '')
-              .replaceAll(RegExp(r'\n\s*\d+\s*'), ' ');
+          String text = _chapterText ?? '';
+          text = text.replaceAll(RegExp(r'<[^>]*>'), '').replaceAll(RegExp(r'[*#_`]'), '');
+          // Strip verse numbers at start of text or lines
+          text = text.replaceAll(RegExp(r'(?:^|\s)\(?\[?\d+(?:\:\d+)?\]?\)?[\.\:]?(?=\s+[A-Za-z"“\(])'), ' ');
+          spokenPassage = text.replaceAll(RegExp(r'\s+'), ' ').trim();
         }
 
         String textToSpeak = "$_selectedBook chapter $_selectedChapter. $spokenPassage";

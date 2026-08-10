@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'package:mindpilot/export.dart';
 
-class AppProvider extends BaseProvider {
+class AppProvider extends BaseProvider with WidgetsBindingObserver {
   ThemeType _theme = ThemeType.light;
   ThemeType get theme => _theme;
 
@@ -108,6 +109,74 @@ class AppProvider extends BaseProvider {
     await EngagementService().scheduleStreakAtRiskReminder(_streak);
   }
 
+  // App Lifecycle and Time Spent Tracking
+  DateTime? _sessionStartTime;
+  Timer? _timeSpentTimer;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _sessionStartTime = DateTime.now();
+      _startTimeSpentTimer();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      accumulateTimeSpent();
+      _stopTimeSpentTimer();
+    }
+  }
+
+  void _startTimeSpentTimer() {
+    _timeSpentTimer?.cancel();
+    _timeSpentTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+      if (_sessionStartTime != null) {
+        final elapsed = DateTime.now().difference(_sessionStartTime!);
+        _sessionStartTime = DateTime.now();
+        if (elapsed.inSeconds > 0) {
+          _updateTimeSpentInFirestore(elapsed.inSeconds);
+        }
+      }
+    });
+  }
+
+  void _stopTimeSpentTimer() {
+    _timeSpentTimer?.cancel();
+    _timeSpentTimer = null;
+  }
+
+  void accumulateTimeSpent() {
+    if (_sessionStartTime != null) {
+      final elapsed = DateTime.now().difference(_sessionStartTime!);
+      _sessionStartTime = null;
+      if (elapsed.inSeconds > 0) {
+        _updateTimeSpentInFirestore(elapsed.inSeconds);
+      }
+    }
+  }
+
+  Future<void> _updateTimeSpentInFirestore(int seconds) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'totalTimeSpent': FieldValue.increment(seconds),
+          'lastActive': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        safePrint('Error updating total time spent: $e');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    accumulateTimeSpent();
+    _stopTimeSpentTimer();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   Future<void> updateStreak() async {
     await syncEngagementFromCloud();
   }
@@ -144,6 +213,12 @@ class AppProvider extends BaseProvider {
 
     await syncEngagementFromCloud();
     await EngagementService().recordLastAppOpen();
+
+    // Register lifecycle observer for time tracking
+    WidgetsBinding.instance.addObserver(this);
+    _sessionStartTime = DateTime.now();
+    _startTimeSpentTimer();
+
     notifyListeners();
   }
 }
