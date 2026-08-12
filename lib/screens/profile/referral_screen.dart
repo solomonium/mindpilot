@@ -75,7 +75,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
                   8.verticalSpace,
                   SecondaryText(
                     text:
-                        'You and your friend each get +1 bonus decision credit when they join with your code.',
+                        'Get 3 days of Premium direct Gemini API access and +1 decision credit for every friend who joins with your code!',
                     fontSize: 13,
                     color: theme.accentTxt.withValues(alpha: 0.7),
                     textAlign: TextAlign.center,
@@ -126,10 +126,17 @@ class _ReferralScreenState extends State<ReferralScreen> {
                   ),
                   20.verticalSpace,
                   CustomButton(
-                    label: 'Share Invite Link',
+                    label: 'Share / QR Invite',
+                    prefixIcon: const Icon(
+                      Icons.qr_code_2_rounded,
+                      size: 18,
+                      color: Colors.black,
+                    ),
                     onPressed: () {
-                      ShareService.shareText(
-                        "Join me on MindPilot — the AI clarity assistant for focus, decisions, and growth! 🧠\n\nUse my code: $myCode for a bonus decision credit.\n\nDownload: $downloadUrl",
+                      AppShareSheet.showForReferral(
+                        context,
+                        referralCode: myCode,
+                        downloadUrl: downloadUrl,
                       );
                       AnalyticsService.logShareCard('referral');
                     },
@@ -137,6 +144,43 @@ class _ReferralScreenState extends State<ReferralScreen> {
                 ],
               ),
             ),
+            if (auth.isPro && auth.premiumExpiresAt != null) ...[
+              16.verticalSpace,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.primaryBase.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.primaryBase.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.stars, color: theme.primaryBase, size: 24),
+                    12.horizontalSpace,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          PrimaryText(
+                            text: 'Temporary Premium Active! 🚀',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: theme.primaryBase,
+                          ),
+                          4.verticalSpace,
+                          SecondaryText(
+                            text: 'Expires on: ${DateFormat('yyyy-MM-dd HH:mm').format(auth.premiumExpiresAt!.toDate())}',
+                            fontSize: 12,
+                            color: theme.accentTxt.withOpacity(0.8),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             24.verticalSpace,
             if (auth.referredBy == null) ...[
               PrimaryText(

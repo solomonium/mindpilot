@@ -12,6 +12,7 @@ export 'sync_service.dart';
 export 'ad_service.dart';
 export 'engagement_service.dart';
 export 'google_calendar_service.dart';
+export 'livekit_service.dart';
 
 
 

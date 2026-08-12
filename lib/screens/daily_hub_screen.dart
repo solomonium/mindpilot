@@ -12,6 +12,7 @@ class _DailyHubScreenState extends State<DailyHubScreen> {
   bool _isLoading = true;
   double _bibleKnowledge = 0.0;
   int _bibleGrowth = 0;
+  int _todayQuizXp = 0;
 
   List<Map<String, dynamic>> _meetingRatings = [];
   bool _isLoadingMeetings = true;
@@ -32,10 +33,12 @@ class _DailyHubScreenState extends State<DailyHubScreen> {
       final results = await DatabaseHelper().getQuizResultsSince(dateIso);
       int totalScore = 0;
       int totalQuestions = 0;
+      int todayQuizXp = 0;
 
       for (var q in results) {
         totalScore += (q['score'] as int? ?? 0);
         totalQuestions += (q['total_questions'] as int? ?? 0);
+        todayQuizXp += (q['xp_earned'] as int? ?? 0);
       }
 
       if (mounted) {
@@ -45,6 +48,7 @@ class _DailyHubScreenState extends State<DailyHubScreen> {
               ? (totalScore / totalQuestions) * 100
               : 0.0;
           _bibleGrowth = results.length;
+          _todayQuizXp = todayQuizXp;
           _isLoading = false;
         });
       }
@@ -257,7 +261,7 @@ class _DailyHubScreenState extends State<DailyHubScreen> {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.accentTxt.withOpacity(0.03),
                     borderRadius: BorderRadius.circular(12),
@@ -268,13 +272,13 @@ class _DailyHubScreenState extends State<DailyHubScreen> {
                     children: [
                       SecondaryText(
                         text: 'Bible Knowledge',
-                        fontSize: 11,
+                        fontSize: 10,
                         color: theme.accentTxt.withOpacity(0.5),
                       ),
                       8.verticalSpace,
                       PrimaryText(
                         text: '${_bibleKnowledge.toInt()}%',
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: theme.primaryBase,
                       ),
@@ -282,10 +286,10 @@ class _DailyHubScreenState extends State<DailyHubScreen> {
                   ),
                 ),
               ),
-              12.horizontalSpace,
+              8.horizontalSpace,
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                   decoration: BoxDecoration(
                     color: theme.accentTxt.withOpacity(0.03),
                     borderRadius: BorderRadius.circular(12),
@@ -296,16 +300,44 @@ class _DailyHubScreenState extends State<DailyHubScreen> {
                     children: [
                       SecondaryText(
                         text: 'Daily Growth',
-                        fontSize: 11,
+                        fontSize: 10,
                         color: theme.accentTxt.withOpacity(0.5),
                       ),
                       8.verticalSpace,
                       PrimaryText(
                         text:
-                            '$_bibleGrowth ${_bibleGrowth == 1 ? "Quiz" : "Quizzes"}',
-                        fontSize: 20,
+                            '$_bibleGrowth Quiz${_bibleGrowth == 1 ? "" : "zes"}',
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: theme.successPrimary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              8.horizontalSpace,
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: theme.accentTxt.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SecondaryText(
+                        text: 'Quiz XP',
+                        fontSize: 10,
+                        color: theme.accentTxt.withOpacity(0.5),
+                      ),
+                      8.verticalSpace,
+                      PrimaryText(
+                        text: '+$_todayQuizXp XP',
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber,
                       ),
                     ],
                   ),

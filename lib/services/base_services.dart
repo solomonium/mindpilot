@@ -14,7 +14,7 @@ abstract class BaseService {
 
     _dio = Dio(
       BaseOptions(
-        baseUrl: 'https://rest.twezi.io/v3',
+        baseUrl: '',
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         headers: {

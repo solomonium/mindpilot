@@ -38,13 +38,25 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
   void _onStartTimerTap() async {
     final focusProvider = context.read<FocusProvider>();
     final bool online = await AppHelper.isOnline();
-    if (!online) {
+    
+    void startWithLounge() {
       focusProvider.startTimer();
+      if (focusProvider.joinLounge) {
+        try {
+          context.read<GroupQuizProvider>().joinCustomVoiceRoom('focus_lounge_all');
+        } catch (e) {
+          safePrint("Error joining focus lounge: $e");
+        }
+      }
+    }
+
+    if (!online) {
+      startWithLounge();
     } else {
       if (mounted) {
         AppHelper.showAirplaneModePrompt(
           context,
-          onStartSession: focusProvider.startTimer,
+          onStartSession: startWithLounge,
         );
       }
     }
@@ -188,6 +200,39 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                             ],
                           ),
                           16.verticalSpace,
+                     Row(
+                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                       children: [
+                         Column(
+                           crossAxisAlignment: CrossAxisAlignment.start,
+                           children: [
+                             PrimaryText(
+                               text: 'Join Silent Study Lounge 👥',
+                               fontSize: 13,
+                               fontWeight: FontWeight.bold,
+                               color: theme.accentTxt,
+                             ),
+                             4.verticalSpace,
+                             SecondaryText(
+                               text: 'Connect to group study audio room',
+                               fontSize: 10,
+                               color: theme.accentTxt.withOpacity(0.5),
+                             ),
+                           ],
+                         ),
+                         Switch(
+                           value: focusProvider.joinLounge,
+                           activeThumbColor: theme.primaryBase,
+                           activeTrackColor: theme.primaryBase.withOpacity(0.3),
+                           inactiveThumbColor: theme.accentTxt.withOpacity(0.4),
+                           inactiveTrackColor: Colors.white12,
+                           onChanged: (val) {
+                             focusProvider.joinLounge = val;
+                           },
+                         ),
+                       ],
+                     ),
+                     16.verticalSpace,
                           Slider(
                             value: focusProvider.selectedMinutes.toDouble(),
                             min: 1,
@@ -287,6 +332,61 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
                               : _onStartTimerTap,
                         ),
                   ),
+                  if (focusProvider.isRunning) ...[
+                    16.verticalSpace,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
+                      child: Consumer<GroupQuizProvider>(
+                        builder: (context, groupQuizProvider, child) {
+                          if (!groupQuizProvider.liveKitService.isConnected) {
+                            return const SizedBox.shrink();
+                          }
+                          final micEnabled = groupQuizProvider.liveKitService.isMicrophoneEnabled();
+                          return GlassContainer(
+                            padding: const EdgeInsets.all(16),
+                            border: Border.all(color: Colors.white12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  micEnabled ? Icons.mic : Icons.mic_off,
+                                  color: micEnabled ? Colors.greenAccent : Colors.white60,
+                                ),
+                                16.horizontalSpace,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      PrimaryText(
+                                        text: micEnabled ? 'Microphone Active' : 'Muted',
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                      4.verticalSpace,
+                                      SecondaryText(
+                                        text: micEnabled ? 'Others can hear you' : 'Silent study active',
+                                        fontSize: 10,
+                                        color: Colors.white60,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    micEnabled ? Icons.mic : Icons.mic_off,
+                                    color: theme.primaryBase,
+                                  ),
+                                  onPressed: () {
+                                    groupQuizProvider.liveKitService.toggleMicrophone(!micEnabled);
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                   12.verticalSpace,
                   _sessionTypes(theme, focusProvider),
                   120.verticalSpace,

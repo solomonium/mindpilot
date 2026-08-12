@@ -35,7 +35,7 @@ if (flutterVersionName == null) {
 android {
     namespace "com.mindpilot.app"
     compileSdk flutter.compileSdkVersion
-    ndkVersion flutter.ndkVersion
+    ndkVersion "28.2.13676358"
 
     compileOptions {
         coreLibraryDesugaringEnabled true
@@ -76,6 +76,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {
@@ -84,4 +90,23 @@ dependencies {
 
 flutter {
     source "../.."
+}
+
+// Workaround for AGP bug: when coreLibraryDesugaring is active the L8 dex
+// task does not always produce the intermediate ART baseline profile file,
+// causing :app:compileReleaseArtProfile to crash with "No such file or
+// directory". We ensure the file exists (as an empty file) before the task
+// runs so AGP can proceed safely.
+afterEvaluate {
+    def artProfileFile = file(
+        "${buildDir}/intermediates/l8_art_profile/release/l8DexDesugarLibRelease/baseline-prof.txt"
+    )
+    tasks.matching { it.name == 'compileReleaseArtProfile' }.configureEach {
+        doFirst {
+            if (!artProfileFile.exists()) {
+                artProfileFile.parentFile.mkdirs()
+                artProfileFile.text = ''
+            }
+        }
+    }
 }

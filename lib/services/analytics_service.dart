@@ -115,4 +115,51 @@ class AnalyticsService {
       parameters: {'type': type},
     );
   }
+
+  static Future<void> logRiddleGenerated({required bool isFree, required int count}) async {
+    await _analytics.logEvent(
+      name: 'riddle_generated',
+      parameters: {
+        'is_free': isFree ? 1 : 0,
+        'count': count,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  static Future<void> logJokeGenerated({required bool isFree, required int count}) async {
+    await _analytics.logEvent(
+      name: 'joke_generated',
+      parameters: {
+        'is_free': isFree ? 1 : 0,
+        'count': count,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  static Future<void> logQuizScopeSelected(String scopeType, String scopeValue) async {
+    await _analytics.logEvent(
+      name: 'quiz_scope_selected',
+      parameters: {
+        'scope_type': scopeType,
+        'scope_value': scopeValue,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  static Future<void> logGroupQuizAction(String actionType, {String? groupId}) async {
+    final Map<String, Object> params = {
+      'action_type': actionType,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    if (groupId != null) {
+      params['group_id'] = groupId;
+    }
+    await _analytics.logEvent(
+      name: 'group_quiz_action',
+      parameters: params,
+    );
+  }
 }

@@ -4,6 +4,8 @@ class CustomTextField extends StatefulWidget {
   final Icon? icon;
   final TextInputType textInputType;
   final String? labelText;
+  final Color? labelColor;
+  final Color? textColor;
   final String? prefixText;
   final TextEditingController textController;
   final bool autoFocus;
@@ -19,6 +21,7 @@ class CustomTextField extends StatefulWidget {
   final FormFieldSetter<String>? onChanged;
   final VoidCallback? onDone;
   final int? maxLines; // Add maxLines parameter
+  final Color? fillColor;
 
   const CustomTextField({
     super.key,
@@ -26,20 +29,23 @@ class CustomTextField extends StatefulWidget {
     this.obscure = false,
     this.readOnly,
     this.isPassword = false,
-    required this.textInputType,
+    this.textInputType = TextInputType.text,
     this.labelText,
+    this.labelColor,
+    this.textColor,
     this.textStyle,
     this.prefixText,
     required this.textController,
-    required this.autoFocus,
+    this.autoFocus = false,
     this.validate,
     this.onChanged,
     this.suffixIcon,
     this.prefixIcon,
     this.hintText,
-    required this.textInputAction,
+    this.textInputAction = TextInputAction.done,
     this.onDone,
     this.maxLines, // Initialize maxLines
+    this.fillColor,
   });
 
   @override
@@ -89,11 +95,17 @@ class _CustomTextFieldState extends State<CustomTextField> {
                   text: widget.labelText ?? '',
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
+                  color: widget.labelColor ?? theme.primaryText,
                 ),
           5.verticalSpace,
           SizedBox(
             child: TextFormField(
               readOnly: widget.readOnly ?? false,
+              style: GoogleFonts.inter(
+                color: widget.textColor ?? theme.primaryText,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
               cursorColor: theme.primaryBase,
               focusNode: _focusNode,
               onChanged: widget.onChanged,
@@ -111,7 +123,11 @@ class _CustomTextFieldState extends State<CustomTextField> {
                 hintStyle:
                     widget.textStyle ??
                     GoogleFonts.inter(
-                      color: theme.hintText,
+                      color: (widget.textColor == Colors.white ||
+                              widget.textColor == Colors.white70 ||
+                              widget.textColor == theme.accentTxt)
+                          ? theme.accentTxt.withValues(alpha: 0.3)
+                          : theme.hintText,
                       fontSize: 14,
                       fontWeight: FontWeight.w300,
                     ),
@@ -138,7 +154,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
                   borderSide: BorderSide(color: theme.errorPrimary, width: 0.9),
                 ),
                 filled: true,
-                fillColor: theme.background,
+                fillColor: widget.fillColor ??
+                    ((widget.textColor == Colors.white ||
+                            widget.textColor == Colors.white70 ||
+                            widget.textColor == theme.accentTxt)
+                        ? theme.accentTxt.withValues(alpha: 0.05)
+                        : theme.background),
                 errorStyle: const TextStyle(),
                 prefixIcon: widget.prefixIcon,
                 suffixIcon: widget.isPassword

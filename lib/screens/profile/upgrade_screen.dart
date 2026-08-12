@@ -486,6 +486,8 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
       children: [
         _featureItem(Icons.psychology, 'Unlimited AI Decision Analysis'),
         16.verticalSpace,
+        _featureItem(Icons.auto_awesome, 'Access Direct Gemini Pro AI for the most advanced, high-end articulated responses'),
+        16.verticalSpace,
         _featureItem(Icons.trending_up, 'Advanced Personal Growth Analytics'),
         16.verticalSpace,
         _featureItem(Icons.share, 'One-Tap Viral Journal Sharing'),

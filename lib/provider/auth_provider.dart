@@ -20,13 +20,28 @@ class AppAuthProvider extends BaseProvider {
 
   String _userType = "Freemium";
   String get userType => _userType;
-  bool get isPro => _userType == "Pro Member";
+
+  Timestamp? _premiumExpiresAt;
+  Timestamp? get premiumExpiresAt => _premiumExpiresAt;
+
+  bool get isPro {
+    if (_userType == "Pro Member") return true;
+    if (_premiumExpiresAt != null) {
+      final now = DateTime.now();
+      final expiry = _premiumExpiresAt!.toDate();
+      if (expiry.isAfter(now)) return true;
+    }
+    return false;
+  }
 
   String _aiTone = "Balanced";
   String get aiTone => _aiTone;
 
   String _aiPersonality = "Encouraging";
   String get aiPersonality => _aiPersonality;
+
+  String _selectedLlmProvider = "Direct Gemini";
+  String get selectedLlmProvider => _selectedLlmProvider;
 
   String? _phoneNumber;
   String? get phoneNumber => _phoneNumber;
@@ -66,7 +81,7 @@ class AppAuthProvider extends BaseProvider {
   bool _hasCompletedFirstSession = false;
   bool get hasCompletedFirstSession => _hasCompletedFirstSession;
 
-  int _insightIntervalHours = 1;
+  int _insightIntervalHours = 3;
   int get insightIntervalHours => _insightIntervalHours;
 
   final List<String> _superAdmins = [
@@ -141,10 +156,13 @@ class AppAuthProvider extends BaseProvider {
         _isAdmin = false;
         _aiTone = "Balanced";
         _aiPersonality = "Encouraging";
+        _selectedLlmProvider = "Direct Gemini";
         _displayName = null;
         _email = null;
+        GeminiService().setIsPro(false);
         GeminiService().setUserName(null);
         GeminiService().setAiPreferences("Balanced", "Encouraging");
+        GeminiService().setLlmProvider("Direct Gemini");
 
         // Cancel broadcasts subscription on sign-out before permissions are lost
         final context = R.N.navKey.currentContext;
@@ -194,15 +212,24 @@ class AppAuthProvider extends BaseProvider {
     }
   }
 
-  Future<void> ensureFirestoreUserExists(User user) async {
+  Future<void> ensureFirestoreUserExists(User user, {String? heardFrom}) async {
     try {
       final doc = await _firestore.collection('users').doc(user.uid).get();
-      if (!doc.exists) {
-        final fallbackName =
-            (user.displayName != null && user.displayName!.isNotEmpty)
-            ? user.displayName!
-            : (AuthService.lastAppleFullName ?? '');
 
+      String fallbackName =
+          (user.displayName != null && user.displayName!.isNotEmpty)
+          ? user.displayName!
+          : (AuthService.lastAppleFullName ?? 'MindPilot User');
+
+      if (fallbackName.trim().isEmpty) {
+        if (user.email != null && user.email!.isNotEmpty) {
+          fallbackName = user.email!.split('@').first;
+        } else {
+          fallbackName = 'MindPilot User';
+        }
+      }
+
+      if (!doc.exists) {
         await _firestore.collection('users').doc(user.uid).set({
           'email': user.email,
           'name': fallbackName,
@@ -212,16 +239,22 @@ class AppAuthProvider extends BaseProvider {
           'personalization': [],
           'aiTone': 'Balanced',
           'aiPersonality': 'Encouraging',
+          'selectedLlmProvider': 'Direct Gemini',
           'explanationCount': 0,
-          'insightIntervalHours': 1,
+          'insightIntervalHours': 3,
           'streak': 0,
           'xp': 0,
           'level': 1,
-          'referralCode': 'MP${user.uid.substring(0, user.uid.length >= 6 ? 6 : user.uid.length).toUpperCase()}',
+          'referralCode':
+              'MP${user.uid.substring(0, user.uid.length >= 6 ? 6 : user.uid.length).toUpperCase()}',
           'referralCount': 0,
           'hasCompletedFirstSession': false,
           'country': '',
           'regCountry': _detectCountry(),
+          'heardFrom': heardFrom ?? 'Unknown',
+          'totalTimeSpent': 0,
+          'lastActive': FieldValue.serverTimestamp(),
+          'lastAppOpen': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
         });
         safePrint(
@@ -239,15 +272,102 @@ class AppAuthProvider extends BaseProvider {
           safePrint('⚠️ Failed to increment authenticated_users_count: $e');
         }
       } else {
-        // Retroactively backfill regCountry if missing for existing users
+        // Retroactively backfill missing profile fields or default fields
         final data = doc.data();
-        if (data != null && !data.containsKey('regCountry')) {
-          await _firestore.collection('users').doc(user.uid).update({
-            'regCountry': _detectCountry(),
-          });
-          safePrint(
-            '🌍 Retroactively set regCountry for existing user: ${user.uid}',
-          );
+        if (data != null) {
+          final Map<String, dynamic> updates = {};
+
+          // 1. Backfill email if missing or empty
+          final existingEmail = data['email'] as String? ?? '';
+          if (existingEmail.isEmpty &&
+              user.email != null &&
+              user.email!.isNotEmpty) {
+            updates['email'] = user.email;
+          }
+
+          // 2. Backfill name, fullName, displayName if missing or empty
+          final existingName = data['name'] as String? ?? '';
+          final existingFullName = data['fullName'] as String? ?? '';
+          final existingDisplayName = data['displayName'] as String? ?? '';
+
+          if (existingName.isEmpty) updates['name'] = fallbackName;
+          if (existingFullName.isEmpty) updates['fullName'] = fallbackName;
+          if (existingDisplayName.isEmpty)
+            updates['displayName'] = fallbackName;
+
+          // 3. Backfill registration date (createdAt) if missing
+          bool isStub =
+              !data.containsKey('createdAt') ||
+              data['createdAt'] == null ||
+              !data.containsKey('userType');
+          if (!data.containsKey('createdAt') || data['createdAt'] == null) {
+            final creationTime = user.metadata.creationTime;
+            if (creationTime != null) {
+              updates['createdAt'] = Timestamp.fromDate(creationTime);
+            } else {
+              updates['createdAt'] = FieldValue.serverTimestamp();
+            }
+          }
+
+          // 4. Backfill regCountry if missing or empty
+          if (!data.containsKey('regCountry') ||
+              data['regCountry'] == null ||
+              data['regCountry'].toString().isEmpty) {
+            updates['regCountry'] = _detectCountry();
+          }
+
+          // 5. Backfill heardFrom if missing, null, empty or Unknown, and heardFrom param is provided
+          final currentHeardFrom = data['heardFrom'] as String? ?? '';
+          if (heardFrom != null &&
+              (!data.containsKey('heardFrom') ||
+                  data['heardFrom'] == null ||
+                  currentHeardFrom.trim().isEmpty ||
+                  currentHeardFrom == 'Unknown')) {
+            updates['heardFrom'] = heardFrom;
+          }
+
+          // 6. Backfill other default fields if completely missing from the document
+          if (!data.containsKey('userType')) updates['userType'] = 'Freemium';
+          if (!data.containsKey('personalization'))
+            updates['personalization'] = [];
+          if (!data.containsKey('aiTone')) updates['aiTone'] = 'Balanced';
+          if (!data.containsKey('aiPersonality'))
+            updates['aiPersonality'] = 'Encouraging';
+          if (!data.containsKey('explanationCount'))
+            updates['explanationCount'] = 0;
+          if (!data.containsKey('insightIntervalHours'))
+            updates['insightIntervalHours'] = 3;
+          if (!data.containsKey('streak')) updates['streak'] = 0;
+          if (!data.containsKey('xp')) updates['xp'] = 0;
+          if (!data.containsKey('level')) updates['level'] = 1;
+          if (!data.containsKey('referralCode')) {
+            updates['referralCode'] =
+                'MP${user.uid.substring(0, user.uid.length >= 6 ? 6 : user.uid.length).toUpperCase()}';
+          }
+          if (!data.containsKey('referralCount')) updates['referralCount'] = 0;
+          if (!data.containsKey('hasCompletedFirstSession'))
+            updates['hasCompletedFirstSession'] = false;
+          if (!data.containsKey('country')) updates['country'] = '';
+
+          if (updates.isNotEmpty) {
+            await _firestore.collection('users').doc(user.uid).update(updates);
+            safePrint(
+              '🌍 Retroactively updated user document: ${user.uid} with $updates',
+            );
+          }
+
+          if (isStub) {
+            try {
+              await _firestore.collection('app_config').doc('settings').set({
+                'authenticated_users_count': FieldValue.increment(1),
+              }, SetOptions(merge: true));
+              safePrint(
+                '📈 Automatically incremented authenticated_users_count in settings for stub conversion',
+              );
+            } catch (e) {
+              safePrint('⚠️ Failed to increment count for stub conversion: $e');
+            }
+          }
         }
       }
     } catch (e) {
@@ -279,154 +399,156 @@ class AppAuthProvider extends BaseProvider {
 
     if (_superAdmins.contains(user.email?.toLowerCase())) {
       _userType = "Pro Member";
+      GeminiService().setIsPro(true);
       notifyListeners();
       return;
     }
 
-    _userDocSubscription = _firestore
-        .collection('users')
-        .doc(user.uid)
-        .snapshots()
-        .listen((doc) {
-          if (doc.exists) {
-            _userType = doc.data()?['userType'] ?? "Freemium";
-            _explanationCount = doc.data()?['explanationCount'] ?? 0;
-            _aiTone = doc.data()?['aiTone'] ?? "Balanced";
-            _aiPersonality = doc.data()?['aiPersonality'] ?? "Encouraging";
-            _phoneNumber = doc.data()?['phoneNumber'];
-            _location = doc.data()?['location'];
-            _country = doc.data()?['country'];
-            _insightIntervalHours = doc.data()?['insightIntervalHours'] ?? 1;
-            _xp = doc.data()?['xp'] ?? 0;
-            _level = doc.data()?['level'] ?? EngagementService().levelFromXp(_xp);
-            _referralCode = doc.data()?['referralCode'];
-            _referralCount = doc.data()?['referralCount'] ?? 0;
-            _referredBy = doc.data()?['referredBy'];
-            _hasCompletedFirstSession =
-                doc.data()?['hasCompletedFirstSession'] ?? false;
+    _userDocSubscription = _firestore.collection('users').doc(user.uid).snapshots().listen((
+      doc,
+    ) {
+      if (doc.exists) {
+        _userType = doc.data()?['userType'] ?? "Freemium";
+        _premiumExpiresAt = doc.data()?['premiumExpiresAt'] as Timestamp?;
+        GeminiService().setIsPro(isPro);
+        _explanationCount = doc.data()?['explanationCount'] ?? 0;
+        _aiTone = doc.data()?['aiTone'] ?? "Balanced";
+        _aiPersonality = doc.data()?['aiPersonality'] ?? "Encouraging";
+        _selectedLlmProvider = doc.data()?['selectedLlmProvider'] ?? "Direct Gemini";
+        _phoneNumber = doc.data()?['phoneNumber'];
+        _location = doc.data()?['location'];
+        _country = doc.data()?['country'];
+        final loadedHours = doc.data()?['insightIntervalHours'] ?? 3;
+        _insightIntervalHours = (loadedHours == 0) ? 0 : 3;
+        _xp = doc.data()?['xp'] ?? 0;
+        _level = doc.data()?['level'] ?? EngagementService().levelFromXp(_xp);
+        _referralCode = doc.data()?['referralCode'];
+        _referralCount = doc.data()?['referralCount'] ?? 0;
+        _referredBy = doc.data()?['referredBy'];
+        _hasCompletedFirstSession =
+            doc.data()?['hasCompletedFirstSession'] ?? false;
 
-            SharedPrefs.setInt('USER_XP', _xp);
-            SharedPrefs.setInt('STREAK_COUNT', doc.data()?['streak'] ?? 0);
-            final lastEng = doc.data()?['lastEngagementDate'] as String? ?? '';
-            if (lastEng.isNotEmpty) {
-              SharedPrefs.setString('LAST_ENGAGEMENT_DATE', lastEng);
-            }
+        SharedPrefs.setInt('USER_XP', _xp);
+        SharedPrefs.setInt('STREAK_COUNT', doc.data()?['streak'] ?? 0);
+        final lastEng = doc.data()?['lastEngagementDate'] as String? ?? '';
+        if (lastEng.isNotEmpty) {
+          SharedPrefs.setString('LAST_ENGAGEMENT_DATE', lastEng);
+        }
 
-            final personalization = List<String>.from(
-              doc.data()?['personalization'] ?? [],
+        final personalization = List<String>.from(
+          doc.data()?['personalization'] ?? [],
+        );
+        _personalization = personalization;
+        GeminiService().setPersonalization(personalization);
+        GeminiService().setAiPreferences(_aiTone, _aiPersonality);
+        GeminiService().setLlmProvider(_selectedLlmProvider);
+
+        final docDisplayName =
+            doc.data()?['displayName'] ??
+            doc.data()?['name'] ??
+            doc.data()?['fullName'];
+        if (docDisplayName != null && docDisplayName.toString().isNotEmpty) {
+          _displayName = docDisplayName.toString();
+          final name = _displayName?.getFirstName();
+          GeminiService().setUserName(name);
+        }
+        final docEmail = doc.data()?['email'];
+        if (docEmail != null && docEmail.toString().isNotEmpty) {
+          _email = docEmail.toString();
+        }
+
+        final navContext = R.N.navKey.currentContext;
+        if (navContext != null && navContext.mounted) {
+          try {
+            navContext.read<AppProvider>().applyEngagementSync(
+              streak: doc.data()?['streak'] ?? 0,
             );
-            _personalization = personalization;
-            GeminiService().setPersonalization(personalization);
-            GeminiService().setAiPreferences(_aiTone, _aiPersonality);
+          } catch (_) {}
+        }
 
-            final docDisplayName =
-                doc.data()?['displayName'] ??
-                doc.data()?['name'] ??
-                doc.data()?['fullName'];
-            if (docDisplayName != null &&
-                docDisplayName.toString().isNotEmpty) {
-              _displayName = docDisplayName.toString();
-              final name = _displayName?.getFirstName();
-              GeminiService().setUserName(name);
-            }
-            final docEmail = doc.data()?['email'];
-            if (docEmail != null && docEmail.toString().isNotEmpty) {
-              _email = docEmail.toString();
-            }
+        _syncTempPersonalization(user.uid);
 
-            final navContext = R.N.navKey.currentContext;
-            if (navContext != null && navContext.mounted) {
-              try {
-                navContext.read<AppProvider>().applyEngagementSync(
-                  streak: doc.data()?['streak'] ?? 0,
+        // Retroactive name sync for Apple users whose name fields are currently empty
+        final currentName = doc.data()?['name'] ?? '';
+        final currentDisplayName = doc.data()?['displayName'] ?? '';
+        final currentFullName = doc.data()?['fullName'] ?? '';
+
+        if ((currentName.isEmpty ||
+                currentDisplayName.isEmpty ||
+                currentFullName.isEmpty) &&
+            AuthService.lastAppleFullName != null &&
+            AuthService.lastAppleFullName!.isNotEmpty) {
+          _firestore
+              .collection('users')
+              .doc(user.uid)
+              .update({
+                'name': AuthService.lastAppleFullName,
+                'fullName': AuthService.lastAppleFullName,
+                'displayName': AuthService.lastAppleFullName,
+              })
+              .then((_) {
+                safePrint(
+                  'Successfully retroactively updated Apple user name to: ${AuthService.lastAppleFullName}',
                 );
-              } catch (_) {}
-            }
+                AuthService.lastAppleFullName = null; // Consume the cached name
+              })
+              .catchError((e) {
+                safePrint('Error retroactively updating Apple name: $e');
+              });
+        }
+      } else {
+        final fallbackName =
+            (user.displayName != null && user.displayName!.isNotEmpty)
+            ? user.displayName!
+            : (AuthService.lastAppleFullName ?? '');
 
-            _syncTempPersonalization(user.uid);
+        _firestore
+            .collection('users')
+            .doc(user.uid)
+            .set({
+              'email': user.email,
+              'name': fallbackName,
+              'fullName': fallbackName,
+              'displayName': fallbackName,
+              'userType': 'Freemium',
+              'personalization': [],
+              'aiTone': 'Balanced',
+              'aiPersonality': 'Encouraging',
+              'explanationCount': 0,
+              'insightIntervalHours': 3,
+              'streak': 0,
+              'xp': 0,
+              'level': 1,
+              'referralCode':
+                  'MP${user.uid.substring(0, user.uid.length >= 6 ? 6 : user.uid.length).toUpperCase()}',
+              'referralCount': 0,
+              'hasCompletedFirstSession': false,
+              'country': '',
+              'regCountry': _detectCountry(),
+              'createdAt': FieldValue.serverTimestamp(),
+            })
+            .then((_) {
+              _syncTempPersonalization(user.uid);
+              AuthService.lastAppleFullName = null; // Consume the cached name
 
-            // Retroactive name sync for Apple users whose name fields are currently empty
-            final currentName = doc.data()?['name'] ?? '';
-            final currentDisplayName = doc.data()?['displayName'] ?? '';
-            final currentFullName = doc.data()?['fullName'] ?? '';
-
-            if ((currentName.isEmpty ||
-                    currentDisplayName.isEmpty ||
-                    currentFullName.isEmpty) &&
-                AuthService.lastAppleFullName != null &&
-                AuthService.lastAppleFullName!.isNotEmpty) {
               _firestore
-                  .collection('users')
-                  .doc(user.uid)
-                  .update({
-                    'name': AuthService.lastAppleFullName,
-                    'fullName': AuthService.lastAppleFullName,
-                    'displayName': AuthService.lastAppleFullName,
-                  })
-                  .then((_) {
-                    safePrint(
-                      'Successfully retroactively updated Apple user name to: ${AuthService.lastAppleFullName}',
-                    );
-                    AuthService.lastAppleFullName =
-                        null; // Consume the cached name
-                  })
+                  .collection('app_config')
+                  .doc('settings')
+                  .set({
+                    'authenticated_users_count': FieldValue.increment(1),
+                  }, SetOptions(merge: true))
                   .catchError((e) {
-                    safePrint('Error retroactively updating Apple name: $e');
+                    safePrint('⚠️ Failed to increment count: $e');
                   });
-            }
-          } else {
-            final fallbackName =
-                (user.displayName != null && user.displayName!.isNotEmpty)
-                ? user.displayName!
-                : (AuthService.lastAppleFullName ?? '');
-
-            _firestore
-                .collection('users')
-                .doc(user.uid)
-                .set({
-                  'email': user.email,
-                  'name': fallbackName,
-                  'fullName': fallbackName,
-                  'displayName': fallbackName,
-                  'userType': 'Freemium',
-                  'personalization': [],
-                  'aiTone': 'Balanced',
-                  'aiPersonality': 'Encouraging',
-                  'explanationCount': 0,
-                  'insightIntervalHours': 1,
-                  'streak': 0,
-                  'xp': 0,
-                  'level': 1,
-                  'referralCode': 'MP${user.uid.substring(0, user.uid.length >= 6 ? 6 : user.uid.length).toUpperCase()}',
-                  'referralCount': 0,
-                  'hasCompletedFirstSession': false,
-                  'country': '',
-                  'regCountry': _detectCountry(),
-                  'createdAt': FieldValue.serverTimestamp(),
-                })
-                .then((_) {
-                  _syncTempPersonalization(user.uid);
-                  AuthService.lastAppleFullName =
-                      null; // Consume the cached name
-
-                  _firestore
-                      .collection('app_config')
-                      .doc('settings')
-                      .set({
-                        'authenticated_users_count': FieldValue.increment(1),
-                      }, SetOptions(merge: true))
-                      .catchError((e) {
-                        safePrint('⚠️ Failed to increment count: $e');
-                      });
-                });
-            _displayName = fallbackName;
-            _email = user.email;
-            _userType = "Freemium";
-          }
-          notifyListeners();
-          _checkAndResetDecisionCredits();
-          _checkAndResetExplanationCount();
-        });
+            });
+        _displayName = fallbackName;
+        _email = user.email;
+        _userType = "Freemium";
+      }
+      notifyListeners();
+      _checkAndResetDecisionCredits();
+      _checkAndResetExplanationCount();
+    });
   }
 
   Future<void> _checkAndResetDecisionCredits() async {
@@ -521,18 +643,21 @@ class AppAuthProvider extends BaseProvider {
     }
   }
 
-  Future<void> updateAiPreferences(String tone, String personality) async {
+  Future<void> updateAiPreferences(String tone, String personality, String provider) async {
     if (_user == null) return;
     _aiTone = tone;
     _aiPersonality = personality;
+    _selectedLlmProvider = provider;
     notifyListeners();
 
     try {
       await _firestore.collection('users').doc(_user!.uid).update({
         'aiTone': tone,
         'aiPersonality': personality,
+        'selectedLlmProvider': provider,
       });
       GeminiService().setAiPreferences(tone, personality);
+      GeminiService().setLlmProvider(provider);
     } catch (e) {
       safePrint('Error: $e');
     }
@@ -639,7 +764,10 @@ class AppAuthProvider extends BaseProvider {
     }
   }
 
-  Future<void> loginWithGoogle(BuildContext context) async {
+  Future<void> loginWithGoogle(
+    BuildContext context, {
+    String? heardFrom,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
@@ -648,7 +776,7 @@ class AppAuthProvider extends BaseProvider {
       if (user != null) {
         _user = user;
 
-        await ensureFirestoreUserExists(user);
+        await ensureFirestoreUserExists(user, heardFrom: heardFrom);
         final doc = await _firestore
             .collection('users')
             .doc(user.uid)
@@ -682,7 +810,7 @@ class AppAuthProvider extends BaseProvider {
     }
   }
 
-  Future<void> loginWithApple(BuildContext context) async {
+  Future<void> loginWithApple(BuildContext context, {String? heardFrom}) async {
     _isLoading = true;
     notifyListeners();
 
@@ -691,7 +819,7 @@ class AppAuthProvider extends BaseProvider {
       if (user != null) {
         _user = user;
 
-        await ensureFirestoreUserExists(user);
+        await ensureFirestoreUserExists(user, heardFrom: heardFrom);
         final doc = await _firestore
             .collection('users')
             .doc(user.uid)
@@ -739,6 +867,14 @@ class AppAuthProvider extends BaseProvider {
   }
 
   Future<void> logout() async {
+    try {
+      final context = R.N.navKey.currentContext;
+      if (context != null && context.mounted) {
+        Provider.of<AppProvider>(context, listen: false).accumulateTimeSpent();
+      }
+    } catch (e) {
+      safePrint('Error during logout time accumulation: $e');
+    }
     await FirebaseAuth.instance.signOut();
     notifyListeners();
   }

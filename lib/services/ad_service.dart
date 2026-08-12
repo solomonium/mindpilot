@@ -40,8 +40,6 @@ class AdService {
         ],
       );
       await MobileAds.instance.updateRequestConfiguration(configuration);
-      
-      loadRewardedAd();
     } catch (e) {
       safePrint('AdService: Failed to initialize MobileAds: $e');
     }

@@ -1,5 +1,7 @@
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { AccessToken } = require("livekit-server-sdk");
 const admin = require("firebase-admin");
 const axios = require("axios");
 
@@ -246,19 +248,26 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
             const lastInsight = userData.lastInsightTime;
             const fcmToken = userData.fcmToken;
 
-            // Per-user interval in hours (convert to Ms)
-            const userIntervalHours = userData.insightIntervalHours;
-            const userIntervalMs = (userIntervalHours && userIntervalHours > 0)
-                ? (userIntervalHours * 3600000)
-                : defaultIntervalMs;
+            // Force interval to be 3 hours (10,800,000 ms) for all users (old and new)
+            // unless they have explicitly disabled insights (userIntervalHours === 0)
+            let userIntervalHours = userData.insightIntervalHours;
+            if (userIntervalHours === undefined || userIntervalHours === null) {
+                userIntervalHours = 3; // Default for new/unset users
+            } else if (userIntervalHours !== 0) {
+                userIntervalHours = 3; // Default/force for old users
+            }
+
+            const userIntervalMs = userIntervalHours * 3600000;
 
             let shouldSend = false;
-            if (!lastInsight) {
-                shouldSend = true;
-            } else {
-                const diffMs = now.toMillis() - lastInsight.toMillis();
-                if (diffMs >= userIntervalMs) {
+            if (userIntervalMs > 0) {
+                if (!lastInsight) {
                     shouldSend = true;
+                } else {
+                    const diffMs = now.toMillis() - lastInsight.toMillis();
+                    if (diffMs >= userIntervalMs) {
+                        shouldSend = true;
+                    }
                 }
             }
 
@@ -317,7 +326,6 @@ exports.sendAutoInsights = onSchedule("every 5 minutes", async (event) => {
 // Super Admin list for registration alerts
 const SUPER_ADMIN_EMAILS = [
     "laleyesolomon2@gmail.com",
-    "solteqinnovationsltd@gmail.com",
 ];
 
 exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
@@ -365,13 +373,23 @@ exports.onUserCreated = onDocumentCreated("users/{userId}", async (event) => {
                     notification: {
                         channelId: "mindpilot_notifications",
                         priority: "high",
+                        sound: "default",
                     },
                 },
                 apns: {
+                    headers: {
+                        "apns-priority": "10",
+                    },
                     payload: {
                         aps: {
-                            contentAvailable: true,
+                            alert: {
+                                title: "🆕 New User Registration",
+                                body: `${userName} (${userEmail})${userCountry} just signed up!`,
+                            },
                             sound: "default",
+                            badge: 1,
+                            mutableContent: true,
+                            contentAvailable: true,
                         },
                     },
                 },
@@ -545,3 +563,304 @@ exports.sendWeeklySummary = onSchedule("0 18 * * 0", async () => {
     }
 });
 
+exports.onGroupInvitationCreated = onDocumentCreated("group_invitations/{invitationId}", async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const data = snap.data();
+    if (!data) return;
+
+    const groupId = data.groupId;
+    const groupName = data.groupName;
+    const senderName = data.senderName;
+    const recipientUid = data.recipientUid;
+    const invitationId = event.params.invitationId;
+
+    try {
+        // Fetch recipient user document to get fcmToken
+        const recipientDoc = await admin.firestore().collection("users").doc(recipientUid).get();
+        if (!recipientDoc.exists) {
+            console.log(`Recipient user ${recipientUid} not found.`);
+            return;
+        }
+
+        const recipientData = recipientDoc.data();
+        const fcmToken = recipientData.fcmToken;
+        if (!fcmToken) {
+            console.log(`Recipient user ${recipientUid} has no FCM token.`);
+            return;
+        }
+
+        const title = "Group Invitation 📖";
+        const body = `${senderName} invited you to join the "${groupName}" quiz group on MindPilot!`;
+
+        const payload = {
+            notification: {
+                title: title,
+                body: body,
+            },
+            data: {
+                type: "group_invite",
+                groupId: groupId,
+                groupName: groupName,
+                invitationId: invitationId,
+                click_action: "FLUTTER_NOTIFICATION_CLICK",
+            },
+            android: {
+                priority: "high",
+                notification: {
+                    channelId: "group_invite_channel_v1",
+                    priority: "high",
+                    sound: "invite_voice",
+                },
+            },
+            // iOS: Use alert notification (NOT content-available / silent) so the custom sound plays.
+            // content-available:1 signals a background-only silent push, which suppresses custom sounds.
+            apns: {
+                headers: {
+                    'apns-priority': '10',
+                },
+                payload: {
+                    aps: {
+                        alert: {
+                            title: title,
+                            body: body,
+                        },
+                        sound: 'invite_voice.wav',
+                        badge: 1,
+                    },
+                },
+            },
+            token: fcmToken,
+        };
+
+        await admin.messaging().send(payload);
+        console.log(`FCM invitation sent successfully to ${recipientUid} for group ${groupId}`);
+    } catch (error) {
+        console.error("Error sending group invite notification:", error);
+    }
+});
+
+exports.onGameCreated = onDocumentCreated("games/{gameId}", async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const data = snap.data();
+    if (!data) return;
+
+    const groupId = data.groupId;
+    const status = data.status;
+
+    if (status !== 'playing') {
+        console.log("Game status is not playing. Skipping alert.");
+        return;
+    }
+
+    try {
+        const groupDoc = await admin.firestore().collection("groups").doc(groupId).get();
+        if (!groupDoc.exists) {
+            console.log(`Group ${groupId} not found.`);
+            return;
+        }
+
+        const groupData = groupDoc.data();
+        const groupName = groupData.name || "Bible Quiz Group";
+        const members = groupData.members || {};
+        const creatorUid = groupData.createdBy;
+
+        const recipientUids = [];
+        for (const uid in members) {
+            if (uid !== creatorUid && members[uid].status === 'accepted') {
+                recipientUids.push(uid);
+            }
+        }
+
+        if (recipientUids.length === 0) {
+            console.log("No other accepted members to notify.");
+            return;
+        }
+
+        const promises = [];
+        for (const uid of recipientUids) {
+            const userDoc = await admin.firestore().collection("users").doc(uid).get();
+            if (!userDoc.exists) continue;
+
+            const userData = userDoc.data();
+            const fcmToken = userData.fcmToken;
+            if (!fcmToken) {
+                console.log(`User ${uid} has no FCM token.`);
+                continue;
+            }
+
+            const title = "Quiz Started! 🚀";
+            const body = `The quiz in "${groupName}" has started. Join now!`;
+
+            const payload = {
+                notification: {
+                    title: title,
+                    body: body,
+                },
+                data: {
+                    type: "group_game_start",
+                    groupId: groupId,
+                    click_action: "FLUTTER_NOTIFICATION_CLICK",
+                },
+                android: {
+                    priority: "high",
+                    notification: {
+                        channelId: "group_game_start_channel_v1",
+                        priority: "high",
+                        sound: "quiz_started",
+                    },
+                },
+                apns: {
+                    payload: {
+                        aps: {
+                            contentAvailable: true,
+                            sound: "quiz_started.wav",
+                        },
+                    },
+                },
+                token: fcmToken,
+            };
+
+            promises.push(
+                admin.messaging().send(payload)
+                    .then(() => console.log(`FCM game start alert sent to ${uid}`))
+                    .catch((err) => console.error(`Error sending game start fcm to ${uid}:`, err))
+            );
+        }
+
+        await Promise.all(promises);
+        console.log(`Processed ${promises.length} game start alerts for group ${groupId}`);
+    } catch (error) {
+        console.error("Error sending group game start notification:", error);
+    }
+});
+
+
+// Notify group creator when an invited member accepts & joins the group
+exports.onGroupMemberJoined = onDocumentUpdated("groups/{groupId}", async (event) => {
+    const before = event.data.before.data();
+    const after  = event.data.after.data();
+
+    if (!before || !after) return;
+
+    const groupId   = event.params.groupId;
+    const groupName = after.name || "Quiz Group";
+    const creatorUid = after.createdBy;
+
+    if (!creatorUid) return;
+
+    // Find members who just flipped to 'accepted'
+    const beforeMembers = before.members || {};
+    const afterMembers  = after.members  || {};
+
+    const newlyAccepted = [];
+    for (const uid in afterMembers) {
+        if (uid === creatorUid) continue; // skip the creator themselves
+        const wasAccepted = beforeMembers[uid]?.status === 'accepted';
+        const isNowAccepted = afterMembers[uid]?.status === 'accepted';
+        if (!wasAccepted && isNowAccepted) {
+            newlyAccepted.push({
+                uid,
+                displayName: afterMembers[uid].displayName || afterMembers[uid].email || 'Someone',
+            });
+        }
+    }
+
+    if (newlyAccepted.length === 0) return;
+
+    try {
+        // Get creator's FCM token
+        const creatorDoc = await admin.firestore().collection("users").doc(creatorUid).get();
+        if (!creatorDoc.exists) return;
+
+        const creatorData = creatorDoc.data();
+        const fcmToken = creatorData.fcmToken;
+        if (!fcmToken) {
+            console.log(`Creator ${creatorUid} has no FCM token.`);
+            return;
+        }
+
+        for (const member of newlyAccepted) {
+            const title = "New Member Joined! 🎉";
+            const body  = `${member.displayName} has joined your quiz group "${groupName}"!`;
+
+            const payload = {
+                notification: { title, body },
+                data: {
+                    type: "group_member_joined",
+                    groupId: groupId,
+                    groupName: groupName,
+                    memberName: member.displayName,
+                    memberUid: member.uid,
+                    click_action: "FLUTTER_NOTIFICATION_CLICK",
+                },
+                android: {
+                    priority: "high",
+                    notification: {
+                        channelId: "mindpilot_notifications",
+                        priority: "high",
+                    },
+                },
+                apns: {
+                    headers: { 'apns-priority': '10' },
+                    payload: {
+                        aps: {
+                            alert: { title, body },
+                            sound: 'default',
+                            badge: 1,
+                        },
+                    },
+                },
+                token: fcmToken,
+            };
+
+            await admin.messaging().send(payload)
+                .then(() => console.log(`Join notification sent to creator ${creatorUid} for member ${member.uid}`))
+                .catch(err => console.error(`Error notifying creator:`, err));
+        }
+    } catch (error) {
+        console.error("Error in onGroupMemberJoined:", error);
+    }
+});
+
+// HTTP Callable function to generate LiveKit tokens
+exports.getLiveKitToken = onCall(async (request) => {
+    // Check if user is authenticated
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
+    }
+
+    const { roomName, participantName } = request.data;
+    if (!roomName || !participantName) {
+        throw new HttpsError("invalid-argument", "roomName and participantName are required.");
+    }
+
+    // Retrieve LiveKit credentials from environment variables
+    const apiKey = process.env.LIVEKIT_API_KEY || "devkey";
+    const apiSecret = process.env.LIVEKIT_API_SECRET || "secret";
+    const apiUrl = process.env.LIVEKIT_API_URL || "ws://localhost:7880";
+
+    try {
+        const at = new AccessToken(apiKey, apiSecret, {
+            identity: participantName,
+            name: participantName,
+        });
+
+        at.addGrant({
+            roomJoin: true,
+            room: roomName,
+            canPublish: true,
+            canPublishData: true,
+            canSubscribe: true,
+        });
+
+        const token = await at.toJwt();
+        return { token, url: apiUrl };
+    } catch (error) {
+        console.error("Error generating LiveKit token:", error);
+        throw new HttpsError("internal", "Failed to generate token: " + error.message);
+    }
+});

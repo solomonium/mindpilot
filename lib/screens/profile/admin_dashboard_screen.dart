@@ -1,4 +1,24 @@
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:mindpilot/export.dart';
+import 'package:mindpilot/screens/profile/ai_model_management_screen.dart';
+
+class ModelHealthCheckResult {
+  final String modelId;
+  final String category; // 'Direct Gemini', 'OpenRouter Free', 'OpenRouter Pro'
+  final bool isOk;
+  final String statusText;
+  final int latencyMs;
+  final bool isActive;
+
+  ModelHealthCheckResult({
+    required this.modelId,
+    required this.category,
+    required this.isOk,
+    required this.statusText,
+    required this.latencyMs,
+    required this.isActive,
+  });
+}
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -9,18 +29,12 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _userSearchController = TextEditingController();
   final List<String> _superAdmins = [
     'laleyesolomon2@gmail.com',
     'solteqinnovationsltd@gmail.com',
   ];
   bool _isLoading = false;
   bool _isBroadcasting = false;
-  bool _isUpdatingMembership = false;
-
-  String? _foundUserUid;
-  String _foundUserType = 'Freemium';
-  bool _isSearchingUser = false;
 
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _versionController = TextEditingController();
@@ -30,8 +44,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool _isEditMode = false;
   bool _isUpdatingConfig = false;
 
+  bool _isCheckingHealth = false;
+  String? _directGeminiStatus;
+  bool? _directGeminiOk;
+  String? _openRouterStatus;
+  bool? _openRouterOk;
+  List<ModelHealthCheckResult> _healthCheckResults = [];
+  String? _autoSwitchLog;
+  bool _isHealthResultsExpanded = true;
+
   int _totalUsers = 0;
   bool _isLoadingUsersCount = true;
+  bool _isPurgingLogs = false;
 
   @override
   void initState() {
@@ -131,6 +155,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 16.verticalSpace,
                 _configCard(context),
                 32.verticalSpace,
+                _sectionTitle(context, 'AI Model Configurations'),
+                16.verticalSpace,
+                _aiModelManagementCard(context),
+                32.verticalSpace,
+                _sectionTitle(context, 'Live Gateway Health & Downtime'),
+                16.verticalSpace,
+                _healthCheckCard(context),
+                32.verticalSpace,
+                if (FirebaseAuth.instance.currentUser?.email == 'laleyesolomon2@gmail.com') ...[
+                  _sectionTitle(context, 'Gemini API Quota Tracking'),
+                  16.verticalSpace,
+                  _quotaTrackerCard(context),
+                  32.verticalSpace,
+                ],
                 _sectionTitle(context, 'Broadcast System'),
                 16.verticalSpace,
                 _broadcastCard(context),
@@ -141,7 +179,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 32.verticalSpace,
                 _sectionTitle(context, 'User Membership Management'),
                 16.verticalSpace,
-                _userManagementCard(context),
+                _allRegisteredUsersCard(context),
                 32.verticalSpace,
                 _sectionTitle(context, 'Manage Admin Privileges'),
                 16.verticalSpace,
@@ -248,6 +286,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             loading: _isBroadcasting,
             onPressed: _sendBroadcastReminder,
           ),
+          12.verticalSpace,
+          CustomButton(
+            label: 'Prompt All Unconfigured Users for Push Notifications 🔔',
+            onPressed: () async {
+              try {
+                await FirebaseFirestore.instance.collection('app_config').doc('settings').set({
+                  'force_push_prompt_timestamp': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
+
+                if (context.mounted) {
+                  context.showInAppNotification(
+                    'Push Notification Setup prompt dispatched app-wide!',
+                    type: InAppNotificationType.success,
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  context.showInAppNotification(
+                    'Failed to dispatch prompt: $e',
+                    type: InAppNotificationType.error,
+                  );
+                }
+              }
+            },
+          ),
         ],
       ),
     );
@@ -318,133 +381,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() => _isBroadcasting = false);
   }
 
-  Widget _userManagementCard(BuildContext context) {
+  Widget _allRegisteredUsersCard(BuildContext context) {
     AppTheme theme = context.watch<AppTheme>();
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       gradient: theme.glassGradient,
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: CustomTextField(
-                  textController: _userSearchController,
-                  hintText: 'Enter User Email',
-                  textInputType: TextInputType.emailAddress,
-                  autoFocus: false,
-                  textInputAction: TextInputAction.search,
-                  onDone: _searchUser,
-                ),
-              ),
-              12.horizontalSpace,
-              IconButton(
-                icon: _isSearchingUser
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.search, color: Colors.white),
-                onPressed: _searchUser,
-              ),
-            ],
-          ),
-          if (_foundUserUid != null) ...[
-            20.verticalSpace,
-            const Divider(color: Colors.white24),
-            20.verticalSpace,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SecondaryText(
-                  text: 'Member Type:',
-                  color: theme.accentTxt.withOpacity(0.7),
+                PrimaryText(
+                  text: 'Registered Users Directory',
+                  color: theme.accentTxt,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
-                DropdownButton<String>(
-                  value: _foundUserType,
-                  dropdownColor: theme.brandDark,
-                  underline: const SizedBox(),
-                  style: GoogleFonts.inter(
-                    color: theme.accentTxt,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  items: ['Freemium', 'Pro Member'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _foundUserType = val);
-                  },
+                4.verticalSpace,
+                SecondaryText(
+                  text: 'View directory, copy emails, and modify membership tiers.',
+                  color: theme.accentTxt.withOpacity(0.6),
+                  fontSize: 12,
                 ),
               ],
             ),
-            20.verticalSpace,
-            CustomButton(
-              label: 'Update Membership',
-              loading: _isUpdatingMembership,
-              onPressed: _updateUserType,
-            ),
-          ],
+          ),
+          12.horizontalSpace,
+          Icon(
+            Icons.chevron_right,
+            color: theme.primaryBase,
+            size: 24,
+          ),
         ],
       ),
-    );
-  }
-
-  Future<void> _searchUser() async {
-    final email = _userSearchController.text.trim().toLowerCase();
-    if (email.isEmpty) return;
-
-    setState(() {
-      _isSearchingUser = true;
-      _foundUserUid = null;
+    ).rippleClick(() {
+      context.push(const AllRegisteredUsersScreen());
     });
-
-    try {
-      final query = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get();
-
-      if (query.docs.isNotEmpty) {
-        final doc = query.docs.first;
-        setState(() {
-          _foundUserUid = doc.id;
-          _foundUserType = doc.data()['userType'] ?? 'Freemium';
-        });
-      } else {
-        if (mounted) {
-          context.showInAppNotification('User not found in database.');
-        }
-      }
-    } catch (e) {
-      if (mounted) context.showInAppNotification('Error: $e');
-    }
-    setState(() => _isSearchingUser = false);
-  }
-
-  Future<void> _updateUserType() async {
-    if (_foundUserUid == null) return;
-    setState(() => _isUpdatingMembership = true);
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_foundUserUid)
-          .update({'userType': _foundUserType});
-      if (mounted) {
-        context.showInAppNotification(
-          'User updated to $_foundUserType',
-          type: InAppNotificationType.success,
-        );
-      }
-    } catch (e) {
-      if (mounted) context.showInAppNotification('Error: $e');
-    } finally {
-      setState(() => _isUpdatingMembership = false);
-    }
   }
 
   Widget _sectionTitle(BuildContext context, String title) {
@@ -568,6 +542,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _aiModelManagementCard(BuildContext context) {
+    AppTheme theme = context.watch<AppTheme>();
+    final config = ConfigService();
+
+    return GlassContainer(
+      padding: const EdgeInsets.all(20),
+      gradient: theme.glassGradient,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: SecondaryText(
+                  text: 'Manage lists of Direct Gemini models and OpenRouter fallback candidate lists.',
+                  color: theme.accentTxt.withOpacity(0.7),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          16.verticalSpace,
+          _configItem('Direct Gemini Model', config.directGeminiModel),
+          _configItem('OpenRouter Free List', '${config.openRouterFreeModels.length} Active Models'),
+          _configItem('OpenRouter Pro List', '${config.openRouterProModels.length} Active Models'),
+          20.verticalSpace,
+          CustomButton(
+            label: 'Manage & Reorder AI Model Lists',
+            onPressed: () {
+              context.push(const AiModelManagementScreen());
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _configEditField(
     AppTheme theme,
     String label,
@@ -630,16 +641,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       await FirebaseFirestore.instance
           .collection('app_config')
           .doc('settings')
-          .update({
+          .set({
             'support_phone': phone,
             'latest_version': version,
             'quote_interval_ms': intervalMs,
             'update_url': updateUrl,
             'force_update': _forceUpdateValue,
-            'authenticated_users_count':
-                _totalUsers, // Maintain/sync the accurate total user count automatically
+            'authenticated_users_count': _totalUsers,
             'updatedAt': FieldValue.serverTimestamp(),
-          });
+          }, SetOptions(merge: true));
 
       // Refresh local config
       await ConfigService().fetchRemoteConfig();
@@ -658,6 +668,709 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  Widget _healthCheckCard(BuildContext context) {
+    AppTheme theme = context.watch<AppTheme>();
+    final directModelName = ConfigService().directGeminiModel.isNotEmpty
+        ? ConfigService().directGeminiModel
+        : 'gemini-2.0-flash';
+    final freeModels = ConfigService().openRouterFreeModels;
+    final openRouterModel = freeModels.isNotEmpty ? freeModels.first : 'google/gemma-4-31b-it:free';
+
+    return GlassContainer(
+      padding: const EdgeInsets.all(20),
+      gradient: theme.glassGradient,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SecondaryText(
+            text: 'Run real-time API health checks to test model availability, iterate through candidate models, and automatically switch to an available operational model.',
+            color: theme.accentTxt.withOpacity(0.7),
+            fontSize: 13,
+          ),
+          16.verticalSpace,
+          if (_autoSwitchLog != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.successPrimary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: theme.successPrimary.withOpacity(0.4)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: theme.successPrimary, size: 20),
+                  10.horizontalSpace,
+                  Expanded(
+                    child: SecondaryText(
+                      text: _autoSwitchLog!,
+                      color: theme.successPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            16.verticalSpace,
+          ],
+          if (_healthCheckResults.isNotEmpty) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: PrimaryText(
+                    text: 'Model Iteration Results (${_healthCheckResults.where((r) => r.isOk).length}/${_healthCheckResults.length} Operational)',
+                    color: theme.accentTxt,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                10.horizontalSpace,
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: theme.accentTxt.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SecondaryText(
+                        text: _isHealthResultsExpanded ? 'Collapse' : 'Expand',
+                        color: theme.accentTxt.withOpacity(0.8),
+                        fontSize: 11,
+                      ),
+                      4.horizontalSpace,
+                      Icon(
+                        _isHealthResultsExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        color: theme.accentTxt,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ).rippleClick(() {
+              setState(() {
+                _isHealthResultsExpanded = !_isHealthResultsExpanded;
+              });
+            }),
+            12.verticalSpace,
+            if (_isHealthResultsExpanded) ...[
+              ..._buildHealthResultsList(theme),
+              16.verticalSpace,
+            ],
+          ] else ...[
+            _healthStatusRow(
+              theme,
+              'Direct Gemini Gateway ($directModelName)',
+              _directGeminiOk,
+              _directGeminiStatus,
+            ),
+            16.verticalSpace,
+            _healthStatusRow(
+              theme,
+              'OpenRouter Gateway ($openRouterModel)',
+              _openRouterOk,
+              _openRouterStatus,
+            ),
+            20.verticalSpace,
+          ],
+          CustomButton(
+            label: _isCheckingHealth ? 'Testing & Switching Models...' : 'Check API Models & Auto-Switch Downtime',
+            loading: _isCheckingHealth,
+            onPressed: _runHealthCheck,
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildHealthResultsList(AppTheme theme) {
+    final categories = ['Direct Gemini', 'OpenRouter Free', 'OpenRouter Pro'];
+    List<Widget> widgets = [];
+
+    for (var cat in categories) {
+      final items = _healthCheckResults.where((r) => r.category == cat).toList();
+      if (items.isEmpty) continue;
+
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0, bottom: 6.0),
+          child: SecondaryText(
+            text: '$cat Models',
+            color: theme.primaryBase,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+
+      for (var item in items) {
+        widgets.add(
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.accentTxt.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: item.isActive
+                    ? theme.primaryBase.withOpacity(0.5)
+                    : theme.accentTxt.withOpacity(0.1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  item.isOk ? Icons.check_circle : Icons.cancel,
+                  color: item.isOk ? theme.successPrimary : theme.errorPrimary,
+                  size: 18,
+                ),
+                10.horizontalSpace,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: PrimaryText(
+                              text: item.modelId,
+                              color: theme.accentTxt,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (item.isActive) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: theme.primaryBase.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: SecondaryText(
+                                text: 'ACTIVE & ENABLED',
+                                color: theme.primaryBase,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      2.verticalSpace,
+                      SecondaryText(
+                        text: item.statusText,
+                        color: item.isOk
+                            ? theme.successPrimary
+                            : theme.errorPrimary,
+                        fontSize: 11,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    return widgets;
+  }
+
+  Widget _healthStatusRow(
+    AppTheme theme,
+    String gatewayName,
+    bool? isOk,
+    String? statusText,
+  ) {
+    Color iconColor = Colors.white54;
+    IconData iconData = Icons.help_outline;
+
+    if (isOk == true) {
+      iconColor = theme.successPrimary;
+      iconData = Icons.check_circle_outline;
+    } else if (isOk == false) {
+      iconColor = theme.errorPrimary;
+      iconData = Icons.error_outline;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(iconData, color: iconColor, size: 20),
+            8.horizontalSpace,
+            Expanded(
+              child: PrimaryText(
+                text: gatewayName,
+                color: theme.accentTxt,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        if (statusText != null && statusText.isNotEmpty) ...[
+          6.verticalSpace,
+          Padding(
+            padding: const EdgeInsets.only(left: 28.0),
+            child: SecondaryText(
+              text: statusText,
+              color: isOk == true
+                  ? theme.successPrimary
+                  : (isOk == false ? theme.errorPrimary : theme.accentTxt.withOpacity(0.7)),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _formatOpenRouterStatusError(int statusCode, dynamic data) {
+    String serverMsg = '';
+    if (data != null && data['error'] != null) {
+      if (data['error'] is Map) {
+        serverMsg = data['error']['message']?.toString() ?? data['error'].toString();
+      } else {
+        serverMsg = data['error'].toString();
+      }
+    }
+
+    switch (statusCode) {
+      case 400:
+        return 'Invalid Model ID (HTTP 400: $serverMsg)';
+      case 401:
+        return 'Authentication Failed (HTTP 401: Invalid or revoked OpenRouter API Key)';
+      case 402:
+        return 'Payment/Credits Required (HTTP 402: $serverMsg)';
+      case 404:
+        return 'Model Not Found (HTTP 404: $serverMsg)';
+      case 429:
+        return 'Rate Limited (HTTP 429: Too many requests on OpenRouter free tier)';
+      default:
+        return 'HTTP $statusCode${serverMsg.isNotEmpty ? ": $serverMsg" : ""}';
+    }
+  }
+
+  String _formatHealthError(dynamic e) {
+    final str = e.toString();
+    if (str.contains('Failed host lookup') ||
+        str.contains('SocketException') ||
+        str.contains('No address associated with hostname') ||
+        str.contains('connectionError')) {
+      return 'No Internet Connection (DNS lookup failed)';
+    }
+    if (str.contains('TimeoutException') ||
+        str.contains('connectTimeout') ||
+        str.contains('receiveTimeout') ||
+        str.contains('sendTimeout')) {
+      return 'Request Timed Out (>15s)';
+    }
+    return 'Downtime ($str)';
+  }
+
+  Future<void> _runHealthCheck() async {
+    setState(() {
+      _isCheckingHealth = true;
+      _healthCheckResults.clear();
+      _autoSwitchLog = null;
+      _isHealthResultsExpanded = true;
+      _directGeminiStatus = 'Testing Direct Gemini models...';
+      _openRouterStatus = 'Testing OpenRouter models...';
+      _directGeminiOk = null;
+      _openRouterOk = null;
+    });
+
+    final dio = Dio();
+    final List<String> autoSwitchEvents = [];
+    bool needsFirestoreUpdate = false;
+
+    // 1. ITERATE DIRECT GEMINI CANDIDATE MODELS
+    final geminiApiKey = dotenv.env['GEMINI_API_KEY'];
+    final rawPrimaryGeminiModel = ConfigService().directGeminiModel.isNotEmpty
+        ? ConfigService().directGeminiModel
+        : 'gemini-2.0-flash';
+    final primaryGeminiModel = rawPrimaryGeminiModel.replaceAll(RegExp(r'^google/'), '');
+
+    final candidateGeminiModels = [
+      primaryGeminiModel,
+      'gemini-2.5-flash',
+      'gemini-3.5-flash',
+      'gemini-flash-latest',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+    ].map((m) => m.replaceAll(RegExp(r'^google/'), '')).toSet().toList();
+
+    String? workingGeminiModel;
+
+    if (geminiApiKey == null || geminiApiKey.isEmpty) {
+      _directGeminiOk = false;
+      _directGeminiStatus = 'Downtime (GEMINI_API_KEY missing)';
+      _healthCheckResults.add(
+        ModelHealthCheckResult(
+          modelId: primaryGeminiModel,
+          category: 'Direct Gemini',
+          isOk: false,
+          statusText: 'GEMINI_API_KEY not configured in .env',
+          latencyMs: 0,
+          isActive: true,
+        ),
+      );
+    } else {
+      for (int i = 0; i < candidateGeminiModels.length; i++) {
+        final modelName = candidateGeminiModels[i];
+        final bool isPrimary = (modelName == primaryGeminiModel);
+        final Stopwatch sw = Stopwatch()..start();
+        try {
+          final model = GenerativeModel(
+            model: modelName,
+            apiKey: geminiApiKey,
+          );
+          final response = await model
+              .generateContent([Content.text('Ping')])
+              .timeout(const Duration(seconds: 15));
+          sw.stop();
+
+          if (response.text != null && response.text!.isNotEmpty) {
+            if (workingGeminiModel == null) {
+              workingGeminiModel = modelName;
+            }
+            _healthCheckResults.add(
+              ModelHealthCheckResult(
+                modelId: modelName,
+                category: 'Direct Gemini',
+                isOk: true,
+                statusText: 'Operational — ${sw.elapsedMilliseconds}ms',
+                latencyMs: sw.elapsedMilliseconds,
+                isActive: isPrimary,
+              ),
+            );
+          } else {
+            _healthCheckResults.add(
+              ModelHealthCheckResult(
+                modelId: modelName,
+                category: 'Direct Gemini',
+                isOk: false,
+                statusText: 'Degraded — empty response',
+                latencyMs: sw.elapsedMilliseconds,
+                isActive: isPrimary,
+              ),
+            );
+          }
+        } catch (e) {
+          sw.stop();
+          _healthCheckResults.add(
+            ModelHealthCheckResult(
+              modelId: modelName,
+              category: 'Direct Gemini',
+              isOk: false,
+              statusText: _formatHealthError(e),
+              latencyMs: sw.elapsedMilliseconds,
+              isActive: isPrimary,
+            ),
+          );
+        }
+      }
+
+      final primaryResult = _healthCheckResults.firstWhere(
+        (r) => r.category == 'Direct Gemini' && r.modelId == primaryGeminiModel,
+        orElse: () => _healthCheckResults.first,
+      );
+
+      _directGeminiOk = primaryResult.isOk;
+      _directGeminiStatus = primaryResult.statusText;
+
+      if (!primaryResult.isOk && workingGeminiModel != null && workingGeminiModel != primaryGeminiModel) {
+        autoSwitchEvents.add('Auto-Switched Direct Gemini from "$primaryGeminiModel" to "$workingGeminiModel"');
+        needsFirestoreUpdate = true;
+      }
+    }
+
+    // 2. ITERATE OPENROUTER FREE MODELS
+    final openRouterApiKey = (dotenv.env['OPEN_ROUTER_API_KEY'] ?? '').trim();
+    // Only test models that end with :free or are valid free endpoints
+    List<String> currentFreeModels = ConfigService()
+        .openRouterFreeModels
+        .where((m) => m.contains(':free'))
+        .toList();
+    if (currentFreeModels.isEmpty) {
+      currentFreeModels = [
+        'google/gemma-4-31b-it:free',
+        'google/gemma-4-26b-a4b-it:free',
+        'openai/gpt-oss-20b:free',
+      ];
+    }
+    String? workingFreeModel;
+    final List<String> invalidFreeModels = [];
+
+    if (openRouterApiKey.isEmpty) {
+      _openRouterOk = false;
+      _openRouterStatus = 'Downtime (OPEN_ROUTER_API_KEY missing)';
+      if (currentFreeModels.isNotEmpty) {
+        _healthCheckResults.add(
+          ModelHealthCheckResult(
+            modelId: currentFreeModels.first,
+            category: 'OpenRouter Free',
+            isOk: false,
+            statusText: 'OPEN_ROUTER_API_KEY not configured in .env',
+            latencyMs: 0,
+            isActive: true,
+          ),
+        );
+      }
+    } else {
+      for (int i = 0; i < currentFreeModels.length; i++) {
+        final m = currentFreeModels[i];
+        final bool isPrimary = (i == 0);
+        final Stopwatch sw = Stopwatch()..start();
+        try {
+          final response = await dio.post(
+            'https://openrouter.ai/api/v1/chat/completions',
+            options: Options(
+              headers: {
+                'Authorization': 'Bearer $openRouterApiKey',
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
+                'X-Title': 'MindPilot Health Check',
+              },
+              validateStatus: (s) => s != null && s < 600,
+              receiveTimeout: const Duration(seconds: 15),
+              sendTimeout: const Duration(seconds: 15),
+            ),
+            data: {
+              'model': m,
+              'messages': [
+                {'role': 'user', 'content': 'Ping'}
+              ],
+              'max_tokens': 5,
+            },
+          ).timeout(const Duration(seconds: 15));
+          sw.stop();
+
+          if (response.statusCode == 200 &&
+              response.data != null &&
+              response.data['choices'] != null &&
+              (response.data['choices'] as List).isNotEmpty) {
+            if (workingFreeModel == null) {
+              workingFreeModel = m;
+            }
+            _healthCheckResults.add(
+              ModelHealthCheckResult(
+                modelId: m,
+                category: 'OpenRouter Free',
+                isOk: true,
+                statusText: 'Operational — ${sw.elapsedMilliseconds}ms',
+                latencyMs: sw.elapsedMilliseconds,
+                isActive: isPrimary,
+              ),
+            );
+          } else {
+            if (response.statusCode == 400 || response.statusCode == 404 || response.statusCode == 402) {
+              invalidFreeModels.add(m);
+            }
+            _healthCheckResults.add(
+              ModelHealthCheckResult(
+                modelId: m,
+                category: 'OpenRouter Free',
+                isOk: false,
+                statusText: _formatOpenRouterStatusError(response.statusCode ?? 500, response.data),
+                latencyMs: sw.elapsedMilliseconds,
+                isActive: isPrimary,
+              ),
+            );
+          }
+        } catch (e) {
+          sw.stop();
+          _healthCheckResults.add(
+            ModelHealthCheckResult(
+              modelId: m,
+              category: 'OpenRouter Free',
+              isOk: false,
+              statusText: _formatHealthError(e),
+              latencyMs: sw.elapsedMilliseconds,
+              isActive: isPrimary,
+            ),
+          );
+        }
+      }
+
+      // Strip out invalid/non-free models
+      if (invalidFreeModels.isNotEmpty) {
+        currentFreeModels.removeWhere((m) => invalidFreeModels.contains(m));
+        needsFirestoreUpdate = true;
+      }
+
+      final primaryFreeResult = _healthCheckResults.firstWhere(
+        (r) => r.category == 'OpenRouter Free' && r.isActive,
+        orElse: () => _healthCheckResults.firstWhere((r) => r.category == 'OpenRouter Free'),
+      );
+      _openRouterOk = primaryFreeResult.isOk;
+      _openRouterStatus = primaryFreeResult.statusText;
+
+      if (workingFreeModel != null && currentFreeModels.isNotEmpty && workingFreeModel != currentFreeModels.first) {
+        currentFreeModels.remove(workingFreeModel);
+        currentFreeModels.insert(0, workingFreeModel);
+        autoSwitchEvents.add('Promoted operational Free model: "$workingFreeModel" to primary.');
+        needsFirestoreUpdate = true;
+      }
+    }
+
+    // 3. ITERATE OPENROUTER PRO MODELS (Claude, ChatGPT, DeepSeek, Gemini Pro)
+    List<String> currentProModels = List<String>.from(ConfigService().openRouterProModels);
+    if (currentProModels.isEmpty) {
+      currentProModels = [
+        'anthropic/claude-3.5-sonnet',
+        'openai/gpt-4o',
+        'openai/gpt-4o-mini',
+        'anthropic/claude-3.5-haiku',
+        'deepseek/deepseek-chat',
+      ];
+    }
+    String? workingProModel;
+    final List<String> invalidProModels = [];
+
+    if (openRouterApiKey.isNotEmpty) {
+      for (int i = 0; i < currentProModels.length; i++) {
+        final m = currentProModels[i];
+        final bool isPrimary = (i == 0);
+        final Stopwatch sw = Stopwatch()..start();
+        try {
+          final response = await dio.post(
+            'https://openrouter.ai/api/v1/chat/completions',
+            options: Options(
+              headers: {
+                'Authorization': 'Bearer $openRouterApiKey',
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
+                'X-Title': 'MindPilot Health Check',
+              },
+              validateStatus: (s) => s != null && s < 600,
+              receiveTimeout: const Duration(seconds: 15),
+              sendTimeout: const Duration(seconds: 15),
+            ),
+            data: {
+              'model': m,
+              'messages': [
+                {'role': 'user', 'content': 'Ping'}
+              ],
+              'max_tokens': 5,
+            },
+          ).timeout(const Duration(seconds: 15));
+          sw.stop();
+
+          if (response.statusCode == 200 &&
+              response.data != null &&
+              response.data['choices'] != null &&
+              (response.data['choices'] as List).isNotEmpty) {
+            if (workingProModel == null) {
+              workingProModel = m;
+            }
+            _healthCheckResults.add(
+              ModelHealthCheckResult(
+                modelId: m,
+                category: 'OpenRouter Pro',
+                isOk: true,
+                statusText: 'Operational — ${sw.elapsedMilliseconds}ms',
+                latencyMs: sw.elapsedMilliseconds,
+                isActive: isPrimary,
+              ),
+            );
+          } else {
+            if (response.statusCode == 400 || response.statusCode == 404 || response.statusCode == 402) {
+              invalidProModels.add(m);
+            }
+            _healthCheckResults.add(
+              ModelHealthCheckResult(
+                modelId: m,
+                category: 'OpenRouter Pro',
+                isOk: false,
+                statusText: _formatOpenRouterStatusError(response.statusCode ?? 500, response.data),
+                latencyMs: sw.elapsedMilliseconds,
+                isActive: isPrimary,
+              ),
+            );
+          }
+        } catch (e) {
+          sw.stop();
+          _healthCheckResults.add(
+            ModelHealthCheckResult(
+              modelId: m,
+              category: 'OpenRouter Pro',
+              isOk: false,
+              statusText: _formatHealthError(e),
+              latencyMs: sw.elapsedMilliseconds,
+              isActive: isPrimary,
+            ),
+          );
+        }
+      }
+
+      // Strip out invalid/non-free models
+      if (invalidProModels.isNotEmpty) {
+        currentProModels.removeWhere((m) => invalidProModels.contains(m));
+        needsFirestoreUpdate = true;
+      }
+
+      if (workingProModel != null && currentProModels.isNotEmpty && workingProModel != currentProModels.first) {
+        currentProModels.remove(workingProModel);
+        currentProModels.insert(0, workingProModel);
+        autoSwitchEvents.add('Promoted operational Pro model: "$workingProModel" to primary.');
+        needsFirestoreUpdate = true;
+      }
+    }
+
+    // 4. AUTO-SWITCH AND ENABLE FOR ALL USERS VIA FIRESTORE
+    if (needsFirestoreUpdate) {
+      try {
+        final Map<String, dynamic> updateData = {
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (workingGeminiModel != null) {
+          updateData['direct_gemini_model'] = workingGeminiModel;
+        }
+        if (currentFreeModels.isNotEmpty) {
+          updateData['openrouter_free_models'] = currentFreeModels;
+        }
+        if (currentProModels.isNotEmpty) {
+          updateData['openrouter_pro_models'] = currentProModels;
+        }
+
+        await FirebaseFirestore.instance
+            .collection('app_config')
+            .doc('settings')
+            .set(updateData, SetOptions(merge: true));
+
+        await ConfigService().fetchRemoteConfig();
+        _autoSwitchLog = autoSwitchEvents.join('\n');
+      } catch (err) {
+        safePrint("Auto-switch deployment error: $err");
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isCheckingHealth = false;
+      });
+
+      if (autoSwitchEvents.isNotEmpty) {
+        context.showInAppNotification(
+          'Downtime detected! Automatically switched and enabled operational model(s) for all users.',
+          type: InAppNotificationType.success,
+        );
+      }
+    }
+  }
+
   Widget _configItem(String label, String value) {
     AppTheme theme = context.watch<AppTheme>();
     return Padding(
@@ -665,11 +1378,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SecondaryText(text: label, color: theme.accentTxt.withOpacity(0.6)),
-          PrimaryText(
-            text: value,
-            color: theme.accentTxt,
-            fontWeight: FontWeight.bold,
+          Expanded(
+            child: SecondaryText(text: label, color: theme.accentTxt.withOpacity(0.6)),
+          ),
+          8.horizontalSpace,
+          Flexible(
+            child: PrimaryText(
+              text: value,
+              color: theme.accentTxt,
+              fontWeight: FontWeight.bold,
+              textAlign: TextAlign.end,
+            ),
           ),
         ],
       ),
@@ -966,5 +1685,290 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (e) {
       if (mounted) context.showInAppNotification('Error: $e');
     }
+  }
+
+  Future<void> _clearAllUsageLogs() async {
+    if (_isPurgingLogs) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = context.read<AppTheme>();
+        return AlertDialog(
+          backgroundColor: theme.brandDark,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: PrimaryText(
+            text: 'Clear All API Logs?',
+            color: theme.accentTxt,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          content: SecondaryText(
+            text: 'This will instantly delete all usage logs from Firestore and reset your daily quota progress back to 0. This action cannot be undone.',
+            color: theme.accentTxt.withOpacity(0.8),
+            fontSize: 13,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: SecondaryText(
+                text: 'Cancel',
+                color: theme.accentTxt.withOpacity(0.6),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const PrimaryText(
+                text: 'Delete All',
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isPurgingLogs = true);
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('api_usage')
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        if (mounted) {
+          context.showInAppNotification(
+            'No API logs found to clear.',
+            type: InAppNotificationType.success,
+          );
+        }
+        setState(() => _isPurgingLogs = false);
+        return;
+      }
+
+      final docs = querySnapshot.docs;
+      await Future.wait(docs.map((doc) => doc.reference.delete()));
+
+      if (mounted) {
+        context.showInAppNotification(
+          'Successfully cleared all API usage logs!',
+          type: InAppNotificationType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        context.showInAppNotification('Error purging logs: $e', type: InAppNotificationType.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPurgingLogs = false);
+      }
+    }
+  }
+
+  Widget _quotaTrackerCard(BuildContext context) {
+    AppTheme theme = context.watch<AppTheme>();
+    final todayStart = DateTime.now().copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('api_usage')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(20),
+            gradient: theme.glassGradient,
+            child: Center(
+              child: SecondaryText(
+                text: 'Error loading API usage: ${snapshot.error}',
+                color: theme.errorPrimary,
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(20),
+            gradient: theme.glassGradient,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        final docs = snapshot.data!.docs;
+        int directRequests = 0;
+        int directTokens = 0;
+        int openRouterRequests = 0;
+        int openRouterTokens = 0;
+
+        for (var doc in docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final source = data['source'] as String? ?? 'direct';
+          final tokens = data['totalTokens'] as int? ?? 0;
+
+          if (source == 'direct') {
+            directRequests++;
+            directTokens += tokens;
+          } else {
+            openRouterRequests++;
+            openRouterTokens += tokens;
+          }
+        }
+
+        final totalRequests = directRequests + openRouterRequests;
+        final totalTokens = directTokens + openRouterTokens;
+
+        // Free tier daily limit for Gemini 2.5 Flash is 1500 requests
+        const dailyRequestLimit = 1500;
+        final dailyRequestPercentage = (totalRequests / dailyRequestLimit).clamp(0.0, 1.0);
+
+        return GlassContainer(
+          padding: const EdgeInsets.all(20),
+          gradient: theme.glassGradient,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SecondaryText(
+                    text: 'Daily Request Limit Proximity',
+                    color: theme.accentTxt.withOpacity(0.7),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  PrimaryText(
+                    text: '${(dailyRequestPercentage * 100).toStringAsFixed(1)}%',
+                    color: dailyRequestPercentage > 0.8
+                        ? theme.errorPrimary
+                        : (dailyRequestPercentage > 0.5
+                            ? const Color(0xFFF59E0B)
+                            : theme.successPrimary),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ],
+              ),
+              8.verticalSpace,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: dailyRequestPercentage,
+                  backgroundColor: theme.accentTxt.withOpacity(0.1),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    dailyRequestPercentage > 0.8
+                        ? theme.errorPrimary
+                        : (dailyRequestPercentage > 0.5
+                            ? const Color(0xFFF59E0B)
+                            : theme.successPrimary),
+                  ),
+                  minHeight: 8,
+                ),
+              ),
+              12.verticalSpace,
+              SecondaryText(
+                text: '$totalRequests / $dailyRequestLimit free requests used today',
+                color: theme.accentTxt.withOpacity(0.6),
+                fontSize: 12,
+              ),
+              16.verticalSpace,
+              const Divider(color: Colors.white24),
+              16.verticalSpace,
+              _metricRow(context, 'Total Tokens Consumed', totalTokens.toString()),
+              _metricRow(context, 'Direct Gemini (2.5 Flash)', '$directRequests reqs ($directTokens tokens)'),
+              _metricRow(context, 'OpenRouter Fallbacks', '$openRouterRequests reqs ($openRouterTokens tokens)'),
+              16.verticalSpace,
+              const Divider(color: Colors.white24),
+              16.verticalSpace,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SecondaryText(
+                    text: 'Recent API Requests',
+                    color: theme.primaryBase,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: theme.primaryBase,
+                    size: 20,
+                  ),
+                ],
+              ).rippleClick(() {
+                context.push(const RecentApiRequestsScreen());
+              }),
+              16.verticalSpace,
+              const Divider(color: Colors.white24),
+              16.verticalSpace,
+              Center(
+                child: _isPurgingLogs
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.delete_sweep_outlined,
+                            color: theme.errorPrimary.withOpacity(0.8),
+                            size: 16,
+                          ),
+                          8.horizontalSpace,
+                          SecondaryText(
+                            text: 'Clear All API Logs Instantly',
+                            color: theme.errorPrimary.withOpacity(0.8),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ],
+                      ).rippleClick(_clearAllUsageLogs),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _metricRow(BuildContext context, String label, String value) {
+    AppTheme theme = context.watch<AppTheme>();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          SecondaryText(
+            text: label,
+            color: theme.accentTxt.withOpacity(0.6),
+            fontSize: 12,
+          ),
+          PrimaryText(
+            text: value,
+            color: theme.accentTxt,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ],
+      ),
+    );
   }
 }

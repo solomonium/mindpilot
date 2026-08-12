@@ -1,10 +1,12 @@
 import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class AiChatScreen extends StatefulWidget {
   final String? initialMessage;
+  final String? proactiveMood;
 
-  const AiChatScreen({super.key, this.initialMessage});
+  const AiChatScreen({super.key, this.initialMessage, this.proactiveMood});
 
   @override
   State<AiChatScreen> createState() => _AiChatScreenState();
@@ -14,35 +16,128 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  bool _showScrollToBottomFAB = false;
   final Map<int, Color> _bubbleColors = {};
+  int _lastMessageCount = 0;
+  
+  // TTS State
+  final FlutterTts _chatTts = FlutterTts();
+  int? _playingMessageIndex;
+  String _chatTtsState = 'stopped'; // 'stopped', 'playing', 'paused'
 
   @override
   void initState() {
     super.initState();
+    _chatTts.stop();
     AppHelper.setScreenshotProtection(true);
+    _scrollController.addListener(_onScroll);
+    
+    final chatProvider = context.read<ChatProvider>();
+    chatProvider.addListener(_onChatProviderChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().initChat();
-      if (widget.initialMessage != null &&
+      chatProvider.initChat();
+      if (widget.proactiveMood != null) {
+        _sendProactiveMoodPrompt(widget.proactiveMood!);
+      } else if (widget.initialMessage != null &&
           widget.initialMessage!.trim().isNotEmpty) {
         _messageController.text = widget.initialMessage!.trim();
       }
+      _scrollToBottom(animate: false);
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          _scrollToBottom(animate: false);
+        }
+      });
     });
+  }
+
+  Future<void> _sendProactiveMoodPrompt(String mood) async {
+    final chatStore = context.read<ChatProvider>();
+    final isPro = context.read<AppAuthProvider>().isPro;
+
+    if (!chatStore.canSendMessage(isPro)) {
+      AppHelper.showPaywall(context, feature: 'Unlimited AI Chat');
+      return;
+    }
+
+    final prompt = """
+The user has checked in feeling **$mood** today.
+Please proactively greet them warmly, and provide:
+1. Three comforting, encouraging scripture references (with full book, chapter, and verse).
+2. Two actionable focus tasks or mindfulness exercises they can perform in the app to clear their mind.
+3. Two guided reflection questions to help them process their current feeling.
+
+Keep the tone extremely supportive, premium, and structured. Use bullet points for readability.
+""";
+
+    chatStore.addMessage("Help me process feeling $mood today", true);
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await chatStore.geminiService.sendMessage(
+        prompt,
+        feature: 'chat',
+        maxTokens: 1000,
+      );
+      if (mounted && response != null && response.isNotEmpty) {
+        chatStore.addMessage(response, false);
+      }
+    } catch (e) {
+      if (mounted) {
+        context.showInAppNotification('Error: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
   void dispose() {
-    // AppHelper.setScreenshotProtection(false);
+    _stopChatTts();
+    _scrollController.removeListener(_onScroll);
+    try {
+      context.read<ChatProvider>().removeListener(_onChatProviderChanged);
+    } catch (_) {}
     super.dispose();
   }
 
-  void _scrollToBottom() {
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    final isFarFromBottom = (maxScroll - currentScroll) > 150;
+    if (isFarFromBottom != _showScrollToBottomFAB) {
+      setState(() {
+        _showScrollToBottomFAB = isFarFromBottom;
+      });
+    }
+  }
+
+  void _onChatProviderChanged() {
+    if (!mounted) return;
+    final chatProvider = context.read<ChatProvider>();
+    if (chatProvider.messages.length != _lastMessageCount) {
+      _lastMessageCount = chatProvider.messages.length;
+      _scrollToBottom(animate: true);
+    }
+  }
+
+  void _scrollToBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        if (animate) {
+          _scrollController.animateTo(
+            maxScroll,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _scrollController.jumpTo(maxScroll);
+        }
       }
     });
   }
@@ -63,7 +158,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
     _messageController.clear();
     _scrollToBottom();
 
-    setState(() => _isLoading = true);
+    _stopChatTts();
+    setState(() {
+      _isLoading = true;
+    });
 
     final prompt =
         """
@@ -79,7 +177,11 @@ User: $text
 """;
 
     try {
-      final response = await chatStore.geminiService.sendMessage(prompt);
+      final response = await chatStore.geminiService.sendMessage(
+        prompt,
+        feature: 'chat',
+        maxTokens: 1200,
+      );
 
       if (mounted) {
         chatStore.incrementMessageCount();
@@ -255,6 +357,51 @@ User: $text
               _messageInput(context),
             ],
           ),
+          Positioned(
+            bottom: 145,
+            right: 16,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _showScrollToBottomFAB ? 1.0 : 0.0,
+              child: IgnorePointer(
+                ignoring: !_showScrollToBottomFAB,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.primaryBase.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: theme.brandDark.withValues(alpha: 0.95),
+                    shape: CircleBorder(
+                      side: BorderSide(
+                        color: theme.primaryBase.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => _scrollToBottom(animate: true),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: theme.primaryBase,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -279,6 +426,95 @@ User: $text
           type: InAppNotificationType.success,
         );
       }
+    });
+  }
+
+  Widget _ttsIcon(BuildContext context, String text, int index) {
+    AppTheme theme = context.watch();
+    final isActive = _playingMessageIndex == index;
+    final isPlaying = isActive && _chatTtsState == 'playing';
+    final isPaused = isActive && _chatTtsState == 'paused';
+
+    if (!isActive || _chatTtsState == 'stopped') {
+      return Icon(
+        Icons.volume_up_rounded,
+        color: theme.accentTxt.withValues(alpha: 0.4),
+        size: 16,
+      ).rippleClick(() => _playChatTts(text, index));
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          color: theme.primaryBase,
+          size: 16,
+        ).rippleClick(() => _pauseChatTts(text, index)),
+        6.horizontalSpace,
+        Icon(
+          Icons.stop_rounded,
+          color: theme.accentTxt.withValues(alpha: 0.4),
+          size: 16,
+        ).rippleClick(() => _stopChatTts()),
+      ],
+    );
+  }
+
+  Future<void> _playChatTts(String text, int index) async {
+    await _chatTts.stop();
+    await _chatTts.setLanguage("en-US");
+    await _chatTts.setSpeechRate(0.48);
+    _chatTts.setCompletionHandler(() {
+      if (mounted) {
+        setState(() {
+          _playingMessageIndex = null;
+          _chatTtsState = 'stopped';
+        });
+      }
+    });
+    setState(() {
+      _playingMessageIndex = index;
+      _chatTtsState = 'playing';
+    });
+    try {
+      await _chatTts.speak(text.replaceAll(RegExp(r'[*#_`]'), ''));
+    } catch (e) {
+      safePrint("TTS Chat Error: $e");
+      if (mounted) {
+        setState(() {
+          _playingMessageIndex = null;
+          _chatTtsState = 'stopped';
+        });
+      }
+    }
+  }
+
+  Future<void> _pauseChatTts(String text, int index) async {
+    if (_chatTtsState == 'playing') {
+      await _chatTts.pause();
+      setState(() => _chatTtsState = 'paused');
+    } else {
+      setState(() => _chatTtsState = 'playing');
+      try {
+        await _chatTts.speak(text.replaceAll(RegExp(r'[*#_`]'), ''));
+      } catch (e) {
+        safePrint("TTS Chat Resume Error: $e");
+        if (mounted) {
+          setState(() {
+            _playingMessageIndex = null;
+            _chatTtsState = 'stopped';
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _stopChatTts() async {
+    await _chatTts.stop();
+    setState(() {
+      _playingMessageIndex = null;
+      _chatTtsState = 'stopped';
     });
   }
 
@@ -369,6 +605,8 @@ User: $text
                           theme.accentTxt,
                           isReset: true,
                         ), // Reset
+                        8.horizontalSpace,
+                        _ttsIcon(context, text, index),
                         if (timeStr != null) ...[
                           12.horizontalSpace,
                           SecondaryText(

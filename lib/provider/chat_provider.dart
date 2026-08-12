@@ -4,11 +4,14 @@ class ChatProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _messages = [];
   final GeminiService _geminiService = GeminiService();
   final List<String> _availableModels = [
-    'google/gemini-flash-1.5-8b:free',
-    'mistralai/mistral-7b-instruct:free',
+    'google/gemma-4-31b-it:free',
+    'google/gemma-4-26b-a4b-it:free',
+    'openai/gpt-oss-20b:free',
+    'cohere/north-mini-code:free',
+    'poolside/laguna-s-2.1:free',
   ];
 
-  String _selectedModel = 'google/gemini-flash-1.5-8b:free';
+  String _selectedModel = 'google/gemma-4-31b-it:free';
   int _modelIndex = 0;
 
   bool _isInitialized = false;

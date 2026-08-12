@@ -20,6 +20,7 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
   int _secondsToStart = 0;
   Timer? _waitingTimer;
   DateTime? _scheduledStartTime;
+  bool _joinLounge = false;
 
   final List<Map<String, String>> _sounds = [
     {
@@ -81,6 +82,12 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, String>> get ambientSounds => _ambientSounds;
   bool get isWaitingForStart => _isWaitingForStart;
   int get secondsToStart => _secondsToStart;
+  bool get joinLounge => _joinLounge;
+
+  set joinLounge(bool val) {
+    _joinLounge = val;
+    notifyListeners();
+  }
 
   set selectedMinutes(int val) {
     _selectedMinutes = val;
@@ -302,6 +309,9 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       if (context != null) {
+        try {
+          context.read<GroupQuizProvider>().leaveVoiceRoom();
+        } catch (_) {}
         context.read<JournalProvider>().saveFocusSession(_selectedMinutes);
         EngagementService().recordAction(EngagementAction.focusComplete);
         if (!context.read<AppAuthProvider>().hasCompletedFirstSession) {
@@ -325,6 +335,12 @@ class FocusProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
     _stopAmbientSound();
     NotificationService().cancelFocusCompleteAlarm();
+    final context = R.N.navKey.currentContext;
+    if (context != null) {
+      try {
+        context.read<GroupQuizProvider>().leaveVoiceRoom();
+      } catch (_) {}
+    }
   }
 
   void resetTimer() {

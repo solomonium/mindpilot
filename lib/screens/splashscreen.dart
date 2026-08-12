@@ -42,7 +42,24 @@ class SplashScreenState extends State<AnimatedSplashScreen>
               },
             );
 
-        final hasPersonalized = doc.data()?['hasCompletedSetup'] ?? false;
+        final data = doc.data();
+        final name = data?['name'] as String? ?? '';
+        final displayName = data?['displayName'] as String? ?? '';
+        final fullName = data?['fullName'] as String? ?? '';
+
+        if (doc.exists &&
+            name.trim().isEmpty &&
+            displayName.trim().isEmpty &&
+            fullName.trim().isEmpty) {
+          // Force sign out so their name can be extracted on their next login attempt
+          await FirebaseAuth.instance.signOut();
+          if (mounted) {
+            context.pushOff(const LoginScreen());
+          }
+          return;
+        }
+
+        final hasPersonalized = data?['hasCompletedSetup'] ?? false;
 
         if (mounted) {
           if (!hasPersonalized) {

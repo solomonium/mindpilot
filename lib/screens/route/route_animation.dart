@@ -11,9 +11,11 @@ class RouteHelper {
     PageBuilder pageBuilder, [
     double duration = kDefaultDuration,
   ]) {
+    final page = pageBuilder();
     return PageRouteBuilder<T>(
+      settings: RouteSettings(name: page.runtimeType.toString()),
       transitionDuration: Duration(milliseconds: (duration * 100).round()),
-      pageBuilder: (context, animation, secondaryAnimation) => pageBuilder(),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(opacity: animation, child: child);
       },
@@ -24,12 +26,14 @@ class RouteHelper {
     PageBuilder pageBuilder, [
     double duration = kDefaultDuration,
   ]) {
+    final page = pageBuilder();
     return PageRouteBuilder<T>(
+      settings: RouteSettings(name: page.runtimeType.toString()),
       transitionDuration: Duration(milliseconds: (duration * 5000).round()),
       reverseTransitionDuration: Duration(
         milliseconds: (duration * 5000).round(),
       ),
-      pageBuilder: (context, animation, secondaryAnimation) => pageBuilder(),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         return FadeThroughTransition(
           animation: animation,
@@ -44,9 +48,11 @@ class RouteHelper {
     PageBuilder pageBuilder, [
     double duration = kDefaultDuration,
   ]) {
+    final page = pageBuilder();
     return PageRouteBuilder<T>(
+      settings: RouteSettings(name: page.runtimeType.toString()),
       transitionDuration: Duration(milliseconds: (duration * 100).round()),
-      pageBuilder: (context, animation, secondaryAnimation) => pageBuilder(),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) =>
           FadeScaleTransition(
             animation: animation,
@@ -62,9 +68,11 @@ class RouteHelper {
     SharedAxisTransitionType type = SharedAxisTransitionType.scaled,
     double duration = kDefaultDuration,
   ]) {
+    final page = pageBuilder();
     return PageRouteBuilder<T>(
+      settings: RouteSettings(name: page.runtimeType.toString()),
       transitionDuration: Duration(milliseconds: (duration * 200).round()),
-      pageBuilder: (context, animation, secondaryAnimation) => pageBuilder(),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         return SharedAxisTransition(
           animation: animation,
@@ -83,9 +91,11 @@ class RouteHelper {
     Curve easeFwd = kDefaultEaseFwd,
     Curve easeReverse = kDefaultEaseReverse,
   }) {
+    final page = pageBuilder();
     return PageRouteBuilder<T>(
+      settings: RouteSettings(name: page.runtimeType.toString()),
       transitionDuration: Duration(milliseconds: (duration * 100).round()),
-      pageBuilder: (context, animation, secondaryAnimation) => pageBuilder(),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         bool reverse = animation.status == AnimationStatus.reverse;
         return SlideTransition(
@@ -108,12 +118,14 @@ class RouteHelper {
     Curve easeFwd = Curves.easeOutQuart, // Smooth forward animation
     Curve easeReverse = Curves.bounceInOut, // Smooth reverse animation
   }) {
+    final page = pageBuilder();
     return PageRouteBuilder<T>(
+      settings: RouteSettings(name: page.runtimeType.toString()),
       transitionDuration: Duration(milliseconds: (duration * 2000).round()),
       reverseTransitionDuration: Duration(
         milliseconds: (duration * 5000).round(),
       ),
-      pageBuilder: (context, animation, secondaryAnimation) => pageBuilder(),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         final slideAnimation =
             Tween<Offset>(
@@ -140,12 +152,14 @@ class RouteHelper {
     Curve easeFwd = Curves.slowMiddle,
     Curve easeReverse = Curves.elasticOut,
   }) {
+    final page = pageBuilder();
     return PageRouteBuilder<T>(
+      settings: RouteSettings(name: page.runtimeType.toString()),
       transitionDuration: Duration(milliseconds: (duration * 3000).round()),
       reverseTransitionDuration: Duration(
         milliseconds: (duration * 3000).round(),
       ),
-      pageBuilder: (context, animation, secondaryAnimation) => pageBuilder(),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         // Add a scale effect to the slide animation
         final slideAnimation =
