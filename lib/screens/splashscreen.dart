@@ -22,6 +22,16 @@ class SplashScreenState extends State<AnimatedSplashScreen>
   }
 
   void navigationPage() async {
+    bool hasNet = await AppHelper.isOnline();
+    if (!hasNet) {
+      if (mounted) {
+        NoInternetDialog.show(context, onRetry: () async {
+          navigationPage();
+        });
+      }
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     final prefs = await SharedPreferences.getInstance();
     final hasSeenPersonalization =

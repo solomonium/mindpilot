@@ -136,6 +136,14 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     _menuItem(
                       context,
+                      Icons.warning_amber_rounded,
+                      'Health Disclaimer',
+                      onTap: () {
+                        AppHelper.showMedicalDisclaimer(context, isDismissible: true);
+                      },
+                    ),
+                    _menuItem(
+                      context,
                       Icons.share_outlined,
                       'Share App',
                       onTap: () async {

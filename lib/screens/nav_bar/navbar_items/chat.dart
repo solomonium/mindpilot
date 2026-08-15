@@ -849,6 +849,18 @@ User: $text
               ).rippleClick(_sendMessage),
             ],
           ),
+          8.verticalSpace,
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: SecondaryText(
+                text: 'MindPilot is an AI assistant, not a healthcare professional. Consult a healthcare provider for medical/mental health advice, diagnosis, or treatment.',
+                fontSize: 8.5,
+                textAlign: TextAlign.center,
+                color: theme.accentTxt.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
         ],
       ),
     );

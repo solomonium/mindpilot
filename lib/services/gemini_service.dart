@@ -444,7 +444,8 @@ class GeminiService {
       }
 
       context +=
-          "Crucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it.";
+          "Crucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it. "
+          "Policy Directive: You are an AI companion, not a medical or mental health professional. You must NOT diagnose conditions, recommend medications, or provide medical/mental health treatment plans. If a user asks for medical advice, diagnoses, or treatment, you must politely remind them of your AI nature, advise them to consult a qualified healthcare professional, and decline to provide medical recommendations.";
 
       if (context.isNotEmpty) {
         _messages.add({'role': 'system', 'content': context});
@@ -554,7 +555,7 @@ class GeminiService {
       defaultSystemInstruction = context;
     }
 
-    final String completeInstruction = "$defaultSystemInstruction\nCrucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it.".trim();
+    final String completeInstruction = "$defaultSystemInstruction\nCrucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it. Policy Directive: You are an AI companion, not a medical or mental health professional. You must NOT diagnose conditions, recommend medications, or provide medical/mental health treatment plans. If a user asks for medical advice, diagnoses, or treatment, you must politely remind them of your AI nature, advise them to consult a qualified healthcare professional, and decline to provide medical recommendations.".trim();
 
     String? response;
 

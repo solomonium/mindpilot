@@ -768,6 +768,16 @@ class AppAuthProvider extends BaseProvider {
     BuildContext context, {
     String? heardFrom,
   }) async {
+    bool hasNet = await AppHelper.isOnline();
+    if (!hasNet) {
+      if (context.mounted) {
+        NoInternetDialog.show(context, onRetry: () async {
+          loginWithGoogle(context, heardFrom: heardFrom);
+        });
+      }
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -800,10 +810,10 @@ class AppAuthProvider extends BaseProvider {
 
         notifyListeners();
       } else {
-        context.showInAppNotification('Sign-In failed');
+        if (context.mounted) context.showInAppNotification('Sign-In failed');
       }
     } catch (e) {
-      context.showInAppNotification('Error: $e');
+      if (context.mounted) context.showInAppNotification('Error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -811,6 +821,16 @@ class AppAuthProvider extends BaseProvider {
   }
 
   Future<void> loginWithApple(BuildContext context, {String? heardFrom}) async {
+    bool hasNet = await AppHelper.isOnline();
+    if (!hasNet) {
+      if (context.mounted) {
+        NoInternetDialog.show(context, onRetry: () async {
+          loginWithApple(context, heardFrom: heardFrom);
+        });
+      }
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -843,10 +863,10 @@ class AppAuthProvider extends BaseProvider {
 
         notifyListeners();
       } else {
-        context.showInAppNotification('Sign-In failed');
+        if (context.mounted) context.showInAppNotification('Sign-In failed');
       }
     } catch (e) {
-      context.showInAppNotification('Error: $e');
+      if (context.mounted) context.showInAppNotification('Error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -60,7 +60,22 @@ class _MainScreenState extends State<MainScreen> {
       _maybeShowChatFabTooltip();
       _checkClipboardForGroupInvite();
       _checkAndPromptHeardFrom();
+      _checkAndPromptMedicalDisclaimer();
     });
+  }
+
+  Future<void> _checkAndPromptMedicalDisclaimer() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accepted = prefs.getBool('medical_disclaimer_accepted') ?? false;
+    if (!accepted && mounted) {
+      AppHelper.showMedicalDisclaimer(
+        context,
+        isDismissible: false,
+        onAccepted: () async {
+          await prefs.setBool('medical_disclaimer_accepted', true);
+        },
+      );
+    }
   }
 
   Future<void> _checkAndPromptHeardFrom() async {
