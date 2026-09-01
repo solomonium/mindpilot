@@ -1,40 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Terms of Service - MindPilot</title>
-  
+  <title>Terms of Service — SolteQ Innovations Ltd (MindPilot)</title>
+
   <!-- SEO Meta Tags -->
-  <meta name="description" content="Terms of Service for MindPilot - Learn about the guidelines, user account responsibilities, offline services, and usage rules.">
-  <meta property="og:title" content="Terms of Service - MindPilot">
-  <meta property="og:description" content="Read the terms of service that govern your use of the MindPilot application, insights engine, and messaging services.">
-  <meta property="og:image" content="https://mindpilot-131f1.web.app/preview.png">
+  <meta name="description"
+    content="Terms of Service for SolteQ Innovations Ltd and MindPilot. Review terms governing account usage, software licensing, and service constraints.">
+  <meta property="og:title" content="Terms of Service — SolteQ Innovations Ltd">
+  <meta property="og:description"
+    content="Terms of Service governing the use of MindPilot and SolteQ Innovations Ltd digital products.">
+  <meta property="og:image" content="https://mindpilot-131f1.web.app/solteq-logo.jpg">
   <meta property="og:url" content="https://mindpilot-131f1.web.app/terms">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Terms of Service - MindPilot">
-  <meta name="twitter:description" content="Read the terms of service that govern your use of the MindPilot application, insights engine, and messaging services.">
-  <meta name="twitter:image" content="https://mindpilot-131f1.web.app/preview.png">
-  
+
   <!-- Favicon & App Icons -->
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
-  
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800;900&display=swap"
+    rel="stylesheet">
+
   <style>
     :root {
-      --bg-gradient: radial-gradient(circle at 50% 0%, #111827 0%, #030712 100%);
-      --card-bg: rgba(17, 24, 39, 0.6);
-      --border-color: rgba(255, 255, 255, 0.06);
+      --bg-gradient: radial-gradient(circle at 50% 0%, #060d07 0%, #020406 50%, #000000 100%);
+      --card-bg: rgba(14, 22, 16, 0.7);
+      --border-color: rgba(140, 198, 63, 0.18);
       --text-primary: #f3f4f6;
       --text-secondary: #9ca3af;
-      --accent-color: #3b82f6;
-      --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #10b981 100%);
-      --accent-glow: rgba(59, 130, 246, 0.15);
+      --accent-green: #8cc63f;
+      --accent-green-bright: #9fe826;
+      --accent-gradient-green: linear-gradient(135deg, #9fe826 0%, #8cc63f 50%, #10b981 100%);
       --font-heading: 'Outfit', sans-serif;
       --font-body: 'Inter', sans-serif;
     }
@@ -46,52 +47,33 @@
     }
 
     body {
-      background: var(--bg-gradient);
+      background: #000000;
+      background-image: var(--bg-gradient);
+      background-attachment: fixed;
       color: var(--text-primary);
       font-family: var(--font-body);
-      line-height: 1.6;
+      line-height: 1.7;
       min-height: 100vh;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Ambient Background Glows */
-    .glow-blob {
-      position: absolute;
-      width: 400px;
-      height: 400px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0) 70%);
-      top: -100px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    .glow-blob-secondary {
-      position: absolute;
-      width: 500px;
-      height: 500px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0) 70%);
-      bottom: 10%;
-      left: -10%;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    /* Header / Navbar */
     header {
-      width: 100%;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(4, 8, 5, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(140, 198, 63, 0.1);
+    }
+
+    nav {
       max-width: 1000px;
       margin: 0 auto;
-      padding: 30px 24px;
+      padding: 16px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      position: relative;
-      z-index: 10;
     }
 
     .brand {
@@ -99,317 +81,250 @@
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      color: var(--text-primary);
+      color: #ffffff;
       font-family: var(--font-heading);
-      font-size: 1.5rem;
       font-weight: 800;
-      letter-spacing: -0.5px;
-      transition: transform 0.2s ease;
-    }
-
-    .brand:hover {
-      transform: scale(1.02);
+      font-size: 1.25rem;
     }
 
     .brand img {
-      width: 80px;
-      height: 80px;
-      border-radius: 18px;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid rgba(140, 198, 63, 0.3);
     }
 
     .brand span {
-      background: var(--accent-gradient);
+      background: var(--accent-gradient-green);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .back-btn {
-      color: var(--text-secondary);
+    .nav-link-back {
+      color: var(--accent-green);
       text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 500;
-      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
       border-radius: 100px;
-      border: 1px solid var(--border-color);
-      background: rgba(255, 255, 255, 0.02);
-      transition: all 0.2s ease;
+      background: rgba(140, 198, 63, 0.1);
+      border: 1px solid rgba(140, 198, 63, 0.2);
     }
 
-    .back-btn:hover {
-      color: var(--text-primary);
-      border-color: rgba(255, 255, 255, 0.15);
-      background: rgba(255, 255, 255, 0.05);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    .nav-link-back:hover {
+      background: rgba(140, 198, 63, 0.2);
+      color: var(--accent-green-bright);
     }
 
-    /* Main Container */
     main {
       max-width: 900px;
-      margin: 0 auto;
-      padding: 0 24px 80px 24px;
-      position: relative;
-      z-index: 10;
+      margin: 40px auto 80px auto;
+      padding: 0 24px;
     }
 
-    .hero {
-      text-align: center;
-      margin-bottom: 50px;
-      margin-top: 20px;
-    }
-
-    .hero h1 {
-      font-family: var(--font-heading);
-      font-size: 2.8rem;
-      font-weight: 800;
-      line-height: 1.2;
-      margin-bottom: 12px;
-      letter-spacing: -1px;
-      background: var(--accent-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero p {
-      font-size: 1.1rem;
-      color: var(--text-secondary);
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* Terms Card (Glassmorphism) */
-    .terms-card {
+    .terms-container {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
-      border-radius: 24px;
-      padding: 40px 48px;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      border-radius: 28px;
+      padding: 48px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     }
 
-    .meta-info {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
+    h1 {
+      font-family: var(--font-heading);
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+      color: #ffffff;
+    }
+
+    .terms-subtitle {
+      font-size: 0.95rem;
+      color: var(--accent-green);
       margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-weight: 600;
     }
 
-    .meta-info::before {
-      content: '';
+    .meta-tag {
       display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background-color: #3b82f6;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px 12px;
+      border-radius: 6px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    /* Content styling */
     h2 {
       font-family: var(--font-heading);
-      font-size: 1.6rem;
-      font-weight: 600;
-      color: var(--text-primary);
+      font-size: 1.4rem;
+      font-weight: 700;
       margin-top: 36px;
-      margin-bottom: 16px;
-      letter-spacing: -0.5px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    h2::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%);
+      margin-bottom: 14px;
+      color: #ffffff;
+      border-bottom: 1px solid rgba(140, 198, 63, 0.15);
+      padding-bottom: 8px;
     }
 
     p {
       color: var(--text-secondary);
-      font-size: 1rem;
-      margin-bottom: 20px;
-      line-height: 1.7;
+      font-size: 0.98rem;
+      margin-bottom: 16px;
     }
 
-    ul, ol {
-      margin-bottom: 24px;
-      padding-left: 24px;
+    ul {
+      margin-left: 20px;
+      margin-bottom: 20px;
       color: var(--text-secondary);
     }
 
     li {
-      margin-bottom: 10px;
-      font-size: 1rem;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
     }
 
     strong {
-      color: var(--text-primary);
-      font-weight: 600;
+      color: #ffffff;
     }
 
     .highlight-box {
-      background: rgba(59, 130, 246, 0.05);
-      border-left: 4px solid var(--accent-color);
-      padding: 20px;
-      border-radius: 0 12px 12px 0;
+      background: rgba(140, 198, 63, 0.08);
+      border: 1px solid rgba(140, 198, 63, 0.25);
+      border-radius: 16px;
+      padding: 18px 22px;
       margin: 24px 0;
     }
 
     .highlight-box p {
-      margin-bottom: 0;
-      color: var(--text-primary);
-      font-weight: 500;
+      margin: 0;
+      color: #e5e7eb;
+      font-size: 0.92rem;
     }
 
-    /* Footer styling */
+    .company-box {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(140, 198, 63, 0.2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
     footer {
-      width: 100%;
-      border-top: 1px solid var(--border-color);
+      border-top: 1px solid rgba(140, 198, 63, 0.15);
       padding: 40px 24px;
       text-align: center;
-      background: rgba(3, 7, 18, 0.8);
-      position: relative;
-      z-index: 10;
-      margin-top: 80px;
+      background: rgba(2, 5, 3, 0.95);
     }
 
     .footer-links {
       display: flex;
       justify-content: center;
       gap: 24px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .footer-links a {
       color: var(--text-secondary);
       text-decoration: none;
       font-size: 0.9rem;
-      font-weight: 500;
-      transition: color 0.2s ease;
     }
 
     .footer-links a:hover {
-      color: var(--text-primary);
+      color: var(--accent-green);
     }
 
     .copyright {
-      font-size: 0.85rem;
-      color: rgba(156, 163, 175, 0.6);
+      font-size: 0.82rem;
+      color: #6b7280;
     }
 
-    /* Responsiveness */
-    @media (max-width: 768px) {
-      header {
-        padding: 20px;
+    @media (max-width: 600px) {
+      .terms-container {
+        padding: 28px 20px;
       }
-      
-      .hero h1 {
-        font-size: 2.2rem;
-      }
-      
-      .terms-card {
-        padding: 30px 24px;
-        border-radius: 16px;
-      }
-      
-      h2 {
-        font-size: 1.4rem;
+
+      h1 {
+        font-size: 1.9rem;
       }
     }
   </style>
 </head>
+
 <body>
 
-  <!-- Ambient Glow Background Blobs -->
-  <div class="glow-blob"></div>
-  <div class="glow-blob-secondary"></div>
-
-  <!-- Header -->
   <header>
-    <a href="/" class="brand">
-      <img src="favicon.png" alt="MindPilot Logo">
-      Mind<span>Pilot</span>
-    </a>
-    <a href="/" class="back-btn">Back to Home</a>
+    <nav>
+      <a href="/" class="brand">
+        <img src="solteq-icon.jpg" alt="SolteQ Logo">
+        SolteQ <span>Innovations Ltd</span>
+      </a>
+      <a href="/" class="nav-link-back">← Back to Home</a>
+    </nav>
   </header>
 
-  <!-- Main Terms Section -->
   <main>
-    <div class="hero">
+    <div class="terms-container">
       <h1>Terms of Service</h1>
-      <p>Agreement governing the use of the MindPilot software application and platform.</p>
-    </div>
+      <div class="terms-subtitle">Governing MindPilot and SolteQ Innovations Ltd Products</div>
+      <div class="meta-tag">Last Updated: September 1, 2026 • Legal Entity: SolteQ Innovations Ltd (Kubwa, Abuja, Nigeria)</div>
 
-    <div class="terms-card">
-      <div class="meta-info">Last Updated: May 18, 2026</div>
+      <p>These Terms of Service ("Terms") constitute a legally binding agreement between you and <strong>SolteQ Innovations Ltd</strong> ("SolteQ," "we," "us," or "our"), regarding your access to and use of the <strong>MindPilot</strong> mobile application, related websites, and all digital products operated by SolteQ.</p>
 
-      <p>Welcome to <strong>MindPilot</strong>. These Terms of Service ("Terms") govern your access to and use of the MindPilot mobile application and website (collectively, the "Service"). Please read these Terms carefully before using the Service.</p>
+      <p>By downloading, installing, accessing, or using MindPilot, you agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, please do not use our software or services.</p>
 
-      <p>By downloading, installing, accessing, or using the MindPilot application, you agree to be bound by these Terms and our Privacy Policy. If you do not agree to these Terms, you must immediately uninstall and discontinue all use of the Service.</p>
+      <h2>1. Description of Services</h2>
+      <p>MindPilot is an advanced cognitive assistant engineered by SolteQ Innovations Ltd, providing offline-first smart journaling, customizable reflection alarms, real-time encrypted chat, and server-side AI decision analysis.</p>
 
-      <h2>1. Description of Service</h2>
-      <p>MindPilot is an advanced productivity and wellness assistant providing dynamic text and journal entries, local caching configurations, real-time secure chat messaging, structured streak completions, customizable alarms, and personalized AI-driven cognitive insights. The Service is provided "as is" and "as available."</p>
-
-      <h2>2. User Accounts and Registration</h2>
-      <p>To access all synchronized features of the Service, you must create a secure user account via our supported authentication gateways (Google Firebase Authentication). You agree to:</p>
+      <h2>2. User Accounts and Security</h2>
+      <p>To use synchronized features, you authenticate through Google Firebase Authentication. You agree to:</p>
       <ul>
-        <li>Provide accurate and complete registration information during account creation.</li>
-        <li>Maintain the absolute confidentiality of your login credentials and security tokens.</li>
-        <li>Notify us immediately of any unauthorized access, breach, or compromise of your profile.</li>
+        <li>Provide accurate profile information during registration.</li>
+        <li>Maintain the security of your device and authentication credentials.</li>
+        <li>Notify SolteQ immediately of any suspected unauthorized access or compromise.</li>
       </ul>
-      <p>You are solely responsible for all activities and transactions that occur under your user account.</p>
 
       <div class="highlight-box">
-        <p>🔐 Session Protection: For your security, manual logouts completely revoke your current session tokens on our databases. Any subsequent access requires complete re-authentication to protect your journaling history from physical intruders.</p>
+        <p>🔐 <strong>Session Protection:</strong> Manual logout actions completely revoke your active session tokens on our backend databases, ensuring strict data privacy against unauthorized physical access.</p>
       </div>
 
-      <h2>3. Acceptable Use and Restrictions</h2>
-      <p>You agree to use MindPilot only for lawful purposes and in accordance with these Terms. You shall not:</p>
+      <h2>3. Acceptable Use Policy</h2>
+      <p>You agree not to misuse SolteQ applications or services. You shall not:</p>
       <ul>
-        <li>Engage in any conduct that restricts, inhibits, or compromises anyone's use or enjoyment of the Service.</li>
-        <li>Upload, post, transmit, or share content that is abusive, defamatory, harassing, or violates any third-party intellectual property or privacy rights.</li>
-        <li>Attempt to bypass, decompile, reverse-engineer, or interfere with security filters, network connection monitors, or background alarm subsystems.</li>
-        <li>Attempt to exploit the offline database sync routines or manipulate Firestore metrics (such as streaks, alarms, or messaging logs).</li>
+        <li>Reverse-engineer, decompile, or attempt to extract source code from MindPilot or SolteQ software.</li>
+        <li>Transmit unlawful, abusive, defamatory, or harmful content through our messaging networks.</li>
+        <li>Interfere with or disrupt cloud database systems, serverless function routines, or network listeners.</li>
       </ul>
 
-      <h2>4. Connectivity and Offline Constraints</h2>
-      <p>MindPilot provides robust local caching features that allow you to read existing journals and navigate your tasks offline. However, certain actions (including journal creation, streak sync, chat communication, and screenshot sharing) are blocked when the device is disconnected from the internet. This is a design constraint implemented to preserve data integrity and prevent cloud database synchronization conflicts.</p>
-      <p>We are not liable for any delay, loss of data, or synchronization issues arising from network disruptions, carrier service failures, or device-side offline states.</p>
+      <h2>4. AI Insights & Wellness Disclaimer</h2>
+      <p>Daily cognitive insights and reflection summaries generated by MindPilot are intended solely for productivity assistance, personal organization, and mental clarity. They do not constitute professional psychiatric, medical, or clinical psychological advice.</p>
 
-      <h2>5. AI-Driven Insights</h2>
-      <p>Our daily cognitive insights are processed and delivered by secure server-side Firebase Cloud Functions. These insights are intended solely for productivity advice, self-reflection, and overall wellness. They do not constitute professional psychiatric, medical, or life advice. If you are experiencing serious emotional or psychological distress, please seek professional support from a certified medical specialist.</p>
+      <h2>5. Intellectual Property Rights</h2>
+      <p>All intellectual property rights in and to MindPilot, including user interface designs, logos, software architecture, branding, and algorithms, are the exclusive property of <strong>SolteQ Innovations Ltd</strong> and its licensors, protected by global copyright and trademark laws.</p>
 
-      <h2>6. Intellectual Property</h2>
-      <p>The Service, including the design system, animations, source code, visual components, logos, and server mechanisms, is the exclusive property of MindPilot and its licensors, protected by global copyright, trademark, and intellectual property laws.</p>
-      <p>You are granted a limited, non-exclusive, non-transferable, revocable license to download and run the MindPilot application on your personal devices for personal, non-commercial use only.</p>
+      <h2>6. Termination</h2>
+      <p>SolteQ Innovations Ltd reserves the right to suspend or terminate access to services for users who violate these Terms or engage in fraudulent activities. Users may discontinue use and delete their accounts at any time.</p>
 
-      <h2>7. Termination of Service</h2>
-      <p>We reserve the right, without liability or prior notice, to terminate, suspend, or restrict your access to the Service at our sole discretion, for any reason, including if we believe you have breached these Terms. You may delete your account and stop using the Service at any time.</p>
+      <h2>7. Governing Law & Jurisdiction</h2>
+      <p>These Terms shall be governed by and construed in accordance with the laws of the Federal Republic of Nigeria, without regard to its conflict of law provisions.</p>
 
-      <h2>8. Disclaimer of Warranties</h2>
-      <p>THE SERVICE IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. TO THE FULLEST EXTENT PERMISSIBLE BY LAW, MINDPILOT DISCLAIMS ALL WARRANTIES, INCLUDING IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, SECURE, OR ERROR-FREE.</p>
+      <h2>8. Corporate Contact & Support</h2>
+      <p>For questions or legal notices regarding these Terms, please contact:</p>
 
-      <h2>9. Limitation of Liability</h2>
-      <p>TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL MINDPILOT, ITS DEVELOPERS, OR ITS PARTNERS BE LIABLE FOR ANY INDIRECT, SPECIAL, INCIDENTAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOSS OF PROFITS, DATA, USE, OR GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OR INABILITY TO USE THE SERVICE.</p>
-
-      <h2>10. Governing Law</h2>
-      <p>These Terms and any dispute arising from your use of the Service shall be governed by, construed, and enforced in accordance with the laws of the jurisdiction in which MindPilot operates, without regard to conflict of law principles.</p>
-
-      <h2>11. Contact Support</h2>
-      <p>If you have any questions or require clarification regarding these Terms of Service, please contact our support team:</p>
-      <p style="margin-top: 10px;">
-        <strong>Email:</strong> solteqinnovationsltd@gmail.com<br>
-        <strong>Website:</strong> <a href="https://mindpilot-131f1.web.app/" style="color: var(--accent-color); text-decoration: none;">mindpilot-131f1.web.app</a>
-      </p>
+      <div class="company-box">
+        <p><strong>Company:</strong> SolteQ Innovations Ltd</p>
+        <p><strong>Headquarters:</strong> Kubwa, Abuja, Nigeria</p>
+        <p><strong>Support Email:</strong> <a href="mailto:solteqinnovationsltd@gmail.com" style="color: var(--accent-green);">solteqinnovationsltd@gmail.com</a></p>
+        <p><strong>Website:</strong> <a href="https://mindpilot-131f1.web.app/" style="color: var(--accent-green);">mindpilot-131f1.web.app</a></p>
+      </div>
     </div>
   </main>
 
-  <!-- Footer -->
   <footer>
     <div class="footer-links">
       <a href="/">Home</a>
@@ -417,9 +332,10 @@
       <a href="mailto:solteqinnovationsltd@gmail.com">Support</a>
     </div>
     <div class="copyright">
-      &copy; 2026 MindPilot. All rights reserved.
+      &copy; 2026 <strong>SolteQ Innovations Ltd</strong>. All rights reserved. Registered in Kubwa, Abuja, Nigeria.
     </div>
   </footer>
 
 </body>
+
 </html>

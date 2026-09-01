@@ -118,9 +118,11 @@ class AppProvider extends BaseProvider with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _sessionStartTime = DateTime.now();
       _startTimeSpentTimer();
+      EngagementService().resumeCurrentScreenTime();
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       accumulateTimeSpent();
       _stopTimeSpentTimer();
+      EngagementService().accumulateCurrentScreenTime();
     }
   }
 
@@ -173,6 +175,7 @@ class AppProvider extends BaseProvider with WidgetsBindingObserver {
   void dispose() {
     accumulateTimeSpent();
     _stopTimeSpentTimer();
+    EngagementService().accumulateCurrentScreenTime();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -211,8 +214,8 @@ class AppProvider extends BaseProvider with WidgetsBindingObserver {
     NotificationService().scheduleDailyGrowthPraiseReminder();
     NotificationService().scheduleWeeklyGrowthPraiseReminder();
 
-    await syncEngagementFromCloud();
-    await EngagementService().recordLastAppOpen();
+    unawaited(syncEngagementFromCloud());
+    unawaited(EngagementService().recordLastAppOpen());
 
     // Register lifecycle observer for time tracking
     WidgetsBinding.instance.addObserver(this);

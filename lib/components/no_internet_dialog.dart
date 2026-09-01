@@ -79,6 +79,7 @@ class _NoInternetDialogState extends State<NoInternetDialog> {
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 textAlign: TextAlign.center,
+                color: Colors.white,
               ),
               12.verticalSpace,
               SecondaryText(
@@ -86,6 +87,7 @@ class _NoInternetDialogState extends State<NoInternetDialog> {
                     "Please check your network settings and try again to continue using MindPilot.",
                 fontSize: 14,
                 textAlign: TextAlign.center,
+                color: Colors.white.withValues(alpha: 0.7),
               ),
               24.verticalSpace,
               CustomButton(

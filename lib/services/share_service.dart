@@ -44,7 +44,6 @@ class ShareService {
     }
   }
 
-  /// Returns the full invite text used for both the share sheet and the QR code.
   static String buildGroupInviteContent({
     required String groupId,
     required String groupName,
@@ -53,15 +52,9 @@ class ShareService {
   }) {
     final scopeLabel = _getScopeLabel(scopeType, scopeValue);
     final shareUrl = ConfigService().shareUrl;
-    return '🎯 You\'ve been invited to a $scopeLabel quiz challenge on MindPilot!\n\n'
-        'MindPilot is a free knowledge & personal growth app where you can:\n'
-        '• 📚 Quiz yourself on Bible, science, tech & more\n'
-        '• 🧠 Sharpen your mind with daily challenges\n'
-        '• 🔥 Earn XP, build streaks & compete with friends\n\n'
-        '📲 Download the app to get started:\n'
+    return '🎯 Join my $scopeLabel quiz challenge on MindPilot!\n\n'
         '$shareUrl\n\n'
-        'Once you\'re registered, use the invite code below to join my group:\n'
-        'mindpilot-group-invite:$groupId:$groupName';
+        'Use my invite code to join: mindpilot-group-invite:$groupId:$groupName';
   }
 
   /// Returns the compact deep-link encoded into the QR code.

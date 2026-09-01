@@ -316,6 +316,24 @@ class AppAuthProvider extends BaseProvider {
             updates['regCountry'] = _detectCountry();
           }
 
+          // Backfill country if missing or empty using phone number from firestore
+          final currentCountry = data['country'] as String? ?? '';
+          final existingPhone = data['phoneNumber'] as String? ?? '';
+          if (currentCountry.trim().isEmpty && existingPhone.isNotEmpty) {
+            String? derivedCountry;
+            if (existingPhone.startsWith('+234')) derivedCountry = 'Nigeria';
+            else if (existingPhone.startsWith('+256')) derivedCountry = 'Uganda';
+            else if (existingPhone.startsWith('+254')) derivedCountry = 'Kenya';
+            else if (existingPhone.startsWith('+233')) derivedCountry = 'Ghana';
+            else if (existingPhone.startsWith('+27')) derivedCountry = 'South Africa';
+            else if (existingPhone.startsWith('+1')) derivedCountry = 'United States';
+            else if (existingPhone.startsWith('+44')) derivedCountry = 'United Kingdom';
+            
+            if (derivedCountry != null) {
+              updates['country'] = derivedCountry;
+            }
+          }
+
           // 5. Backfill heardFrom if missing, null, empty or Unknown, and heardFrom param is provided
           final currentHeardFrom = data['heardFrom'] as String? ?? '';
           if (heardFrom != null &&

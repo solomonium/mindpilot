@@ -15,13 +15,27 @@ class SplashScreenState extends State<AnimatedSplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController animationController;
   late Animation<double> animation;
+  Timer? _timer;
 
-  Future<Timer> startTime() async {
+  void startTime() {
+    _timer?.cancel();
     var duration = const Duration(seconds: 4);
-    return Timer(duration, navigationPage);
+    _timer = Timer(duration, navigationPage);
+  }
+
+  Future<void> _checkInitialConnectivity() async {
+    bool hasNet = await AppHelper.isOnline();
+    if (!mounted) return;
+    if (!hasNet) {
+      _timer?.cancel();
+      NoInternetDialog.show(context, onRetry: () async {
+        startTime();
+      });
+    }
   }
 
   void navigationPage() async {
+    final user = FirebaseAuth.instance.currentUser;
     bool hasNet = await AppHelper.isOnline();
     if (!hasNet) {
       if (mounted) {
@@ -32,7 +46,6 @@ class SplashScreenState extends State<AnimatedSplashScreen>
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
     final prefs = await SharedPreferences.getInstance();
     final hasSeenPersonalization =
         prefs.getBool('HAS_SEEN_PERSONALIZATION') ?? false;
@@ -106,10 +119,14 @@ class SplashScreenState extends State<AnimatedSplashScreen>
 
     NotificationService().logDeviceToken();
     startTime();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialConnectivity();
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     animationController.dispose();
     super.dispose();
   }

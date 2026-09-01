@@ -201,8 +201,7 @@ Continue the analysis naturally.
             final downloadUrl = ConfigService().updateUrl;
             ShareService.captureAndShare(
               context,
-              text:
-                  "Making tough choices with clarity! 🧠 Just analyzed a major decision with MindPilot and the path forward is clear. Stop overthinking and start acting.\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Decisions #Clarity",
+              text: "Making tough choices with clarity using MindPilot! 🧠\n\n$downloadUrl",
               widget: ShareableCard(
                 mode: ShareableCardMode.insight,
                 insightTitle: widget.title ?? 'Decision Analysis',

@@ -88,9 +88,8 @@ class AppShareSheet extends StatefulWidget {
     required String downloadUrl,
   }) {
     final shareText =
-        'Join me on MindPilot — the AI clarity assistant for focus, decisions, and '
-        'growth! 🧠\n\nUse my code: $referralCode for a bonus decision credit.\n\n'
-        'Download: $downloadUrl';
+        'Join me on MindPilot! Use my code $referralCode for a bonus decision credit.\n\n'
+        '$downloadUrl';
 
     _show(
       context,

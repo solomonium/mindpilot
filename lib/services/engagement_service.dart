@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:mindpilot/export.dart';
 
 enum EngagementAction {
@@ -16,6 +17,9 @@ class EngagementService {
   static final EngagementService _instance = EngagementService._internal();
   factory EngagementService() => _instance;
   EngagementService._internal();
+
+  static String? _currentScreen;
+  static DateTime? _screenStartTime;
 
   static const int xpPerLevel = 50;
 
@@ -80,7 +84,13 @@ class EngagementService {
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
-            .get();
+            .get()
+            .timeout(
+              const Duration(seconds: 4),
+              onTimeout: () {
+                throw TimeoutException('Firestore loadEngagementData timeout');
+              },
+            );
         if (doc.exists) {
           final data = doc.data()!;
           final remoteStreak = data['streak'] as int? ?? streak;
@@ -145,6 +155,23 @@ class EngagementService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     try {
+      // 1. Accumulate time spent on the previous screen
+      if (_currentScreen != null && _screenStartTime != null) {
+        final elapsed = DateTime.now().difference(_screenStartTime!).inSeconds;
+        if (elapsed > 0) {
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'screenTimeSpent': {
+              _currentScreen!: FieldValue.increment(elapsed),
+            }
+          }, SetOptions(merge: true));
+        }
+      }
+
+      // 2. Set new active screen details
+      _currentScreen = screenName;
+      _screenStartTime = DateTime.now();
+
+      // 3. Record last visited screen info
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'lastVisitedScreen': screenName,
         'lastVisitedScreenAt': FieldValue.serverTimestamp(),
@@ -153,6 +180,28 @@ class EngagementService {
     } catch (e) {
       safePrint('Error recording screen visit: $e');
     }
+  }
+
+  Future<void> accumulateCurrentScreenTime() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _currentScreen == null || _screenStartTime == null) return;
+    try {
+      final elapsed = DateTime.now().difference(_screenStartTime!).inSeconds;
+      _screenStartTime = null; // Reset start time
+      if (elapsed > 0) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'screenTimeSpent': {
+            _currentScreen!: FieldValue.increment(elapsed),
+          }
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      safePrint('Error accumulating screen time on app lifecycle state change: $e');
+    }
+  }
+
+  void resumeCurrentScreenTime() {
+    _screenStartTime = DateTime.now();
   }
 
   Future<({int streak, int xp, int level, bool leveledUp})> recordAction(

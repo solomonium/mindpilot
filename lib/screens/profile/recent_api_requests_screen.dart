@@ -623,6 +623,31 @@ class _ApiRequestItemState extends State<_ApiRequestItem> {
             color: theme.accentTxt.withOpacity(0.7),
             fontSize: 12,
           ),
+          8.verticalSpace,
+          const SecondaryText(
+            text: 'Prompt / Query:',
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+            color: Colors.white70,
+          ),
+          4.verticalSpace,
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 120),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+            ),
+            child: SingleChildScrollView(
+              child: SecondaryText(
+                text: data['prompt'] as String? ?? 'No prompt recorded for this log',
+                color: theme.accentTxt.withOpacity(0.8),
+                fontSize: 11,
+              ),
+            ),
+          ),
           if (isFailed && errorMessage != null) ...[
             8.verticalSpace,
             Container(

@@ -75,7 +75,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                 final downloadUrl = ConfigService().updateUrl;
                 ShareService.captureAndShare(
                   context,
-                  text: "Reflecting on a week of growth! 🌱 My MindPilot weekly report shows exactly where I've focused and how far I've come. Ready to start your clarity journey?\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Growth #WeeklyReport",
+                  text: "Reflecting on a week of growth with MindPilot! 🌱\n\n$downloadUrl",
                   widget: ShareableCard(
                     mode: ShareableCardMode.progress,
                     userName: user?.displayName,

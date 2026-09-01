@@ -81,6 +81,36 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
     return parts.join(' ');
   }
 
+  String _formatLongestScreen(Map<String, dynamic>? screenTimeSpent) {
+    if (screenTimeSpent == null || screenTimeSpent.isEmpty) {
+      return 'None recorded';
+    }
+    
+    String longestScreen = '';
+    int maxSeconds = -1;
+    
+    screenTimeSpent.forEach((key, value) {
+      int seconds = 0;
+      if (value is int) {
+        seconds = value;
+      } else if (value is double) {
+        seconds = value.toInt();
+      } else if (value is String) {
+        seconds = int.tryParse(value) ?? 0;
+      }
+      if (seconds > maxSeconds) {
+        maxSeconds = seconds;
+        longestScreen = key;
+      }
+    });
+    
+    if (maxSeconds <= 0 || longestScreen.isEmpty) {
+      return 'None recorded';
+    }
+    
+    return '$longestScreen (${_formatTimeSpent(maxSeconds)})';
+  }
+
   void _showStatusChangeDialog(
     String userId,
     String name,
@@ -593,6 +623,7 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
         data['name'] as String? ?? data['displayName'] as String? ?? 'No Name';
     final email = data['email'] as String? ?? 'No Email';
     final heardFrom = data['heardFrom'] as String? ?? 'Unknown';
+    final country = data['country'] as String? ?? 'Not Specified';
     final userType = data['userType'] as String? ?? 'Freemium';
     final isPro = userType == 'Pro Member';
     final streak = data['streak'] as int? ?? data['dailyStreak'] as int? ?? 0;
@@ -810,6 +841,13 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
                     'Time Spent on App',
                     _formatTimeSpent(data['totalTimeSpent']),
                   ),
+                  8.verticalSpace,
+                  _detailRow(
+                    theme,
+                    Icons.bar_chart_rounded,
+                    'Most Used Screen',
+                    _formatLongestScreen(data['screenTimeSpent'] as Map<String, dynamic>?),
+                  ),
                   if (lastVisitedScreen != null) ...[
                     8.verticalSpace,
                     _detailRow(
@@ -827,6 +865,13 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
                     Icons.campaign_outlined,
                     'Acquisition Source',
                     'Joined via $heardFrom',
+                  ),
+                  8.verticalSpace,
+                  _detailRow(
+                    theme,
+                    Icons.public_rounded,
+                    'Country',
+                    country,
                   ),
                   8.verticalSpace,
                   _detailRow(

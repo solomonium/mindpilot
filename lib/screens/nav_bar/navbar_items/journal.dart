@@ -577,7 +577,7 @@ Think clearly. Live intentionally.
 """;
 
     final shareText =
-        "$receipt\n\nMindPilot is a premium cognitive productivity assistant that helps you organize your thoughts, sharpen focus, and achieve goals.\nDownload MindPilot here: $shareUrl";
+        "$receipt\n\nShared via MindPilot:\n$shareUrl";
     try {
       await Clipboard.setData(ClipboardData(text: shareText));
       if (context.mounted) {
@@ -691,7 +691,7 @@ Think clearly. Live intentionally.
       await file.writeAsBytes(await pdf.save());
 
       final shareText =
-          "Sharing my journal entry from MindPilot, the premium secure cognitive productivity assistant. Download it here to organize your thoughts and sharpen your focus: $shareUrl";
+          "My MindPilot journal entry reflections.\n\n$shareUrl";
       try {
         await Clipboard.setData(ClipboardData(text: shareText));
         if (context.mounted) {

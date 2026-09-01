@@ -110,8 +110,7 @@ class _TasksListScreenState extends State<TasksListScreen>
             final downloadUrl = ConfigService().updateUrl;
             ShareService.captureAndShare(
               context,
-              text:
-                  "Crushing my goals one focus session at a time! 🚀 MindPilot keeps me sharp and on track. Who else is staying disciplined today?\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Focus #Achievement",
+              text: "Crushing my goals with MindPilot! 🚀\n\n$downloadUrl",
               widget: ShareableCard(
                 mode: ShareableCardMode.tasks,
                 tasks: taskStore.tasks.map((t) => t.title).toList(),

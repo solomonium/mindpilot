@@ -3043,7 +3043,7 @@ $explanation
                     final emoji = isBible ? ' 📖' : '';
                     ShareService.captureAndShare(
                       context,
-                      text: "$scopeName Quiz completed on MindPilot!$emoji Score: $_score/${_quizQuestions.length}. Ready to test your knowledge and build focus? Join me on MindPilot!\n\nDownload: $downloadUrl",
+                      text: "$scopeName Quiz completed on MindPilot!$emoji Score: $_score/${_quizQuestions.length}.\n\n$downloadUrl",
                       widget: ShareableCard(
                         mode: ShareableCardMode.insight,
                         insightTitle: '$scopeName Quiz Score: $_score/${_quizQuestions.length}',

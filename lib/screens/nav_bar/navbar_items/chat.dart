@@ -730,8 +730,7 @@ User: $text
       final downloadUrl = ConfigService().updateUrl;
       ShareService.captureAndShare(
         context,
-        text:
-            "MindPilot AI Wisdom! 🧠✨ My personal assistant keeps me sharp. Join me!\n\nDownload: $downloadUrl\n#MindPilot #AI",
+        text: "MindPilot AI Wisdom! 🧠✨\n\n$downloadUrl",
         widget: ShareableCard(
           mode: ShareableCardMode.chat,
           chatUserMessage: userMsg,

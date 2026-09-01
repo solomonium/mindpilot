@@ -121,6 +121,7 @@ class GeminiService {
           promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
           responseTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
           totalTokens: response.usageMetadata?.totalTokenCount ?? 0,
+          prompt: _extractPromptText(contents),
         );
         return responseText;
       }
@@ -162,6 +163,7 @@ class GeminiService {
         totalTokens: 0,
         status: 'failed',
         errorMessage: e.toString(),
+        prompt: _extractPromptText(contents),
       );
     }
     return null;
@@ -224,6 +226,7 @@ class GeminiService {
               promptTokens: usage['prompt_tokens'] as int? ?? 0,
               responseTokens: usage['completion_tokens'] as int? ?? 0,
               totalTokens: usage['total_tokens'] as int? ?? 0,
+              prompt: _extractMessagesPromptText(messages),
             );
           } else {
             _logUsage(
@@ -233,6 +236,7 @@ class GeminiService {
               promptTokens: 0,
               responseTokens: 0,
               totalTokens: 0,
+              prompt: _extractMessagesPromptText(messages),
             );
           }
           return content;
@@ -264,6 +268,7 @@ class GeminiService {
       totalTokens: 0,
       status: 'failed',
       errorMessage: lastError ?? 'All attempted models failed.',
+      prompt: _extractMessagesPromptText(messages),
     );
     return null;
   }
@@ -321,6 +326,7 @@ class GeminiService {
             promptTokens: usage != null ? (usage['prompt_tokens'] as int? ?? 0) : 0,
             responseTokens: usage != null ? (usage['completion_tokens'] as int? ?? 0) : 0,
             totalTokens: usage != null ? (usage['total_tokens'] as int? ?? 0) : 0,
+            prompt: _extractMessagesPromptText(messages),
           );
           return content;
         } else {
@@ -347,6 +353,7 @@ class GeminiService {
       totalTokens: 0,
       status: 'failed',
       errorMessage: lastError ?? 'All attempted models failed.',
+      prompt: _extractMessagesPromptText(messages),
     );
     return null;
   }
@@ -671,6 +678,7 @@ class GeminiService {
     required int totalTokens,
     String status = 'success',
     String? errorMessage,
+    String? prompt,
   }) {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -686,11 +694,43 @@ class GeminiService {
         'totalTokens': totalTokens,
         'status': status,
         'errorMessage': errorMessage,
-      }).catchError((e) {
+        'prompt': prompt ?? '',
+      }).then((_) {}, onError: (e) {
         safePrint('GeminiService Log Usage Error (async): $e');
       });
     } catch (e) {
       safePrint('GeminiService Log Usage Error (sync): $e');
+    }
+  }
+
+  String _extractPromptText(List<Content> contents) {
+    try {
+      final textParts = <String>[];
+      for (final content in contents) {
+        for (final part in content.parts) {
+          if (part is TextPart) {
+            textParts.add(part.text);
+          }
+        }
+      }
+      return textParts.join('\n');
+    } catch (e) {
+      return 'Could not extract prompt';
+    }
+  }
+
+  String _extractMessagesPromptText(List<Map<String, String>> messages) {
+    try {
+      final userMessages = messages
+          .where((m) => m['role'] == 'user')
+          .map((m) => m['content'] ?? '')
+          .toList();
+      if (userMessages.isNotEmpty) {
+        return userMessages.last;
+      }
+      return messages.isNotEmpty ? (messages.last['content'] ?? '') : '';
+    } catch (e) {
+      return '';
     }
   }
 }

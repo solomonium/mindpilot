@@ -1,11 +1,11 @@
 {
-    "name": "mindpilot",
-    "short_name": "mindpilot",
+    "name": "SolteQ Innovations",
+    "short_name": "SolteQ",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0c0f1d",
-    "theme_color": "#6366f1",
-    "description": "MindPilot - Think clearly, live intentionally.",
+    "background_color": "#000000",
+    "theme_color": "#8cc63f",
+    "description": "SolteQ Innovations Ltd — Engineering Next-Gen Digital Products & Intelligent Systems",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -269,7 +269,15 @@ class NotificationService {
       await androidPlugin?.requestExactAlarmsPermission();
     }
 
-    await _fcm.requestPermission(alert: true, badge: true, sound: true);
+    _startForegroundAlarmChecker();
+
+    unawaited(_initializeFcm());
+  }
+
+  Future<void> _initializeFcm() async {
+    try {
+      await _fcm.requestPermission(alert: true, badge: true, sound: true);
+    } catch (_) {}
 
     try {
       await _fcm.subscribeToTopic('all_users');
@@ -283,12 +291,12 @@ class NotificationService {
       _processMessage(message, isForeground: false, wasTapped: true);
     });
 
-    RemoteMessage? initialMessage = await _fcm.getInitialMessage();
-    if (initialMessage != null) {
-      _processMessage(initialMessage, isForeground: false, wasTapped: true);
-    }
-
-    _startForegroundAlarmChecker();
+    try {
+      RemoteMessage? initialMessage = await _fcm.getInitialMessage();
+      if (initialMessage != null) {
+        _processMessage(initialMessage, isForeground: false, wasTapped: true);
+      }
+    } catch (_) {}
 
     logDeviceToken();
 

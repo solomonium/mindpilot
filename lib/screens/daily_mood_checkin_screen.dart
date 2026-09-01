@@ -1,14 +1,15 @@
 import 'package:mindpilot/export.dart';
 
 class DailyMoodCheckInScreen extends StatefulWidget {
-  const DailyMoodCheckInScreen({super.key});
+  final int? initialSelectedEmoji;
+  const DailyMoodCheckInScreen({super.key, this.initialSelectedEmoji});
 
   @override
   State<DailyMoodCheckInScreen> createState() => _DailyMoodCheckInScreenState();
 }
 
 class _DailyMoodCheckInScreenState extends State<DailyMoodCheckInScreen> {
-  int _selectedEmoji = 3; // Neutral default
+  late int _selectedEmoji;
   bool _isLoading = false;
 
   final emojis = ['😫', '😤', '😕', '😐', '😊', '🤩'];
@@ -24,6 +25,7 @@ class _DailyMoodCheckInScreenState extends State<DailyMoodCheckInScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedEmoji = widget.initialSelectedEmoji ?? 3;
   }
 
   Future<void> _submitCheckIn() async {
