@@ -27,7 +27,16 @@ class GeminiService {
     safePrint('GeminiService: Updated LLM provider to $_selectedLlmProvider');
   }
 
-  bool get isInitialized => _apiKey != null && _apiKey!.isNotEmpty;
+  String get _effectiveOpenRouterApiKey {
+    if (_apiKey != null && _apiKey!.trim().isNotEmpty) {
+      return _apiKey!.trim();
+    }
+    return ConfigService().openRouterApiKey.trim();
+  }
+
+  bool get isInitialized =>
+      _effectiveOpenRouterApiKey.isNotEmpty ||
+      ConfigService().geminiApiKey.isNotEmpty;
 
   void setPersonalization(List<String> goals) {
     _personalization = goals;
@@ -67,7 +76,7 @@ class GeminiService {
     String name = rawModelName.trim();
     name = name.replaceAll(RegExp(r'^google/'), '');
     name = name.replaceAll(RegExp(r':free$'), '');
-    return name.isEmpty ? 'gemini-2.0-flash' : name;
+    return name.isEmpty ? 'gemini-2.5-flash' : name;
   }
 
   String _sanitizeOpenRouterModel(String rawModel) {
@@ -86,16 +95,16 @@ class GeminiService {
     int maxTokens = 1000,
     String? overrideModel,
   }) async {
-    final geminiApiKey = dotenv.env['GEMINI_API_KEY'];
-    if (geminiApiKey == null || geminiApiKey.isEmpty) {
-      safePrint('GeminiService: GEMINI_API_KEY is not configured in .env.');
+    final geminiApiKey = ConfigService().geminiApiKey;
+    if (geminiApiKey.isEmpty) {
+      safePrint('GeminiService: GEMINI_API_KEY is not configured.');
       return null;
     }
 
     final String rawModelName = overrideModel ??
         (ConfigService().directGeminiModel.isNotEmpty
             ? ConfigService().directGeminiModel
-            : 'gemini-2.0-flash');
+            : 'gemini-2.5-flash');
     final String directModelName = _sanitizeDirectGeminiModel(rawModelName);
 
     try {
@@ -175,14 +184,12 @@ class GeminiService {
     required String feature,
     int maxTokens = 1500,
   }) async {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-    if (_apiKey == null || _apiKey!.isEmpty) {
+    final cleanKey = _effectiveOpenRouterApiKey;
+    if (cleanKey.isEmpty) {
+      safePrint('GeminiService: OpenRouter API key is not configured.');
       return null;
     }
 
-    final cleanKey = _apiKey!.trim();
     String? lastError;
 
     for (var i = 0; i < models.length; i++) {
@@ -279,9 +286,9 @@ class GeminiService {
     required String feature,
     int maxTokens = 1500,
   }) async {
-    final agentRouterApiKey = dotenv.env['AGENT_ROUTER_API_KEY'] ?? '';
+    final agentRouterApiKey = ConfigService().agentRouterApiKey;
     if (agentRouterApiKey.isEmpty) {
-      safePrint('GeminiService: AGENT_ROUTER_API_KEY is not configured in .env.');
+      safePrint('GeminiService: AGENT_ROUTER_API_KEY is not configured.');
       return null;
     }
 
@@ -428,10 +435,6 @@ class GeminiService {
     bool preferFlash = true,
     String? cacheKey,
   }) async {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-
     if (_messages.isEmpty) {
       String context = "";
 
@@ -540,10 +543,6 @@ class GeminiService {
     bool preferFlash = true,
     String? cacheKey,
   }) async {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-
     String defaultSystemInstruction = systemInstruction ?? '';
     if (defaultSystemInstruction.isEmpty) {
       String context = "";

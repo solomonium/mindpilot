@@ -40,6 +40,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController _versionController = TextEditingController();
   final TextEditingController _intervalController = TextEditingController();
   final TextEditingController _updateUrlController = TextEditingController();
+  final TextEditingController _geminiApiKeyController = TextEditingController();
+  final TextEditingController _openRouterApiKeyController = TextEditingController();
   bool _forceUpdateValue = false;
   bool _isEditMode = false;
   bool _isUpdatingConfig = false;
@@ -67,6 +69,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         .round()
         .toString();
     _updateUrlController.text = config.updateUrl;
+    _geminiApiKeyController.text = config.geminiApiKey;
+    _openRouterApiKeyController.text = config.openRouterApiKey;
     _forceUpdateValue = config.forceUpdate;
     _fetchTotalUsers();
   }
@@ -101,6 +105,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       debugPrint('Error fetching user count: $e');
       setState(() => _isLoadingUsersCount = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _versionController.dispose();
+    _intervalController.dispose();
+    _updateUrlController.dispose();
+    _geminiApiKeyController.dispose();
+    _openRouterApiKeyController.dispose();
+    super.dispose();
   }
 
   @override
@@ -455,6 +470,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           _configItem('Force Update', config.forceUpdate ? 'YES' : 'NO'),
           _configItem('Support Phone', config.supportPhone),
+          _configItem(
+            'Gemini Key',
+            config.geminiApiKey.isNotEmpty
+                ? '••••${config.geminiApiKey.substring(config.geminiApiKey.length > 4 ? config.geminiApiKey.length - 4 : 0)}'
+                : 'Not Set',
+          ),
+          _configItem(
+            'OpenRouter Key',
+            config.openRouterApiKey.isNotEmpty
+                ? '••••${config.openRouterApiKey.substring(config.openRouterApiKey.length > 4 ? config.openRouterApiKey.length - 4 : 0)}'
+                : 'Not Set',
+          ),
           16.verticalSpace,
           Row(
             children: [
@@ -486,6 +513,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             _configEditField(theme, 'Update URL', _updateUrlController),
             16.verticalSpace,
             _configEditField(theme, 'Support Phone', _phoneController),
+            16.verticalSpace,
+            _configEditField(theme, 'Gemini API Key (Remote)', _geminiApiKeyController),
+            16.verticalSpace,
+            _configEditField(theme, 'OpenRouter API Key (Remote)', _openRouterApiKeyController),
             16.verticalSpace,
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -526,6 +557,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       _intervalController.text =
                           (config.quoteIntervalMs / 60000).round().toString();
                       _updateUrlController.text = config.updateUrl;
+                      _geminiApiKeyController.text = config.geminiApiKey;
+                      _openRouterApiKeyController.text = config.openRouterApiKey;
                       _forceUpdateValue = config.forceUpdate;
                     });
                     if (mounted) {
@@ -648,6 +681,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             'update_url': updateUrl,
             'force_update': _forceUpdateValue,
             'authenticated_users_count': _totalUsers,
+            if (_geminiApiKeyController.text.trim().isNotEmpty)
+              'gemini_api_key': _geminiApiKeyController.text.trim(),
+            if (_openRouterApiKeyController.text.trim().isNotEmpty)
+              'openrouter_api_key': _openRouterApiKeyController.text.trim(),
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
 
@@ -994,7 +1031,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool needsFirestoreUpdate = false;
 
     // 1. ITERATE DIRECT GEMINI CANDIDATE MODELS
-    final geminiApiKey = dotenv.env['GEMINI_API_KEY'];
+    final geminiApiKey = ConfigService().geminiApiKey;
     final rawPrimaryGeminiModel = ConfigService().directGeminiModel.isNotEmpty
         ? ConfigService().directGeminiModel
         : 'gemini-2.0-flash';
@@ -1013,7 +1050,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     String? workingGeminiModel;
 
-    if (geminiApiKey == null || geminiApiKey.isEmpty) {
+    if (geminiApiKey.isEmpty) {
       _directGeminiOk = false;
       _directGeminiStatus = 'Downtime (GEMINI_API_KEY missing)';
       _healthCheckResults.add(
@@ -1021,7 +1058,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           modelId: primaryGeminiModel,
           category: 'Direct Gemini',
           isOk: false,
-          statusText: 'GEMINI_API_KEY not configured in .env',
+          statusText: 'GEMINI_API_KEY not configured',
           latencyMs: 0,
           isActive: true,
         ),
@@ -1097,7 +1134,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
 
     // 2. ITERATE OPENROUTER FREE MODELS
-    final openRouterApiKey = (dotenv.env['OPEN_ROUTER_API_KEY'] ?? '').trim();
+    final openRouterApiKey = ConfigService().openRouterApiKey;
     // Only test models that end with :free or are valid free endpoints
     List<String> currentFreeModels = ConfigService()
         .openRouterFreeModels
@@ -1122,7 +1159,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             modelId: currentFreeModels.first,
             category: 'OpenRouter Free',
             isOk: false,
-            statusText: 'OPEN_ROUTER_API_KEY not configured in .env',
+            statusText: 'OPEN_ROUTER_API_KEY not configured',
             latencyMs: 0,
             isActive: true,
           ),

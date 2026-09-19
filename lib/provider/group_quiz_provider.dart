@@ -911,7 +911,7 @@ class GroupQuizProvider extends ChangeNotifier {
       final systemInstruction = _getSystemInstruction();
 
       if (!_geminiService.isInitialized) {
-        final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+        final apiKey = ConfigService().openRouterApiKey;
         _geminiService.init(apiKey);
       }
 
@@ -1059,7 +1059,7 @@ class GroupQuizProvider extends ChangeNotifier {
         final systemInstruction = _getSystemInstruction();
 
         if (!_geminiService.isInitialized) {
-          final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+          final apiKey = ConfigService().openRouterApiKey;
           _geminiService.init(apiKey);
         }
 

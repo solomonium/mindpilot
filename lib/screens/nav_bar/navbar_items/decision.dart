@@ -64,7 +64,7 @@ class _DecisionAnalyzerScreenState extends State<DecisionAnalyzerScreen> {
   }
 
   void _initializeGemini() async {
-    final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    final apiKey = ConfigService().openRouterApiKey;
 
     final models = await _geminiService.listModels(apiKey);
     String selectedModel = 'gemini-1.5-flash';

@@ -40,6 +40,11 @@ class ConfigService {
   String _directGeminiModel = 'gemini-2.5-flash';
   List<String> _agentRouterModels = [];
 
+  // Dynamic AI API Keys (Fetched remotely with .env fallback)
+  String _geminiApiKey = '';
+  String _openRouterApiKey = '';
+  String _agentRouterApiKey = '';
+
   int get quoteIntervalMs => _quoteIntervalMs;
   String get latestVersion => _latestVersion;
   String get currentAppVersion => _currentAppVersion;
@@ -57,6 +62,21 @@ class ConfigService {
   List<String> get openRouterProModels => _openRouterProModels;
   String get directGeminiModel => _directGeminiModel;
   List<String> get agentRouterModels => _agentRouterModels;
+
+  String get geminiApiKey {
+    if (_geminiApiKey.trim().isNotEmpty) return _geminiApiKey.trim();
+    return (dotenv.env['GEMINI_API_KEY'] ?? '').trim();
+  }
+
+  String get openRouterApiKey {
+    if (_openRouterApiKey.trim().isNotEmpty) return _openRouterApiKey.trim();
+    return (dotenv.env['OPEN_ROUTER_API_KEY'] ?? '').trim();
+  }
+
+  String get agentRouterApiKey {
+    if (_agentRouterApiKey.trim().isNotEmpty) return _agentRouterApiKey.trim();
+    return (dotenv.env['AGENT_ROUTER_API_KEY'] ?? '').trim();
+  }
 
   Future<void> init() async {
     try {
@@ -98,7 +118,20 @@ class ConfigService {
           _agentRouterModels = List<String>.from(data['agent_router_models']);
         }
 
-        safePrint('✅ Remote Config Loaded: Interval=$_quoteIntervalMs, Version=$_latestVersion, AuthUsers=$_authenticatedUsersCount, FreeModels=${_openRouterFreeModels.length}, ProModels=${_openRouterProModels.length}, AgentRouterModels=${_agentRouterModels.length}, DirectModel=$_directGeminiModel');
+        // Load Remote API Keys if present
+        if (data['gemini_api_key'] != null && (data['gemini_api_key'] as String).trim().isNotEmpty) {
+          _geminiApiKey = (data['gemini_api_key'] as String).trim();
+        }
+
+        if (data['openrouter_api_key'] != null && (data['openrouter_api_key'] as String).trim().isNotEmpty) {
+          _openRouterApiKey = (data['openrouter_api_key'] as String).trim();
+        }
+
+        if (data['agent_router_api_key'] != null && (data['agent_router_api_key'] as String).trim().isNotEmpty) {
+          _agentRouterApiKey = (data['agent_router_api_key'] as String).trim();
+        }
+
+        safePrint('✅ Remote Config Loaded: Interval=$_quoteIntervalMs, Version=$_latestVersion, AuthUsers=$_authenticatedUsersCount, FreeModels=${_openRouterFreeModels.length}, ProModels=${_openRouterProModels.length}, DirectModel=$_directGeminiModel, HasRemoteGeminiKey=${_geminiApiKey.isNotEmpty}, HasRemoteOpenRouterKey=${_openRouterApiKey.isNotEmpty}');
       } else {
         safePrint('⚠️ Remote Config doc not found. Using defaults.');
       }

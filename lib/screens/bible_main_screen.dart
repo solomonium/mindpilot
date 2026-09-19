@@ -264,7 +264,7 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   }
 
   void _initializeGemini() {
-    final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    final apiKey = ConfigService().openRouterApiKey;
     _geminiService.init(apiKey);
   }
 

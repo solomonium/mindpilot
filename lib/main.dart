@@ -29,6 +29,14 @@ void main() async {
     debugPrint('Initialization failed: $e');
   }
 
+  // Initialize ConfigService & dynamic API keys early
+  try {
+    await ConfigService().init();
+    await ConfigService().fetchRemoteConfig();
+  } catch (e) {
+    debugPrint('ConfigService initialization failed: $e');
+  }
+
   // Initialize NotificationService before appProvider or any background tasks schedule reminders
   try {
     await NotificationService().initialize();

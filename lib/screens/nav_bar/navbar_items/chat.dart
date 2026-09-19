@@ -1,6 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:mindpilot/export.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../../agentic/models/agent_action.dart';
+import '../../../agentic/ui/agent_action_card.dart';
+import '../../../agentic/ui/agent_reasoning_trace.dart';
 
 class AiChatScreen extends StatefulWidget {
   final String? initialMessage;
@@ -154,7 +157,6 @@ Keep the tone extremely supportive, premium, and structured. Use bullet points f
       return;
     }
 
-    chatStore.addMessage(text, true);
     _messageController.clear();
     _scrollToBottom();
 
@@ -162,6 +164,33 @@ Keep the tone extremely supportive, premium, and structured. Use bullet points f
     setState(() {
       _isLoading = true;
     });
+
+    if (chatStore.isAgentMode) {
+      try {
+        await chatStore.sendAgenticTurn(
+          userText: text,
+          context: context,
+        );
+        if (mounted) {
+          _scrollToBottom();
+        }
+      } catch (e) {
+        safePrint('Agent Turn Error: $e');
+        if (mounted) {
+          context.showInAppNotification(
+            "I'm sorry, I am unable to connect right now, please try after sometime.",
+            type: InAppNotificationType.error,
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+      return;
+    }
+
+    chatStore.addMessage(text, true);
 
     final prompt =
         """
@@ -245,6 +274,48 @@ User: $text
           ).rippleClick(() => context.pop()),
         ),
         actions: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: chatStore.isAgentMode
+                  ? theme.primaryBase.withValues(alpha: 0.18)
+                  : Colors.grey.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: chatStore.isAgentMode
+                    ? theme.primaryBase
+                    : Colors.grey.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  chatStore.isAgentMode
+                      ? Icons.auto_awesome
+                      : Icons.chat_bubble_outline,
+                  size: 13,
+                  color: chatStore.isAgentMode
+                      ? theme.primaryBase
+                      : theme.accentTxt.withValues(alpha: 0.6),
+                ),
+                4.horizontalSpace,
+                Text(
+                  chatStore.isAgentMode ? 'Agent Mode' : 'Standard',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: chatStore.isAgentMode
+                        ? theme.primaryBase
+                        : theme.accentTxt.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ).rippleClick(() => chatStore.toggleAgentMode()),
+          8.horizontalSpace,
           Icon(Icons.refresh, color: theme.accentTxt).rippleClick(() {
             chatStore.resetChat();
           }),
@@ -638,6 +709,16 @@ User: $text
                 color: theme.accentTxt.withValues(alpha: 0.4),
               ),
             ),
+          if (!isMe &&
+              message['thoughts'] != null &&
+              (message['thoughts'] as List).isNotEmpty)
+            SizedBox(
+              width: MediaQuery.of(context).size.width * 0.75,
+              child: AgentReasoningTrace(
+                thoughts: List<String>.from(message['thoughts'] as List),
+                initiallyExpanded: index == chatStore.messages.length - 1,
+              ),
+            ),
           Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -702,6 +783,23 @@ User: $text
               ],
             ),
           ),
+          if (!isMe &&
+              message['actions'] != null &&
+              (message['actions'] as List).isNotEmpty)
+            SizedBox(
+              width: MediaQuery.of(context).size.width * 0.75,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: (message['actions'] as List).map<Widget>((act) {
+                  return AgentActionCard(
+                    action: act as AgentAction,
+                    onStatusChanged: () {
+                      if (mounted) setState(() {});
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
         ],
       ),
     );
