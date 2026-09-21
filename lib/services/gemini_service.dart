@@ -532,6 +532,13 @@ class GeminiService {
       return response;
     }
 
+    AiDowntimeAlertService().reportFailure(
+      provider: _selectedLlmProvider,
+      feature: feature,
+      errorMessage: 'Failed to get response from AI models. Primary and all fallback gateways failed.',
+      force: false,
+    );
+
     throw Exception("Failed to get response from AI models. Please try again in a moment.");
   }
 
@@ -626,6 +633,13 @@ class GeminiService {
       return response;
     }
 
+    AiDowntimeAlertService().reportFailure(
+      provider: _selectedLlmProvider,
+      feature: feature,
+      errorMessage: 'Failed to get response from AI models in OneShot. Primary and all fallback gateways failed.',
+      force: false,
+    );
+
     throw Exception("Failed to get response from AI models. Please try again in a moment.");
   }
 
@@ -694,9 +708,18 @@ class GeminiService {
         'status': status,
         'errorMessage': errorMessage,
         'prompt': prompt ?? '',
+        'device': DeviceHelper.currentDevice,
       }).then((_) {}, onError: (e) {
         safePrint('GeminiService Log Usage Error (async): $e');
       });
+
+      if (status == 'failed' && errorMessage != null && errorMessage.isNotEmpty) {
+        AiDowntimeAlertService().reportFailure(
+          provider: source,
+          feature: feature,
+          errorMessage: errorMessage,
+        );
+      }
     } catch (e) {
       safePrint('GeminiService Log Usage Error (sync): $e');
     }
@@ -704,15 +727,22 @@ class GeminiService {
 
   String _extractPromptText(List<Content> contents) {
     try {
-      final textParts = <String>[];
-      for (final content in contents) {
-        for (final part in content.parts) {
-          if (part is TextPart) {
-            textParts.add(part.text);
+      // Find the last user message instead of concatenating the entire history
+      for (int i = contents.length - 1; i >= 0; i--) {
+        final content = contents[i];
+        if (content.role == 'user' || content.role == null) {
+          final textParts = <String>[];
+          for (final part in content.parts) {
+            if (part is TextPart && part.text.trim().isNotEmpty) {
+              textParts.add(part.text);
+            }
+          }
+          if (textParts.isNotEmpty) {
+            return PromptCleanHelper.extractUserPrompt(textParts.join('\n'));
           }
         }
       }
-      return textParts.join('\n');
+      return 'No prompt recorded';
     } catch (e) {
       return 'Could not extract prompt';
     }
@@ -725,9 +755,11 @@ class GeminiService {
           .map((m) => m['content'] ?? '')
           .toList();
       if (userMessages.isNotEmpty) {
-        return userMessages.last;
+        return PromptCleanHelper.extractUserPrompt(userMessages.last);
       }
-      return messages.isNotEmpty ? (messages.last['content'] ?? '') : '';
+      return messages.isNotEmpty
+          ? PromptCleanHelper.extractUserPrompt(messages.last['content'] ?? '')
+          : '';
     } catch (e) {
       return '';
     }

@@ -143,6 +143,8 @@ class EngagementService {
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'lastAppOpen': FieldValue.serverTimestamp(),
         'lastActive': FieldValue.serverTimestamp(),
+        'lastDevice': DeviceHelper.currentDevice,
+        'device': DeviceHelper.currentDevice,
       }, SetOptions(merge: true));
     } catch (e) {
       safePrint('Error recording last app open: $e');

@@ -251,6 +251,8 @@ class AppAuthProvider extends BaseProvider {
           'hasCompletedFirstSession': false,
           'country': '',
           'regCountry': _detectCountry(),
+          'device': DeviceHelper.currentDevice,
+          'lastDevice': DeviceHelper.currentDevice,
           'heardFrom': heardFrom ?? 'Unknown',
           'totalTimeSpent': 0,
           'lastActive': FieldValue.serverTimestamp(),
@@ -258,7 +260,7 @@ class AppAuthProvider extends BaseProvider {
           'createdAt': FieldValue.serverTimestamp(),
         });
         safePrint(
-          '🚀 Proactively created missing Firestore user document for UID: ${user.uid}',
+          '🚀 Proactively created missing Firestore user document for UID: ${user.uid} with device: ${DeviceHelper.currentDevice}',
         );
 
         try {
@@ -276,6 +278,14 @@ class AppAuthProvider extends BaseProvider {
         final data = doc.data();
         if (data != null) {
           final Map<String, dynamic> updates = {};
+
+          // Always record/update current login device for existing users
+          updates['lastDevice'] = DeviceHelper.currentDevice;
+          if (!data.containsKey('device') ||
+              data['device'] == null ||
+              data['device'].toString().trim().isEmpty) {
+            updates['device'] = DeviceHelper.currentDevice;
+          }
 
           // 1. Backfill email if missing or empty
           final existingEmail = data['email'] as String? ?? '';

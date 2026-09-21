@@ -542,6 +542,38 @@ class NotificationService {
     );
   }
 
+  Future<void> showAdminCriticalAlert({
+    required String title,
+    required String body,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'admin_alerts_channel_v1',
+      'Admin Critical Alerts',
+      channelDescription: 'High-priority notifications for AI downtime and system alerts',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _localNotifications.show(
+      id: 999999, // Static ID so repeated alerts replace the heads-up banner cleanly
+      title: title,
+      body: body,
+      notificationDetails: details,
+      payload: 'admin_alert',
+    );
+  }
+
   Future<void> playAlarmSound() async {
     if (_isAlarmPlaying) return;
     try {

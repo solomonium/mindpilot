@@ -1,6 +1,7 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:mindpilot/export.dart';
 import 'package:mindpilot/screens/profile/ai_model_management_screen.dart';
+import 'package:mindpilot/services/ai_downtime_alert_service.dart';
 
 class ModelHealthCheckResult {
   final String modelId;
@@ -41,10 +42,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final TextEditingController _intervalController = TextEditingController();
   final TextEditingController _updateUrlController = TextEditingController();
   final TextEditingController _geminiApiKeyController = TextEditingController();
-  final TextEditingController _openRouterApiKeyController = TextEditingController();
+  final TextEditingController _openRouterApiKeyController =
+      TextEditingController();
+  final TextEditingController _whatsappPhoneController =
+      TextEditingController();
+  final TextEditingController _whatsappApiKeyController =
+      TextEditingController();
+  final TextEditingController _textMeBotApiKeyController =
+      TextEditingController();
+  final TextEditingController _telegramTokenController =
+      TextEditingController();
+  final TextEditingController _telegramChatIdController =
+      TextEditingController();
   bool _forceUpdateValue = false;
   bool _isEditMode = false;
   bool _isUpdatingConfig = false;
+
+  bool _isTestingWhatsApp = false;
+  String? _whatsappTestResult;
+  bool? _whatsappTestSuccess;
+
+  bool _isTestingTextMeBot = false;
+  String? _textMeBotTestResult;
+  bool? _textMeBotTestSuccess;
+
+  bool _isTestingTelegram = false;
+  String? _telegramTestResult;
+  bool? _telegramTestSuccess;
 
   bool _isCheckingHealth = false;
   String? _directGeminiStatus;
@@ -54,6 +78,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<ModelHealthCheckResult> _healthCheckResults = [];
   String? _autoSwitchLog;
   bool _isHealthResultsExpanded = true;
+
+  // Section Collapsible / Expandable States
+  bool _isConfigExpanded = false;
+  bool _isAiModelsExpanded = false;
+  bool _isHealthCheckExpanded = false;
+  bool _isAlertsExpanded = false;
+  bool _isQuotaExpanded = false;
+  bool _isBroadcastExpanded = false;
+  bool _isFeedbackCardExpanded = false;
+  bool _isUsersExpanded = true;
+  bool _isAdminsExpanded = false;
+
+  bool get _areAllExpanded =>
+      _isConfigExpanded &&
+      _isAiModelsExpanded &&
+      _isHealthCheckExpanded &&
+      _isAlertsExpanded &&
+      _isBroadcastExpanded &&
+      _isFeedbackCardExpanded &&
+      _isAdminsExpanded;
+
+  void _toggleExpandAll() {
+    final targetState = !_areAllExpanded;
+    setState(() {
+      _isConfigExpanded = targetState;
+      _isAiModelsExpanded = targetState;
+      _isHealthCheckExpanded = targetState;
+      _isAlertsExpanded = targetState;
+      _isQuotaExpanded = targetState;
+      _isBroadcastExpanded = targetState;
+      _isFeedbackCardExpanded = targetState;
+      _isUsersExpanded = targetState;
+      _isAdminsExpanded = targetState;
+    });
+  }
 
   int _totalUsers = 0;
   bool _isLoadingUsersCount = true;
@@ -71,6 +130,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _updateUrlController.text = config.updateUrl;
     _geminiApiKeyController.text = config.geminiApiKey;
     _openRouterApiKeyController.text = config.openRouterApiKey;
+    _whatsappPhoneController.text = config.whatsappAlertPhone;
+    _whatsappApiKeyController.text = config.whatsappAlertApiKey;
+    _textMeBotApiKeyController.text = config.textMeBotApiKey;
+    _telegramTokenController.text = config.telegramBotToken;
+    _telegramChatIdController.text = config.telegramChatId;
     _forceUpdateValue = config.forceUpdate;
     _fetchTotalUsers();
   }
@@ -115,6 +179,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _updateUrlController.dispose();
     _geminiApiKeyController.dispose();
     _openRouterApiKeyController.dispose();
+    _whatsappPhoneController.dispose();
+    _whatsappApiKeyController.dispose();
+    _textMeBotApiKeyController.dispose();
+    _telegramTokenController.dispose();
+    _telegramChatIdController.dispose();
     super.dispose();
   }
 
@@ -137,6 +206,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Icons.chevron_left,
           color: theme.accentTxt,
         ).rippleClick(() => context.pop()),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggleExpandAll,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.primaryBase.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.primaryBase.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _areAllExpanded
+                          ? Icons.unfold_less
+                          : Icons.unfold_more,
+                      color: theme.primaryBase,
+                      size: 15,
+                    ),
+                    6.horizontalSpace,
+                    SecondaryText(
+                      text: _areAllExpanded ? 'Collapse' : 'Expand All',
+                      color: theme.primaryBase,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -166,41 +276,138 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle(context, 'App Configuration'),
-                16.verticalSpace,
-                _configCard(context),
-                32.verticalSpace,
-                _sectionTitle(context, 'AI Model Configurations'),
-                16.verticalSpace,
-                _aiModelManagementCard(context),
-                32.verticalSpace,
-                _sectionTitle(context, 'Live Gateway Health & Downtime'),
-                16.verticalSpace,
-                _healthCheckCard(context),
-                32.verticalSpace,
-                if (FirebaseAuth.instance.currentUser?.email == 'laleyesolomon2@gmail.com') ...[
-                  _sectionTitle(context, 'Gemini API Quota Tracking'),
-                  16.verticalSpace,
-                  _quotaTrackerCard(context),
-                  32.verticalSpace,
+                _liveAiHealthBanner(context),
+                _buildCollapsibleHeader(
+                  context: context,
+                  title: 'App Configuration',
+                  icon: Icons.tune,
+                  subtitle: 'Remote system settings & API keys',
+                  isExpanded: _isConfigExpanded,
+                  onToggle: () =>
+                      setState(() => _isConfigExpanded = !_isConfigExpanded),
+                ),
+                if (_isConfigExpanded) ...[
+                  12.verticalSpace,
+                  _configCard(context),
                 ],
-                _sectionTitle(context, 'Broadcast System'),
-                16.verticalSpace,
-                _broadcastCard(context),
-                32.verticalSpace,
-                _sectionTitle(context, 'Feedback Card Control'),
-                16.verticalSpace,
-                _feedbackToggleCard(context),
-                32.verticalSpace,
-                _sectionTitle(context, 'User Membership Management'),
-                16.verticalSpace,
-                _allRegisteredUsersCard(context),
-                32.verticalSpace,
-                _sectionTitle(context, 'Manage Admin Privileges'),
-                16.verticalSpace,
-                _addAdminRow(context),
+                20.verticalSpace,
+                _buildCollapsibleHeader(
+                  context: context,
+                  title: 'AI Model Configurations',
+                  icon: Icons.psychology_outlined,
+                  subtitle: 'Direct Gemini & OpenRouter candidates',
+                  isExpanded: _isAiModelsExpanded,
+                  onToggle: () => setState(
+                      () => _isAiModelsExpanded = !_isAiModelsExpanded),
+                ),
+                if (_isAiModelsExpanded) ...[
+                  12.verticalSpace,
+                  _aiModelManagementCard(context),
+                ],
+                20.verticalSpace,
+                _buildCollapsibleHeader(
+                  context: context,
+                  title: 'Live Gateway Health & Downtime',
+                  icon: Icons.monitor_heart_outlined,
+                  subtitle: 'Real-time ping & candidate auto-switching',
+                  isExpanded: _isHealthCheckExpanded,
+                  onToggle: () => setState(
+                      () => _isHealthCheckExpanded = !_isHealthCheckExpanded),
+                ),
+                if (_isHealthCheckExpanded) ...[
+                  12.verticalSpace,
+                  _healthCheckCard(context),
+                ],
+                20.verticalSpace,
+                _buildCollapsibleHeader(
+                  context: context,
+                  title: 'Downtime Alert Notifications',
+                  icon: Icons.notifications_active_outlined,
+                  subtitle: 'WhatsApp (CallMeBot/TextMeBot) & Telegram',
+                  isExpanded: _isAlertsExpanded,
+                  onToggle: () =>
+                      setState(() => _isAlertsExpanded = !_isAlertsExpanded),
+                ),
+                if (_isAlertsExpanded) ...[
+                  12.verticalSpace,
+                  _whatsappAlertCard(context),
+                ],
+                20.verticalSpace,
+                if (FirebaseAuth.instance.currentUser?.email ==
+                    'laleyesolomon2@gmail.com') ...[
+                  _buildCollapsibleHeader(
+                    context: context,
+                    title: 'Gemini API Quota Tracking',
+                    icon: Icons.data_usage_outlined,
+                    subtitle: 'API rate limits & token metrics',
+                    isExpanded: _isQuotaExpanded,
+                    onToggle: () => setState(
+                        () => _isQuotaExpanded = !_isQuotaExpanded),
+                  ),
+                  if (_isQuotaExpanded) ...[
+                    12.verticalSpace,
+                    _quotaTrackerCard(context),
+                  ],
+                  20.verticalSpace,
+                ],
+                _buildCollapsibleHeader(
+                  context: context,
+                  title: 'Broadcast System',
+                  icon: Icons.campaign_outlined,
+                  subtitle: 'Push in-app reflections & alerts',
+                  isExpanded: _isBroadcastExpanded,
+                  onToggle: () => setState(
+                      () => _isBroadcastExpanded = !_isBroadcastExpanded),
+                ),
+                if (_isBroadcastExpanded) ...[
+                  12.verticalSpace,
+                  _broadcastCard(context),
+                ],
+                20.verticalSpace,
+                _buildCollapsibleHeader(
+                  context: context,
+                  title: 'Feedback Card Control',
+                  icon: Icons.rate_review_outlined,
+                  subtitle: 'Toggle user feedback banner',
+                  isExpanded: _isFeedbackCardExpanded,
+                  onToggle: () => setState(() =>
+                      _isFeedbackCardExpanded = !_isFeedbackCardExpanded),
+                ),
+                if (_isFeedbackCardExpanded) ...[
+                  12.verticalSpace,
+                  _feedbackToggleCard(context),
+                ],
+                20.verticalSpace,
+                _buildCollapsibleHeader(
+                  context: context,
+                  title: 'User Membership Management',
+                  icon: Icons.people_outline,
+                  subtitle: 'View all $_totalUsers registered users',
+                  isExpanded: _isUsersExpanded,
+                  onToggle: () =>
+                      setState(() => _isUsersExpanded = !_isUsersExpanded),
+                ),
+                if (_isUsersExpanded) ...[
+                  12.verticalSpace,
+                  _allRegisteredUsersCard(context),
+                ],
+                20.verticalSpace,
+                _buildCollapsibleHeader(
+                  context: context,
+                  title: 'Manage Admin Privileges',
+                  icon: Icons.admin_panel_settings_outlined,
+                  subtitle: 'Super Admin access controls',
+                  isExpanded: _isAdminsExpanded,
+                  onToggle: () =>
+                      setState(() => _isAdminsExpanded = !_isAdminsExpanded),
+                ),
+                if (_isAdminsExpanded) ...[
+                  12.verticalSpace,
+                  _addAdminRow(context),
+                  20.verticalSpace,
+                  _adminList(context),
+                ],
                 24.verticalSpace,
-                _adminList(context),
               ],
             ),
           ),
@@ -306,9 +513,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             label: 'Prompt All Unconfigured Users for Push Notifications 🔔',
             onPressed: () async {
               try {
-                await FirebaseFirestore.instance.collection('app_config').doc('settings').set({
-                  'force_push_prompt_timestamp': FieldValue.serverTimestamp(),
-                }, SetOptions(merge: true));
+                await FirebaseFirestore.instance
+                    .collection('app_config')
+                    .doc('settings')
+                    .set({
+                      'force_push_prompt_timestamp':
+                          FieldValue.serverTimestamp(),
+                    }, SetOptions(merge: true));
 
                 if (context.mounted) {
                   context.showInAppNotification(
@@ -416,7 +627,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 4.verticalSpace,
                 SecondaryText(
-                  text: 'View directory, copy emails, and modify membership tiers.',
+                  text:
+                      'View directory, copy emails, and modify membership tiers.',
                   color: theme.accentTxt.withOpacity(0.6),
                   fontSize: 12,
                 ),
@@ -424,16 +636,105 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           12.horizontalSpace,
-          Icon(
-            Icons.chevron_right,
-            color: theme.primaryBase,
-            size: 24,
-          ),
+          Icon(Icons.chevron_right, color: theme.primaryBase, size: 24),
         ],
       ),
     ).rippleClick(() {
       context.push(const AllRegisteredUsersScreen());
     });
+  }
+
+  Widget _buildCollapsibleHeader({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    String? subtitle,
+    Widget? trailingBadge,
+  }) {
+    AppTheme theme = context.watch<AppTheme>();
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onToggle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: theme.primaryBase.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.primaryBase.withOpacity(0.25),
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: 16,
+                color: theme.primaryBase,
+              ),
+            ),
+            12.horizontalSpace,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  PrimaryText(
+                    text: title,
+                    color: theme.accentTxt,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  if (subtitle != null) ...[
+                    2.verticalSpace,
+                    SecondaryText(
+                      text: subtitle,
+                      color: theme.accentTxt.withOpacity(0.5),
+                      fontSize: 11,
+                      maxLines: 1,
+                      textOverflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (trailingBadge != null) ...[
+              trailingBadge,
+              8.horizontalSpace,
+            ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SecondaryText(
+                    text: isExpanded ? 'Collapse' : 'Expand',
+                    color: theme.accentTxt.withOpacity(0.7),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  4.horizontalSpace,
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: theme.accentTxt.withOpacity(0.8),
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _sectionTitle(BuildContext context, String title) {
@@ -482,6 +783,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ? '••••${config.openRouterApiKey.substring(config.openRouterApiKey.length > 4 ? config.openRouterApiKey.length - 4 : 0)}'
                 : 'Not Set',
           ),
+          _configItem('WhatsApp Alert Phone', config.whatsappAlertPhone),
+          _configItem(
+            'WhatsApp Alert Key',
+            config.whatsappAlertApiKey.isNotEmpty
+                ? '••••${config.whatsappAlertApiKey.substring(config.whatsappAlertApiKey.length > 4 ? config.whatsappAlertApiKey.length - 4 : 0)}'
+                : 'Not Set',
+          ),
+          _configItem(
+            'TextMeBot Key',
+            config.textMeBotApiKey.isNotEmpty
+                ? '••••${config.textMeBotApiKey.substring(config.textMeBotApiKey.length > 4 ? config.textMeBotApiKey.length - 4 : 0)}'
+                : 'Not Set',
+          ),
+          _configItem(
+            'Telegram Bot Token',
+            config.telegramBotToken.isNotEmpty
+                ? '••••${config.telegramBotToken.substring(config.telegramBotToken.length > 6 ? config.telegramBotToken.length - 6 : 0)}'
+                : 'Not Set',
+          ),
+          _configItem(
+            'Telegram Chat ID',
+            config.telegramChatId.isNotEmpty
+                ? config.telegramChatId
+                : 'Not Set',
+          ),
           16.verticalSpace,
           Row(
             children: [
@@ -514,9 +840,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             16.verticalSpace,
             _configEditField(theme, 'Support Phone', _phoneController),
             16.verticalSpace,
-            _configEditField(theme, 'Gemini API Key (Remote)', _geminiApiKeyController),
+            _configEditField(
+              theme,
+              'Gemini API Key (Remote)',
+              _geminiApiKeyController,
+            ),
             16.verticalSpace,
-            _configEditField(theme, 'OpenRouter API Key (Remote)', _openRouterApiKeyController),
+            _configEditField(
+              theme,
+              'OpenRouter API Key (Remote)',
+              _openRouterApiKeyController,
+            ),
+            16.verticalSpace,
+            _configEditField(
+              theme,
+              'WhatsApp Alert Phone',
+              _whatsappPhoneController,
+            ),
+            16.verticalSpace,
+            _configEditField(
+              theme,
+              'TextMeBot WhatsApp API Key',
+              _textMeBotApiKeyController,
+            ),
+            16.verticalSpace,
+            _configEditField(
+              theme,
+              'CallMeBot WhatsApp API Key',
+              _whatsappApiKeyController,
+            ),
+            16.verticalSpace,
+            _configEditField(
+              theme,
+              'Telegram Bot Token (from @BotFather)',
+              _telegramTokenController,
+            ),
+            16.verticalSpace,
+            _configEditField(
+              theme,
+              'Telegram Chat ID',
+              _telegramChatIdController,
+            ),
             16.verticalSpace,
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -558,7 +922,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           (config.quoteIntervalMs / 60000).round().toString();
                       _updateUrlController.text = config.updateUrl;
                       _geminiApiKeyController.text = config.geminiApiKey;
-                      _openRouterApiKeyController.text = config.openRouterApiKey;
+                      _openRouterApiKeyController.text =
+                          config.openRouterApiKey;
+                      _whatsappPhoneController.text = config.whatsappAlertPhone;
+                      _whatsappApiKeyController.text =
+                          config.whatsappAlertApiKey;
+                      _textMeBotApiKeyController.text =
+                          config.textMeBotApiKey;
+                      _telegramTokenController.text = config.telegramBotToken;
+                      _telegramChatIdController.text = config.telegramChatId;
                       _forceUpdateValue = config.forceUpdate;
                     });
                     if (mounted) {
@@ -589,7 +961,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             children: [
               Expanded(
                 child: SecondaryText(
-                  text: 'Manage lists of Direct Gemini models and OpenRouter fallback candidate lists.',
+                  text:
+                      'Manage lists of Direct Gemini models and OpenRouter fallback candidate lists.',
                   color: theme.accentTxt.withOpacity(0.7),
                   fontSize: 12,
                 ),
@@ -598,8 +971,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           16.verticalSpace,
           _configItem('Direct Gemini Model', config.directGeminiModel),
-          _configItem('OpenRouter Free List', '${config.openRouterFreeModels.length} Active Models'),
-          _configItem('OpenRouter Pro List', '${config.openRouterProModels.length} Active Models'),
+          _configItem(
+            'OpenRouter Free List',
+            '${config.openRouterFreeModels.length} Active Models',
+          ),
+          _configItem(
+            'OpenRouter Pro List',
+            '${config.openRouterProModels.length} Active Models',
+          ),
           20.verticalSpace,
           CustomButton(
             label: 'Manage & Reorder AI Model Lists',
@@ -685,6 +1064,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               'gemini_api_key': _geminiApiKeyController.text.trim(),
             if (_openRouterApiKeyController.text.trim().isNotEmpty)
               'openrouter_api_key': _openRouterApiKeyController.text.trim(),
+            'whatsapp_alert_phone': _whatsappPhoneController.text.trim(),
+            'whatsapp_alert_api_key': _whatsappApiKeyController.text.trim(),
+            'textmebot_api_key': _textMeBotApiKeyController.text.trim(),
+            'telegram_bot_token': _telegramTokenController.text.trim(),
+            'telegram_chat_id': _telegramChatIdController.text.trim(),
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
 
@@ -709,9 +1093,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     AppTheme theme = context.watch<AppTheme>();
     final directModelName = ConfigService().directGeminiModel.isNotEmpty
         ? ConfigService().directGeminiModel
-        : 'gemini-2.0-flash';
+        : 'gemini-2.5-flash';
     final freeModels = ConfigService().openRouterFreeModels;
-    final openRouterModel = freeModels.isNotEmpty ? freeModels.first : 'google/gemma-4-31b-it:free';
+    final openRouterModel = freeModels.isNotEmpty
+        ? freeModels.first
+        : 'google/gemma-4-31b-it:free';
 
     return GlassContainer(
       padding: const EdgeInsets.all(20),
@@ -720,7 +1106,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SecondaryText(
-            text: 'Run real-time API health checks to test model availability, iterate through candidate models, and automatically switch to an available operational model.',
+            text:
+                'Run real-time API health checks to test model availability, iterate through candidate models, and automatically switch to an available operational model.',
             color: theme.accentTxt.withOpacity(0.7),
             fontSize: 13,
           ),
@@ -732,11 +1119,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               decoration: BoxDecoration(
                 color: theme.successPrimary.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: theme.successPrimary.withOpacity(0.4)),
+                border: Border.all(
+                  color: theme.successPrimary.withOpacity(0.4),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome, color: theme.successPrimary, size: 20),
+                  Icon(
+                    Icons.auto_awesome,
+                    color: theme.successPrimary,
+                    size: 20,
+                  ),
                   10.horizontalSpace,
                   Expanded(
                     child: SecondaryText(
@@ -757,7 +1150,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Expanded(
                   child: PrimaryText(
-                    text: 'Model Iteration Results (${_healthCheckResults.where((r) => r.isOk).length}/${_healthCheckResults.length} Operational)',
+                    text:
+                        'Model Iteration Results (${_healthCheckResults.where((r) => r.isOk).length}/${_healthCheckResults.length} Operational)',
                     color: theme.accentTxt,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -817,7 +1211,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             20.verticalSpace,
           ],
           CustomButton(
-            label: _isCheckingHealth ? 'Testing & Switching Models...' : 'Check API Models & Auto-Switch Downtime',
+            label: _isCheckingHealth
+                ? 'Testing & Switching Models...'
+                : 'Check API Models & Auto-Switch Downtime',
             loading: _isCheckingHealth,
             onPressed: _runHealthCheck,
           ),
@@ -826,12 +1222,482 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _liveAiHealthBanner(BuildContext context) {
+    AppTheme theme = context.watch<AppTheme>();
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('app_config')
+          .doc('ai_health')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const SizedBox.shrink();
+        }
+        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final isDown = data['status'] == 'down';
+        if (!isDown) {
+          return const SizedBox.shrink();
+        }
+
+        final error = data['lastError']?.toString() ?? 'Unknown error';
+        final provider = data['provider']?.toString() ?? 'AI Gateway';
+        final updatedAt = data['updatedAt'] is Timestamp
+            ? (data['updatedAt'] as Timestamp)
+                  .toDate()
+                  .toLocal()
+                  .toString()
+                  .split('.')
+                  .first
+            : 'Recent';
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.errorShade.withOpacity(0.18),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: theme.errorShade.withOpacity(0.6),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: theme.errorShade.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      color: theme.errorShade,
+                      size: 24,
+                    ),
+                  ),
+                  12.horizontalSpace,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        PrimaryText(
+                          text: 'CRITICAL: AI GATEWAY DOWN',
+                          color: theme.errorShade,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        SecondaryText(
+                          text: 'Detected: $updatedAt | Provider: $provider',
+                          color: theme.accentTxt.withOpacity(0.7),
+                          fontSize: 11,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.errorShade,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const PrimaryText(
+                      text: 'DOWN',
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              10.verticalSpace,
+              SecondaryText(
+                text: error,
+                color: theme.accentTxt.withOpacity(0.9),
+                fontSize: 12,
+              ),
+              12.verticalSpace,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  SecondaryText(
+                    text: 'Dismiss / Mark Operational',
+                    color: theme.primaryBase,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ).rippleClick(() async {
+                    await FirebaseFirestore.instance
+                        .collection('app_config')
+                        .doc('ai_health')
+                        .set({
+                          'status': 'operational',
+                          'resolvedAt': FieldValue.serverTimestamp(),
+                        }, SetOptions(merge: true));
+                    if (context.mounted) {
+                      context.showInAppNotification(
+                        'AI Status marked as Operational',
+                        type: InAppNotificationType.success,
+                      );
+                    }
+                  }),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _whatsappAlertCard(BuildContext context) {
+    AppTheme theme = context.watch<AppTheme>();
+    final config = ConfigService();
+    final targetPhone = config.whatsappAlertPhone;
+    final hasTextMeBotKey = config.textMeBotApiKey.isNotEmpty;
+    final hasTelegramToken = config.telegramBotToken.isNotEmpty;
+    final hasTelegramChatId = config.telegramChatId.isNotEmpty;
+    final hasCallMeBotKey = config.whatsappAlertApiKey.isNotEmpty;
+
+    return GlassContainer(
+      padding: const EdgeInsets.all(20),
+      gradient: theme.glassGradient,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.notifications_active,
+                  color: Colors.lightBlueAccent,
+                  size: 22,
+                ),
+              ),
+              12.horizontalSpace,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PrimaryText(
+                      text: 'Instant AI Downtime Alerting',
+                      color: theme.accentTxt,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    SecondaryText(
+                      text: 'Notifies your phone the second an AI key fails or leaks',
+                      color: theme.accentTxt.withOpacity(0.7),
+                      fontSize: 11,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          20.verticalSpace,
+
+          // --- 1. TEXTMEBOT WHATSAPP ---
+          Row(
+            children: [
+              const Icon(Icons.mark_chat_unread, color: Colors.greenAccent, size: 18),
+              8.horizontalSpace,
+              Expanded(
+                child: PrimaryText(
+                  text: 'TextMeBot WhatsApp ($targetPhone)',
+                  color: theme.accentTxt,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          8.verticalSpace,
+          _configItem(
+            'TextMeBot Key',
+            hasTextMeBotKey
+                ? '••••${config.textMeBotApiKey.substring(config.textMeBotApiKey.length > 4 ? config.textMeBotApiKey.length - 4 : 0)}'
+                : 'Not Set (Configure above in Edit Mode)',
+          ),
+          if (_textMeBotTestResult != null) ...[
+            8.verticalSpace,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (_textMeBotTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: (_textMeBotTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _textMeBotTestSuccess == true ? Icons.check_circle : Icons.error_outline,
+                    color: _textMeBotTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                    size: 18,
+                  ),
+                  8.horizontalSpace,
+                  Expanded(
+                    child: SecondaryText(
+                      text: _textMeBotTestResult!,
+                      color: _textMeBotTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          12.verticalSpace,
+          CustomButton(
+            label: _isTestingTextMeBot ? 'Sending TextMeBot Test...' : 'Send Test TextMeBot WhatsApp Alert',
+            loading: _isTestingTextMeBot,
+            onPressed: _testTextMeBotAlert,
+          ),
+
+          20.verticalSpace,
+          const Divider(color: Colors.white24),
+          16.verticalSpace,
+
+          // --- 2. TELEGRAM BOT ---
+          Row(
+            children: [
+              const Icon(Icons.send_rounded, color: Colors.lightBlueAccent, size: 18),
+              8.horizontalSpace,
+              Expanded(
+                child: PrimaryText(
+                  text: 'Telegram Bot Alert (Instant)',
+                  color: theme.accentTxt,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          8.verticalSpace,
+          _configItem(
+            'Telegram Bot Token',
+            hasTelegramToken
+                ? '••••${config.telegramBotToken.substring(config.telegramBotToken.length > 6 ? config.telegramBotToken.length - 6 : 0)}'
+                : 'Not Set',
+          ),
+          _configItem(
+            'Telegram Chat ID',
+            hasTelegramChatId ? config.telegramChatId : 'Not Set',
+          ),
+          if (_telegramTestResult != null) ...[
+            8.verticalSpace,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (_telegramTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: (_telegramTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _telegramTestSuccess == true ? Icons.check_circle : Icons.error_outline,
+                    color: _telegramTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                    size: 18,
+                  ),
+                  8.horizontalSpace,
+                  Expanded(
+                    child: SecondaryText(
+                      text: _telegramTestResult!,
+                      color: _telegramTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          12.verticalSpace,
+          CustomButton(
+            label: _isTestingTelegram ? 'Sending Telegram Test...' : 'Send Test Telegram Alert',
+            loading: _isTestingTelegram,
+            onPressed: _testTelegramAlert,
+          ),
+
+          20.verticalSpace,
+          const Divider(color: Colors.white24),
+          16.verticalSpace,
+
+          // --- 3. CALLMEBOT WHATSAPP (BACKUP) ---
+          Row(
+            children: [
+              const Icon(Icons.phone_iphone, color: Colors.green, size: 18),
+              8.horizontalSpace,
+              Expanded(
+                child: PrimaryText(
+                  text: 'CallMeBot WhatsApp (Backup)',
+                  color: theme.accentTxt,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          8.verticalSpace,
+          _configItem(
+            'CallMeBot API Key',
+            hasCallMeBotKey
+                ? '••••${config.whatsappAlertApiKey.substring(config.whatsappAlertApiKey.length > 4 ? config.whatsappAlertApiKey.length - 4 : 0)}'
+                : 'Not Set',
+          ),
+          if (_whatsappTestResult != null) ...[
+            8.verticalSpace,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (_whatsappTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: (_whatsappTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _whatsappTestSuccess == true ? Icons.check_circle : Icons.error_outline,
+                    color: _whatsappTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                    size: 18,
+                  ),
+                  8.horizontalSpace,
+                  Expanded(
+                    child: SecondaryText(
+                      text: _whatsappTestResult!,
+                      color: _whatsappTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          12.verticalSpace,
+          CustomButton(
+            label: _isTestingWhatsApp ? 'Sending CallMeBot Test...' : 'Send Test CallMeBot Alert',
+            loading: _isTestingWhatsApp,
+            onPressed: _testWhatsAppAlert,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _testTextMeBotAlert() async {
+    setState(() {
+      _isTestingTextMeBot = true;
+      _textMeBotTestResult = null;
+      _textMeBotTestSuccess = null;
+    });
+
+    final result = await AiDowntimeAlertService().testTextMeBotAlert();
+
+    if (mounted) {
+      setState(() {
+        _isTestingTextMeBot = false;
+        _textMeBotTestSuccess = result['success'] as bool? ?? false;
+        _textMeBotTestResult = result['message'] as String? ?? 'Completed';
+      });
+
+      if (_textMeBotTestSuccess == true) {
+        context.showInAppNotification(
+          'TextMeBot WhatsApp alert delivered to phone!',
+          type: InAppNotificationType.success,
+        );
+      } else {
+        context.showInAppNotification(
+          result['message']?.toString() ?? 'Failed to send TextMeBot alert',
+        );
+      }
+    }
+  }
+
+  Future<void> _testTelegramAlert() async {
+    setState(() {
+      _isTestingTelegram = true;
+      _telegramTestResult = null;
+      _telegramTestSuccess = null;
+    });
+
+    final result = await AiDowntimeAlertService().testTelegramAlert();
+
+    if (mounted) {
+      setState(() {
+        _isTestingTelegram = false;
+        _telegramTestSuccess = result['success'] as bool? ?? false;
+        _telegramTestResult = result['message'] as String? ?? 'Completed';
+      });
+
+      if (_telegramTestSuccess == true) {
+        context.showInAppNotification(
+          'Telegram alert delivered instantly to your chat!',
+          type: InAppNotificationType.success,
+        );
+      } else {
+        context.showInAppNotification(
+          result['message']?.toString() ?? 'Failed to send Telegram alert',
+        );
+      }
+    }
+  }
+
+  Future<void> _testWhatsAppAlert() async {
+    setState(() {
+      _isTestingWhatsApp = true;
+      _whatsappTestResult = null;
+      _whatsappTestSuccess = null;
+    });
+
+    final result = await AiDowntimeAlertService().testWhatsAppAlert();
+
+    if (mounted) {
+      setState(() {
+        _isTestingWhatsApp = false;
+        _whatsappTestSuccess = result['success'] as bool? ?? false;
+        _whatsappTestResult = result['message'] as String? ?? 'Completed';
+      });
+
+      if (_whatsappTestSuccess == true) {
+        context.showInAppNotification(
+          'WhatsApp alert delivered to phone!',
+          type: InAppNotificationType.success,
+        );
+      } else {
+        context.showInAppNotification(
+          result['message']?.toString() ?? 'Failed to send WhatsApp alert',
+        );
+      }
+    }
+  }
+
   List<Widget> _buildHealthResultsList(AppTheme theme) {
     final categories = ['Direct Gemini', 'OpenRouter Free', 'OpenRouter Pro'];
     List<Widget> widgets = [];
 
     for (var cat in categories) {
-      final items = _healthCheckResults.where((r) => r.category == cat).toList();
+      final items = _healthCheckResults
+          .where((r) => r.category == cat)
+          .toList();
       if (items.isEmpty) continue;
 
       widgets.add(
@@ -884,7 +1750,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           if (item.isActive) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: theme.primaryBase.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),
@@ -962,7 +1831,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               text: statusText,
               color: isOk == true
                   ? theme.successPrimary
-                  : (isOk == false ? theme.errorPrimary : theme.accentTxt.withOpacity(0.7)),
+                  : (isOk == false
+                        ? theme.errorPrimary
+                        : theme.accentTxt.withOpacity(0.7)),
               fontSize: 12,
             ),
           ),
@@ -975,7 +1846,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     String serverMsg = '';
     if (data != null && data['error'] != null) {
       if (data['error'] is Map) {
-        serverMsg = data['error']['message']?.toString() ?? data['error'].toString();
+        serverMsg =
+            data['error']['message']?.toString() ?? data['error'].toString();
       } else {
         serverMsg = data['error'].toString();
       }
@@ -1034,18 +1906,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final geminiApiKey = ConfigService().geminiApiKey;
     final rawPrimaryGeminiModel = ConfigService().directGeminiModel.isNotEmpty
         ? ConfigService().directGeminiModel
-        : 'gemini-2.0-flash';
-    final primaryGeminiModel = rawPrimaryGeminiModel.replaceAll(RegExp(r'^google/'), '');
+        : 'gemini-2.5-flash';
+    final primaryGeminiModel = rawPrimaryGeminiModel.replaceAll(
+      RegExp(r'^google/'),
+      '',
+    );
 
     final candidateGeminiModels = [
       primaryGeminiModel,
       'gemini-2.5-flash',
-      'gemini-3.5-flash',
+      'gemini-2.5-pro',
       'gemini-flash-latest',
+      'gemini-2.5-flash-lite',
+      'gemini-pro-latest',
       'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
       'gemini-1.5-flash',
-      'gemini-1.5-pro',
     ].map((m) => m.replaceAll(RegExp(r'^google/'), '')).toSet().toList();
 
     String? workingGeminiModel;
@@ -1069,10 +1944,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         final bool isPrimary = (modelName == primaryGeminiModel);
         final Stopwatch sw = Stopwatch()..start();
         try {
-          final model = GenerativeModel(
-            model: modelName,
-            apiKey: geminiApiKey,
-          );
+          final model = GenerativeModel(model: modelName, apiKey: geminiApiKey);
           final response = await model
               .generateContent([Content.text('Ping')])
               .timeout(const Duration(seconds: 15));
@@ -1127,8 +1999,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _directGeminiOk = primaryResult.isOk;
       _directGeminiStatus = primaryResult.statusText;
 
-      if (!primaryResult.isOk && workingGeminiModel != null && workingGeminiModel != primaryGeminiModel) {
-        autoSwitchEvents.add('Auto-Switched Direct Gemini from "$primaryGeminiModel" to "$workingGeminiModel"');
+      if (!primaryResult.isOk &&
+          workingGeminiModel != null &&
+          workingGeminiModel != primaryGeminiModel) {
+        autoSwitchEvents.add(
+          'Auto-Switched Direct Gemini from "$primaryGeminiModel" to "$workingGeminiModel"',
+        );
         needsFirestoreUpdate = true;
       }
     }
@@ -1136,8 +2012,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     // 2. ITERATE OPENROUTER FREE MODELS
     final openRouterApiKey = ConfigService().openRouterApiKey;
     // Only test models that end with :free or are valid free endpoints
-    List<String> currentFreeModels = ConfigService()
-        .openRouterFreeModels
+    List<String> currentFreeModels = ConfigService().openRouterFreeModels
         .where((m) => m.contains(':free'))
         .toList();
     if (currentFreeModels.isEmpty) {
@@ -1171,27 +2046,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         final bool isPrimary = (i == 0);
         final Stopwatch sw = Stopwatch()..start();
         try {
-          final response = await dio.post(
-            'https://openrouter.ai/api/v1/chat/completions',
-            options: Options(
-              headers: {
-                'Authorization': 'Bearer $openRouterApiKey',
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
-                'X-Title': 'MindPilot Health Check',
-              },
-              validateStatus: (s) => s != null && s < 600,
-              receiveTimeout: const Duration(seconds: 15),
-              sendTimeout: const Duration(seconds: 15),
-            ),
-            data: {
-              'model': m,
-              'messages': [
-                {'role': 'user', 'content': 'Ping'}
-              ],
-              'max_tokens': 5,
-            },
-          ).timeout(const Duration(seconds: 15));
+          final response = await dio
+              .post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                options: Options(
+                  headers: {
+                    'Authorization': 'Bearer $openRouterApiKey',
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
+                    'X-Title': 'MindPilot Health Check',
+                  },
+                  validateStatus: (s) => s != null && s < 600,
+                  receiveTimeout: const Duration(seconds: 15),
+                  sendTimeout: const Duration(seconds: 15),
+                ),
+                data: {
+                  'model': m,
+                  'messages': [
+                    {'role': 'user', 'content': 'Ping'},
+                  ],
+                  'max_tokens': 5,
+                },
+              )
+              .timeout(const Duration(seconds: 15));
           sw.stop();
 
           if (response.statusCode == 200 &&
@@ -1212,7 +2089,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             );
           } else {
-            if (response.statusCode == 400 || response.statusCode == 404 || response.statusCode == 402) {
+            if (response.statusCode == 400 ||
+                response.statusCode == 404 ||
+                response.statusCode == 402) {
               invalidFreeModels.add(m);
             }
             _healthCheckResults.add(
@@ -1220,7 +2099,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 modelId: m,
                 category: 'OpenRouter Free',
                 isOk: false,
-                statusText: _formatOpenRouterStatusError(response.statusCode ?? 500, response.data),
+                statusText: _formatOpenRouterStatusError(
+                  response.statusCode ?? 500,
+                  response.data,
+                ),
                 latencyMs: sw.elapsedMilliseconds,
                 isActive: isPrimary,
               ),
@@ -1249,21 +2131,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
       final primaryFreeResult = _healthCheckResults.firstWhere(
         (r) => r.category == 'OpenRouter Free' && r.isActive,
-        orElse: () => _healthCheckResults.firstWhere((r) => r.category == 'OpenRouter Free'),
+        orElse: () => _healthCheckResults.firstWhere(
+          (r) => r.category == 'OpenRouter Free',
+        ),
       );
       _openRouterOk = primaryFreeResult.isOk;
       _openRouterStatus = primaryFreeResult.statusText;
 
-      if (workingFreeModel != null && currentFreeModels.isNotEmpty && workingFreeModel != currentFreeModels.first) {
+      if (workingFreeModel != null &&
+          currentFreeModels.isNotEmpty &&
+          workingFreeModel != currentFreeModels.first) {
         currentFreeModels.remove(workingFreeModel);
         currentFreeModels.insert(0, workingFreeModel);
-        autoSwitchEvents.add('Promoted operational Free model: "$workingFreeModel" to primary.');
+        autoSwitchEvents.add(
+          'Promoted operational Free model: "$workingFreeModel" to primary.',
+        );
         needsFirestoreUpdate = true;
       }
     }
 
     // 3. ITERATE OPENROUTER PRO MODELS (Claude, ChatGPT, DeepSeek, Gemini Pro)
-    List<String> currentProModels = List<String>.from(ConfigService().openRouterProModels);
+    List<String> currentProModels = List<String>.from(
+      ConfigService().openRouterProModels,
+    );
     if (currentProModels.isEmpty) {
       currentProModels = [
         'anthropic/claude-3.5-sonnet',
@@ -1282,27 +2172,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         final bool isPrimary = (i == 0);
         final Stopwatch sw = Stopwatch()..start();
         try {
-          final response = await dio.post(
-            'https://openrouter.ai/api/v1/chat/completions',
-            options: Options(
-              headers: {
-                'Authorization': 'Bearer $openRouterApiKey',
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
-                'X-Title': 'MindPilot Health Check',
-              },
-              validateStatus: (s) => s != null && s < 600,
-              receiveTimeout: const Duration(seconds: 15),
-              sendTimeout: const Duration(seconds: 15),
-            ),
-            data: {
-              'model': m,
-              'messages': [
-                {'role': 'user', 'content': 'Ping'}
-              ],
-              'max_tokens': 5,
-            },
-          ).timeout(const Duration(seconds: 15));
+          final response = await dio
+              .post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                options: Options(
+                  headers: {
+                    'Authorization': 'Bearer $openRouterApiKey',
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://mindpilot-131f1.web.app/',
+                    'X-Title': 'MindPilot Health Check',
+                  },
+                  validateStatus: (s) => s != null && s < 600,
+                  receiveTimeout: const Duration(seconds: 15),
+                  sendTimeout: const Duration(seconds: 15),
+                ),
+                data: {
+                  'model': m,
+                  'messages': [
+                    {'role': 'user', 'content': 'Ping'},
+                  ],
+                  'max_tokens': 5,
+                },
+              )
+              .timeout(const Duration(seconds: 15));
           sw.stop();
 
           if (response.statusCode == 200 &&
@@ -1323,7 +2215,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             );
           } else {
-            if (response.statusCode == 400 || response.statusCode == 404 || response.statusCode == 402) {
+            if (response.statusCode == 400 ||
+                response.statusCode == 404 ||
+                response.statusCode == 402) {
               invalidProModels.add(m);
             }
             _healthCheckResults.add(
@@ -1331,7 +2225,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 modelId: m,
                 category: 'OpenRouter Pro',
                 isOk: false,
-                statusText: _formatOpenRouterStatusError(response.statusCode ?? 500, response.data),
+                statusText: _formatOpenRouterStatusError(
+                  response.statusCode ?? 500,
+                  response.data,
+                ),
                 latencyMs: sw.elapsedMilliseconds,
                 isActive: isPrimary,
               ),
@@ -1358,10 +2255,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         needsFirestoreUpdate = true;
       }
 
-      if (workingProModel != null && currentProModels.isNotEmpty && workingProModel != currentProModels.first) {
+      if (workingProModel != null &&
+          currentProModels.isNotEmpty &&
+          workingProModel != currentProModels.first) {
         currentProModels.remove(workingProModel);
         currentProModels.insert(0, workingProModel);
-        autoSwitchEvents.add('Promoted operational Pro model: "$workingProModel" to primary.');
+        autoSwitchEvents.add(
+          'Promoted operational Pro model: "$workingProModel" to primary.',
+        );
         needsFirestoreUpdate = true;
       }
     }
@@ -1416,7 +2317,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
-            child: SecondaryText(text: label, color: theme.accentTxt.withOpacity(0.6)),
+            child: SecondaryText(
+              text: label,
+              color: theme.accentTxt.withOpacity(0.6),
+            ),
           ),
           8.horizontalSpace,
           Flexible(
@@ -1743,7 +2647,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             fontWeight: FontWeight.bold,
           ),
           content: SecondaryText(
-            text: 'This will instantly delete all usage logs from Firestore and reset your daily quota progress back to 0. This action cannot be undone.',
+            text:
+                'This will instantly delete all usage logs from Firestore and reset your daily quota progress back to 0. This action cannot be undone.',
             color: theme.accentTxt.withOpacity(0.8),
             fontSize: 13,
           ),
@@ -1805,7 +2710,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     } catch (e) {
       if (mounted) {
-        context.showInAppNotification('Error purging logs: $e', type: InAppNotificationType.error);
+        context.showInAppNotification(
+          'Error purging logs: $e',
+          type: InAppNotificationType.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -1816,12 +2724,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _quotaTrackerCard(BuildContext context) {
     AppTheme theme = context.watch<AppTheme>();
-    final todayStart = DateTime.now().copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+    final todayStart = DateTime.now().copyWith(
+      hour: 0,
+      minute: 0,
+      second: 0,
+      millisecond: 0,
+      microsecond: 0,
+    );
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('api_usage')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+          .where(
+            'timestamp',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart),
+          )
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -1842,9 +2759,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return GlassContainer(
             padding: const EdgeInsets.all(20),
             gradient: theme.glassGradient,
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            child: const Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -1873,7 +2788,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
         // Free tier daily limit for Gemini 2.5 Flash is 1500 requests
         const dailyRequestLimit = 1500;
-        final dailyRequestPercentage = (totalRequests / dailyRequestLimit).clamp(0.0, 1.0);
+        final dailyRequestPercentage = (totalRequests / dailyRequestLimit)
+            .clamp(0.0, 1.0);
 
         return GlassContainer(
           padding: const EdgeInsets.all(20),
@@ -1891,12 +2807,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                   PrimaryText(
-                    text: '${(dailyRequestPercentage * 100).toStringAsFixed(1)}%',
+                    text:
+                        '${(dailyRequestPercentage * 100).toStringAsFixed(1)}%',
                     color: dailyRequestPercentage > 0.8
                         ? theme.errorPrimary
                         : (dailyRequestPercentage > 0.5
-                            ? const Color(0xFFF59E0B)
-                            : theme.successPrimary),
+                              ? const Color(0xFFF59E0B)
+                              : theme.successPrimary),
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1912,24 +2829,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     dailyRequestPercentage > 0.8
                         ? theme.errorPrimary
                         : (dailyRequestPercentage > 0.5
-                            ? const Color(0xFFF59E0B)
-                            : theme.successPrimary),
+                              ? const Color(0xFFF59E0B)
+                              : theme.successPrimary),
                   ),
                   minHeight: 8,
                 ),
               ),
               12.verticalSpace,
               SecondaryText(
-                text: '$totalRequests / $dailyRequestLimit free requests used today',
+                text:
+                    '$totalRequests / $dailyRequestLimit free requests used today',
                 color: theme.accentTxt.withOpacity(0.6),
                 fontSize: 12,
               ),
               16.verticalSpace,
               const Divider(color: Colors.white24),
               16.verticalSpace,
-              _metricRow(context, 'Total Tokens Consumed', totalTokens.toString()),
-              _metricRow(context, 'Direct Gemini (2.5 Flash)', '$directRequests reqs ($directTokens tokens)'),
-              _metricRow(context, 'OpenRouter Fallbacks', '$openRouterRequests reqs ($openRouterTokens tokens)'),
+              _metricRow(
+                context,
+                'Total Tokens Consumed',
+                totalTokens.toString(),
+              ),
+              _metricRow(
+                context,
+                'Direct Gemini (2.5 Flash)',
+                '$directRequests reqs ($directTokens tokens)',
+              ),
+              _metricRow(
+                context,
+                'OpenRouter Fallbacks',
+                '$openRouterRequests reqs ($openRouterTokens tokens)',
+              ),
               16.verticalSpace,
               const Divider(color: Colors.white24),
               16.verticalSpace,
@@ -1942,11 +2872,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: theme.primaryBase,
-                    size: 20,
-                  ),
+                  Icon(Icons.chevron_right, color: theme.primaryBase, size: 20),
                 ],
               ).rippleClick(() {
                 context.push(const RecentApiRequestsScreen());

@@ -14,7 +14,21 @@ enum UserSortOption { lastActive, registrationDate, nameAsc }
 class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
   final TextEditingController _searchController = TextEditingController();
   UserSortOption _selectedSortOption = UserSortOption.lastActive;
+  String? _selectedDeviceFilter; // null, 'iPhone', 'Android', 'Others'
   String? _expandedUserId;
+
+  void _onDevicePillTapped(String deviceType) {
+    setState(() {
+      if (_selectedDeviceFilter == deviceType) {
+        // Tapped again -> return back to all users and last active
+        _selectedDeviceFilter = null;
+        _selectedSortOption = UserSortOption.lastActive;
+      } else {
+        // Filter to this device alone
+        _selectedDeviceFilter = deviceType;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -330,11 +344,88 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
     );
   }
 
+  Widget _deviceStatPill({
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    required Color borderColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.22) : bgColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : borderColor,
+              width: isSelected ? 1.5 : 1.0,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.25),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: color),
+              5.horizontalSpace,
+              SecondaryText(
+                text: '$label: ',
+                color: isSelected ? color : color.withOpacity(0.85),
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+              PrimaryText(
+                text: '$count',
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _searchAndHeader(AppTheme theme) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
         final totalCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+        int iphoneCount = 0;
+        int androidCount = 0;
+        int othersCount = 0;
+
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final rawDevice = data['lastDevice'] ?? data['device'];
+            final deviceStr = DeviceHelper.formatDevice(rawDevice, data);
+            if (DeviceHelper.isApple(deviceStr)) {
+              iphoneCount++;
+            } else if (DeviceHelper.isAndroid(deviceStr)) {
+              androidCount++;
+            } else {
+              othersCount++;
+            }
+          }
+        }
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Column(
@@ -367,6 +458,44 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
+                  ),
+                ],
+              ),
+              8.verticalSpace,
+              // Total number of each device platform: iPhone, Android, and Others
+              Row(
+                children: [
+                  _deviceStatPill(
+                    label: 'iPhone',
+                    count: iphoneCount,
+                    icon: Icons.apple,
+                    color: Colors.white,
+                    bgColor: Colors.white.withOpacity(0.08),
+                    borderColor: Colors.white24,
+                    isSelected: _selectedDeviceFilter == 'iPhone',
+                    onTap: () => _onDevicePillTapped('iPhone'),
+                  ),
+                  8.horizontalSpace,
+                  _deviceStatPill(
+                    label: 'Android',
+                    count: androidCount,
+                    icon: Icons.android,
+                    color: Colors.greenAccent,
+                    bgColor: Colors.green.withOpacity(0.12),
+                    borderColor: Colors.green.withOpacity(0.3),
+                    isSelected: _selectedDeviceFilter == 'Android',
+                    onTap: () => _onDevicePillTapped('Android'),
+                  ),
+                  8.horizontalSpace,
+                  _deviceStatPill(
+                    label: 'Others',
+                    count: othersCount,
+                    icon: Icons.devices_other,
+                    color: theme.accentTxt.withOpacity(0.7),
+                    bgColor: Colors.white.withOpacity(0.04),
+                    borderColor: Colors.white10,
+                    isSelected: _selectedDeviceFilter == 'Others',
+                    onTap: () => _onDevicePillTapped('Others'),
                   ),
                 ],
               ),
@@ -514,7 +643,7 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
           );
         }
 
-        // Apply Client-side Filtering based on search query
+        // Apply Client-side Filtering based on search query and device filter
         final searchQuery = _searchController.text.trim().toLowerCase();
         final filteredDocs = docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -522,7 +651,24 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
               (data['name'] as String? ?? data['displayName'] as String? ?? '')
                   .toLowerCase();
           final email = (data['email'] as String? ?? '').toLowerCase();
-          return name.contains(searchQuery) || email.contains(searchQuery);
+          final matchesSearch =
+              name.contains(searchQuery) || email.contains(searchQuery);
+          if (!matchesSearch) return false;
+
+          if (_selectedDeviceFilter != null) {
+            final rawDevice = data['lastDevice'] ?? data['device'];
+            final deviceStr = DeviceHelper.formatDevice(rawDevice, data);
+            if (_selectedDeviceFilter == 'iPhone') {
+              return DeviceHelper.isApple(deviceStr);
+            } else if (_selectedDeviceFilter == 'Android') {
+              return DeviceHelper.isAndroid(deviceStr);
+            } else if (_selectedDeviceFilter == 'Others') {
+              return !DeviceHelper.isApple(deviceStr) &&
+                  !DeviceHelper.isAndroid(deviceStr);
+            }
+          }
+
+          return true;
         }).toList();
 
         if (_selectedSortOption == UserSortOption.lastActive) {
@@ -583,7 +729,9 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
         if (filteredDocs.isEmpty) {
           return Center(
             child: SecondaryText(
-              text: 'No users match your search.',
+              text: _selectedDeviceFilter != null
+                  ? 'No $_selectedDeviceFilter users found.'
+                  : 'No users match your search.',
               color: theme.accentTxt.withOpacity(0.5),
             ),
           );
@@ -633,6 +781,10 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
     final lastActiveRaw = data['lastActive'] ?? data['lastAppOpen'] ?? data['lastEngagementDate'] ?? data['createdAt'];
     final lastVisitedScreen = data['lastVisitedScreen'] as String?;
     final lastVisitedScreenAtRaw = data['lastVisitedScreenAt'];
+    final rawDevice = data['lastDevice'] ?? data['device'];
+    final deviceStr = DeviceHelper.formatDevice(rawDevice, data);
+    final isApple = DeviceHelper.isApple(deviceStr);
+    final isAndroid = DeviceHelper.isAndroid(deviceStr);
 
     final isExpanded = _expandedUserId == doc.id;
 
@@ -824,6 +976,17 @@ class _AllRegisteredUsersScreenState extends State<AllRegisteredUsersScreen> {
                     Icons.calendar_today_outlined,
                     'Registration Date',
                     _formatRegistrationDate(createdAtRaw),
+                  ),
+                  8.verticalSpace,
+                  _detailRow(
+                    theme,
+                    isApple
+                        ? Icons.apple
+                        : (isAndroid
+                            ? Icons.android
+                            : Icons.phone_android_rounded),
+                    'Device Platform (Login)',
+                    deviceStr,
                   ),
                   if (lastActiveRaw != null) ...[
                     8.verticalSpace,
