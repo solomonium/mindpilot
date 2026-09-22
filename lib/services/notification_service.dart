@@ -269,7 +269,15 @@ class NotificationService {
       await androidPlugin?.requestExactAlarmsPermission();
     }
 
-    await _fcm.requestPermission(alert: true, badge: true, sound: true);
+    _startForegroundAlarmChecker();
+
+    unawaited(_initializeFcm());
+  }
+
+  Future<void> _initializeFcm() async {
+    try {
+      await _fcm.requestPermission(alert: true, badge: true, sound: true);
+    } catch (_) {}
 
     try {
       await _fcm.subscribeToTopic('all_users');
@@ -283,12 +291,12 @@ class NotificationService {
       _processMessage(message, isForeground: false, wasTapped: true);
     });
 
-    RemoteMessage? initialMessage = await _fcm.getInitialMessage();
-    if (initialMessage != null) {
-      _processMessage(initialMessage, isForeground: false, wasTapped: true);
-    }
-
-    _startForegroundAlarmChecker();
+    try {
+      RemoteMessage? initialMessage = await _fcm.getInitialMessage();
+      if (initialMessage != null) {
+        _processMessage(initialMessage, isForeground: false, wasTapped: true);
+      }
+    } catch (_) {}
 
     logDeviceToken();
 
@@ -531,6 +539,38 @@ class NotificationService {
       body: body,
       notificationDetails: details,
       payload: type,
+    );
+  }
+
+  Future<void> showAdminCriticalAlert({
+    required String title,
+    required String body,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'admin_alerts_channel_v1',
+      'Admin Critical Alerts',
+      channelDescription: 'High-priority notifications for AI downtime and system alerts',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _localNotifications.show(
+      id: 999999, // Static ID so repeated alerts replace the heads-up banner cleanly
+      title: title,
+      body: body,
+      notificationDetails: details,
+      payload: 'admin_alert',
     );
   }
 

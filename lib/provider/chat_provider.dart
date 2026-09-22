@@ -1,4 +1,7 @@
 import 'package:mindpilot/export.dart';
+import '../agentic/agentic_facade.dart';
+import '../agentic/models/agent_action.dart';
+import '../agentic/models/agent_turn_result.dart';
 
 class ChatProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _messages = [];
@@ -15,6 +18,7 @@ class ChatProvider extends ChangeNotifier {
   int _modelIndex = 0;
 
   bool _isInitialized = false;
+  bool _isAgentMode = true; // Enabled by default for autonomous tool assistance
 
   // AI Limit tracking
   int _dailyMessageCount = 0;
@@ -25,13 +29,19 @@ class ChatProvider extends ChangeNotifier {
   List<String> get availableModels => _availableModels;
   String get selectedModel => _selectedModel;
   bool get isInitialized => _isInitialized;
+  bool get isAgentMode => _isAgentMode;
   int get dailyMessageCount => _dailyMessageCount;
   int get freemiumLimit => _freemiumLimit;
+
+  void toggleAgentMode() {
+    _isAgentMode = !_isAgentMode;
+    notifyListeners();
+  }
 
   void initChat() async {
     if (_isInitialized) return;
 
-    final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    final apiKey = ConfigService().openRouterApiKey;
     final models = await _geminiService.listModels(apiKey);
     if (models.isNotEmpty) {
       _availableModels.clear();
@@ -111,7 +121,12 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  void addMessage(String text, bool isMe) async {
+  void addMessage(
+    String text,
+    bool isMe, {
+    List<AgentAction>? actions,
+    List<String>? thoughts,
+  }) async {
     final timestamp = DateTime.now().toIso8601String();
 
     // Persist to local SQLite DB
@@ -121,13 +136,19 @@ class ChatProvider extends ChangeNotifier {
       'timestamp': timestamp,
     });
 
-    _messages.add({"text": text, "isMe": isMe, "timestamp": timestamp});
+    _messages.add({
+      "text": text,
+      "isMe": isMe,
+      "timestamp": timestamp,
+      "actions": actions,
+      "thoughts": thoughts,
+    });
 
     // Automatically alternate model for the next request
     if (isMe && _availableModels.isNotEmpty) {
       _modelIndex = (_modelIndex + 1) % _availableModels.length;
       _selectedModel = _availableModels[_modelIndex];
-      final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+      final apiKey = ConfigService().openRouterApiKey;
       _geminiService.init(apiKey, modelName: _selectedModel);
       safePrint('AI: Alternated to model $_selectedModel');
     }
@@ -135,9 +156,47 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sends a message through the autonomous Agentic Engine (ReAct loop with tools)
+  Future<AgentTurnResult> sendAgenticTurn({
+    required String userText,
+    required BuildContext context,
+  }) async {
+    // 1. Add user message
+    addMessage(userText, true);
+    incrementMessageCount();
+    await EngagementService().recordAction(EngagementAction.chatMessage);
+
+    // 2. Prepare conversation history format
+    final history = _messages.map((m) {
+      return {
+        'role': (m['isMe'] as bool? ?? false) ? 'user' : 'assistant',
+        'content': m['text'] as String? ?? '',
+      };
+    }).toList();
+
+    final validContext = context.mounted ? context : null;
+
+    // 3. Process turn via AgenticFacade
+    final turnResult = await AgenticFacade().processMessage(
+      userMessage: userText,
+      conversationHistory: history,
+      context: validContext,
+    );
+
+    // 4. Record assistant message with any attached tool actions and reasoning thoughts
+    addMessage(
+      turnResult.responseText,
+      false,
+      actions: turnResult.actions.isNotEmpty ? turnResult.actions : null,
+      thoughts: turnResult.thoughts.isNotEmpty ? turnResult.thoughts : null,
+    );
+
+    return turnResult;
+  }
+
   void updateModel(String modelName) {
     _selectedModel = modelName;
-    final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    final apiKey = ConfigService().openRouterApiKey;
     _geminiService.init(apiKey, modelName: _selectedModel);
     notifyListeners();
   }

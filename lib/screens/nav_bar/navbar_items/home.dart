@@ -283,8 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ConfigService().updateUrl;
                                             ShareService.captureAndShare(
                                               context,
-                                              text:
-                                                  "Keeping the momentum alive! 🔥 Day ${appStore.streak} of staying focused with MindPilot. Consistency is the key to mastery.\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Streak #Discipline",
+                                              text: "Keeping the momentum alive! 🔥 Day ${appStore.streak} of focus with MindPilot.\n\n$downloadUrl",
                                               widget: ShareableCard(
                                                 mode: ShareableCardMode.streak,
                                                 streak: appStore.streak,
@@ -480,6 +479,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   16.verticalSpace,
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: _buildMoodCheckInCard(context, theme),
+                  ),
+                  16.verticalSpace,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
@@ -562,8 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .getInsightShareCaption();
                                       ShareService.captureAndShare(
                                         context,
-                                        text:
-                                            "$caption\n\nDownload MindPilot: $downloadUrl\n#MindPilot #DailyInsight #Mindset",
+                                        text: "$caption\n\n$downloadUrl",
                                         widget: ShareableCard(
                                           mode: ShareableCardMode.insight,
                                           insightTitle: 'Daily Insight',
@@ -949,8 +952,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               final downloadUrl = ConfigService().updateUrl;
                               ShareService.captureAndShare(
                                 context,
-                                text:
-                                    "Today's wins are in! 🏆 Seeing my progress clearly makes every session count. Ready to level up your focus? Join me on MindPilot!\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Progress #Achievement",
+                                text: "Today's wins are in! 🏆 Tracked with MindPilot.\n\n$downloadUrl",
                                 widget: ShareableCard(
                                   mode: ShareableCardMode.progress,
                                   focusTime: focusTimeText,
@@ -1200,70 +1202,57 @@ class _HomeScreenState extends State<HomeScreen> {
     AppTheme theme,
     List<String> personalization,
   ) {
-    final selected = [
+    final actions = [
       {
-        'key': 'bible_quiz',
-        'title': 'Bible & General Quiz',
-        'subtitle': 'Learn & test knowledge',
-        'icon': Icons.quiz_outlined,
-        'color': const Color(0xFFF59E0B),
-        'nav': -2,
+        'title': 'Ask AI',
+        'subtitle': 'Any question,\nany topic',
+        'icon': Icons.forum_rounded,
+        'color': const Color(0xFF8B5CF6),
+        'action': () => context.push(const AiChatScreen()),
       },
       {
-        'key': 'focus',
+        'title': 'Quiz Me',
+        'subtitle': 'Generate quizzes\ninstantly',
+        'icon': Icons.quiz_rounded,
+        'color': const Color(0xFF0D9488),
+        'action': () => context.push(const BibleMainScreen()),
+      },
+      {
+        'title': 'My Notes',
+        'subtitle': 'Quick notes,\nflashcards & more',
+        'icon': Icons.sticky_note_2_rounded,
+        'color': const Color(0xFF3B82F6),
+        'action': () => context.push(const JournalEntriesScreen()),
+      },
+      {
+        'title': 'Study Planner',
+        'subtitle': 'Plan your study\nschedule',
+        'icon': Icons.calendar_today_rounded,
+        'color': const Color(0xFFF59E0B),
+        'action': () => context.push(const TaskCreationScreen()),
+      },
+      {
         'title': R.S.focusSession,
-        'subtitle': 'Improve focus',
+        'subtitle': 'Improve focus &\nbuild habits',
         'icon': Icons.timer_outlined,
         'color': theme.successPrimary,
-        'nav': 1,
+        'action': () => context.read<HomeProvider>().navIndex = 1,
       },
       {
-        'key': 'decision',
         'title': R.S.decisionAnalyzer,
-        'subtitle': 'Make better choices',
-        'icon': Icons.psychology,
+        'subtitle': 'Make better\nchoices',
+        'icon': Icons.psychology_outlined,
         'color': theme.primaryBase,
-        'nav': 3,
+        'action': () => context.read<HomeProvider>().navIndex = 3,
       },
       {
-        'key': 'task',
-        'title': R.S.createTask,
-        'subtitle': 'Set new goals',
-        'icon': Icons.add_task,
-        'color': theme.errorPrimary,
-        'nav': -1,
-      },
-      {
-        'key': 'journal',
-        'title': 'Journal',
-        'subtitle': 'Write daily reflections',
-        'icon': Icons.book_outlined,
-        'color': const Color(0xFF8B5CF6),
-        'nav': -3,
-      },
-      {
-        'key': 'interview',
         'title': 'AI Interview Recruiter',
-        'subtitle': 'Practice mock interviews',
+        'subtitle': 'Practice mock\ninterviews',
         'icon': Icons.mic_external_on_outlined,
         'color': const Color(0xFFEC4899),
-        'nav': -5,
+        'action': () => context.push(const AiInterviewCoachScreen()),
       },
     ];
-
-    void handleTap(int nav) {
-      if (nav >= 0) {
-        context.read<HomeProvider>().navIndex = nav;
-      } else if (nav == -1) {
-        context.push(const TaskCreationScreen());
-      } else if (nav == -2) {
-        context.push(const BibleMainScreen());
-      } else if (nav == -3) {
-        context.push(const JournalEntriesScreen());
-      } else if (nav == -5) {
-        context.push(const AiInterviewCoachScreen());
-      }
-    }
 
     return Column(
       children: [
@@ -1274,22 +1263,22 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: _actionCard(
                   context,
-                  selected[0]['title'] as String,
-                  selected[0]['subtitle'] as String,
-                  selected[0]['icon'] as IconData,
-                  selected[0]['color'] as Color,
-                  onTap: () => handleTap(selected[0]['nav'] as int),
+                  actions[0]['title'] as String,
+                  actions[0]['subtitle'] as String,
+                  actions[0]['icon'] as IconData,
+                  actions[0]['color'] as Color,
+                  onTap: actions[0]['action'] as VoidCallback,
                 ),
               ),
               12.horizontalSpace,
               Expanded(
                 child: _actionCard(
                   context,
-                  selected[1]['title'] as String,
-                  selected[1]['subtitle'] as String,
-                  selected[1]['icon'] as IconData,
-                  selected[1]['color'] as Color,
-                  onTap: () => handleTap(selected[1]['nav'] as int),
+                  actions[1]['title'] as String,
+                  actions[1]['subtitle'] as String,
+                  actions[1]['icon'] as IconData,
+                  actions[1]['color'] as Color,
+                  onTap: actions[1]['action'] as VoidCallback,
                 ),
               ),
             ],
@@ -1303,22 +1292,22 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: _actionCard(
                   context,
-                  selected[2]['title'] as String,
-                  selected[2]['subtitle'] as String,
-                  selected[2]['icon'] as IconData,
-                  selected[2]['color'] as Color,
-                  onTap: () => handleTap(selected[2]['nav'] as int),
+                  actions[2]['title'] as String,
+                  actions[2]['subtitle'] as String,
+                  actions[2]['icon'] as IconData,
+                  actions[2]['color'] as Color,
+                  onTap: actions[2]['action'] as VoidCallback,
                 ),
               ),
               12.horizontalSpace,
               Expanded(
                 child: _actionCard(
                   context,
-                  selected[3]['title'] as String,
-                  selected[3]['subtitle'] as String,
-                  selected[3]['icon'] as IconData,
-                  selected[3]['color'] as Color,
-                  onTap: () => handleTap(selected[3]['nav'] as int),
+                  actions[3]['title'] as String,
+                  actions[3]['subtitle'] as String,
+                  actions[3]['icon'] as IconData,
+                  actions[3]['color'] as Color,
+                  onTap: actions[3]['action'] as VoidCallback,
                 ),
               ),
             ],
@@ -1332,22 +1321,40 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: _actionCard(
                   context,
-                  selected[4]['title'] as String,
-                  selected[4]['subtitle'] as String,
-                  selected[4]['icon'] as IconData,
-                  selected[4]['color'] as Color,
-                  onTap: () => handleTap(selected[4]['nav'] as int),
+                  actions[4]['title'] as String,
+                  actions[4]['subtitle'] as String,
+                  actions[4]['icon'] as IconData,
+                  actions[4]['color'] as Color,
+                  onTap: actions[4]['action'] as VoidCallback,
                 ),
               ),
               12.horizontalSpace,
               Expanded(
                 child: _actionCard(
                   context,
-                  selected[5]['title'] as String,
-                  selected[5]['subtitle'] as String,
-                  selected[5]['icon'] as IconData,
-                  selected[5]['color'] as Color,
-                  onTap: () => handleTap(selected[5]['nav'] as int),
+                  actions[5]['title'] as String,
+                  actions[5]['subtitle'] as String,
+                  actions[5]['icon'] as IconData,
+                  actions[5]['color'] as Color,
+                  onTap: actions[5]['action'] as VoidCallback,
+                ),
+              ),
+            ],
+          ),
+        ),
+        12.verticalSpace,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _actionCard(
+                  context,
+                  actions[6]['title'] as String,
+                  actions[6]['subtitle'] as String,
+                  actions[6]['icon'] as IconData,
+                  actions[6]['color'] as Color,
+                  onTap: actions[6]['action'] as VoidCallback,
                 ),
               ),
             ],
@@ -1456,46 +1463,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     AppTheme theme = context.watch();
     return GlassContainer(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       gradient: theme.glassGradient,
-      border: Border.all(color: color.withOpacity(0.25), width: 1),
+      border: Border.all(color: color.withOpacity(0.2), width: 1),
       child: SizedBox(
-        height: 105,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.center,
+        height: 80,
+        child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(icon, color: Colors.white, size: 22),
             ),
-            8.verticalSpace,
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                PrimaryText(
-                  text: title,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: theme.accentTxt,
-                  maxLines: 1,
-                  textOverflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-                4.verticalSpace,
-                SecondaryText(
-                  text: subtitle,
-                  fontSize: 10,
-                  color: theme.accentTxt.withOpacity(0.55),
-                  maxLines: 1,
-                  textOverflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-              ],
+            12.horizontalSpace,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  PrimaryText(
+                    text: title,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    maxLines: 1,
+                    textOverflow: TextOverflow.ellipsis,
+                  ),
+                  4.verticalSpace,
+                  SecondaryText(
+                    text: subtitle,
+                    fontSize: 10,
+                    color: Colors.white.withOpacity(0.6),
+                    maxLines: 2,
+                    textOverflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1503,16 +1510,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ).rippleClick(() {
       if (onTap != null) {
         onTap();
-        return;
-      }
-      if (title == R.S.decisionAnalyzer) {
-        context.read<HomeProvider>().navIndex = 3;
-      } else if (title == R.S.focusSession) {
-        context.read<HomeProvider>().navIndex = 1;
-      } else if (title == R.S.createTask) {
-        context.push(const TaskCreationScreen());
-      } else if (title == 'Journal') {
-        context.push(const JournalEntriesScreen());
       }
     });
   }
@@ -1780,6 +1777,179 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             })),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMoodCheckInCard(BuildContext context, AppTheme theme) {
+    final journalStore = context.watch<JournalProvider>();
+    final todayDateStr = DateFormat('MMM dd, yyyy').format(DateTime.now());
+    
+    final todayCheckInIndex = journalStore.entries.indexWhere((e) =>
+        e.date == todayDateStr &&
+        e.title != null &&
+        e.title!.startsWith('Daily Check-in'));
+    
+    final hasCheckedIn = todayCheckInIndex != -1;
+    final todayCheckIn = hasCheckedIn ? journalStore.entries[todayCheckInIndex] : null;
+
+    final emojis = ['😫', '😤', '😕', '😐', '😊', '🤩'];
+    final emojiLabels = ['Stressed', 'Frustrated', 'Confused', 'Neutral', 'Calm', 'Excited'];
+
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      gradient: theme.glassGradient,
+      border: Border.all(color: theme.primaryBase.withOpacity(0.25)),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: hasCheckedIn
+            ? Row(
+                key: const ValueKey('checked_in'),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: theme.successPrimary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_circle_outline,
+                      color: theme.successPrimary,
+                      size: 24,
+                    ),
+                  ),
+                  12.horizontalSpace,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        PrimaryText(
+                          text: 'Logged Today: ${todayCheckIn!.mood}',
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: theme.accentTxt,
+                        ),
+                        4.verticalSpace,
+                        SecondaryText(
+                          text: 'Daily reflection saved to your journal.',
+                          fontSize: 12,
+                          color: theme.accentTxt.withOpacity(0.6),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SecondaryText(
+                        text: 'Update',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: theme.primaryBase,
+                        decoration: TextDecoration.underline,
+                      ).rippleClick(() {
+                        int initialIndex = 3;
+                        for (int i = 0; i < emojis.length; i++) {
+                          if (todayCheckIn.mood.contains(emojis[i])) {
+                            initialIndex = i;
+                            break;
+                          }
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DailyMoodCheckInScreen(
+                              initialSelectedEmoji: initialIndex,
+                            ),
+                          ),
+                        );
+                      }),
+                      8.verticalSpace,
+                      SecondaryText(
+                        text: 'View Journal',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: theme.accentTxt.withOpacity(0.6),
+                        decoration: TextDecoration.underline,
+                      ).rippleClick(() {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const JournalEntriesScreen(),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ],
+              )
+            : Column(
+                key: const ValueKey('not_checked_in'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      PrimaryText(
+                        text: 'How is your heart today?',
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: theme.accentTxt,
+                      ),
+                      SecondaryText(
+                        text: 'Daily Check-in',
+                        fontSize: 11,
+                        color: theme.accentTxt.withOpacity(0.4),
+                      ),
+                    ],
+                  ),
+                  4.verticalSpace,
+                  SecondaryText(
+                    text: 'Select your current mood to start your daily log.',
+                    fontSize: 12,
+                    color: theme.accentTxt.withOpacity(0.6),
+                  ),
+                  16.verticalSpace,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(emojis.length, (index) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: Text(
+                              emojis[index],
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                          ).rippleClick(() {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => DailyMoodCheckInScreen(
+                                  initialSelectedEmoji: index,
+                                ),
+                              ),
+                            );
+                          }),
+                          4.verticalSpace,
+                          SecondaryText(
+                            text: emojiLabels[index],
+                            fontSize: 10,
+                            color: theme.accentTxt.withOpacity(0.5),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
+                ],
+              ),
       ),
     );
   }

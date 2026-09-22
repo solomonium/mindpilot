@@ -251,6 +251,8 @@ class AppAuthProvider extends BaseProvider {
           'hasCompletedFirstSession': false,
           'country': '',
           'regCountry': _detectCountry(),
+          'device': DeviceHelper.currentDevice,
+          'lastDevice': DeviceHelper.currentDevice,
           'heardFrom': heardFrom ?? 'Unknown',
           'totalTimeSpent': 0,
           'lastActive': FieldValue.serverTimestamp(),
@@ -258,7 +260,7 @@ class AppAuthProvider extends BaseProvider {
           'createdAt': FieldValue.serverTimestamp(),
         });
         safePrint(
-          '🚀 Proactively created missing Firestore user document for UID: ${user.uid}',
+          '🚀 Proactively created missing Firestore user document for UID: ${user.uid} with device: ${DeviceHelper.currentDevice}',
         );
 
         try {
@@ -276,6 +278,14 @@ class AppAuthProvider extends BaseProvider {
         final data = doc.data();
         if (data != null) {
           final Map<String, dynamic> updates = {};
+
+          // Always record/update current login device for existing users
+          updates['lastDevice'] = DeviceHelper.currentDevice;
+          if (!data.containsKey('device') ||
+              data['device'] == null ||
+              data['device'].toString().trim().isEmpty) {
+            updates['device'] = DeviceHelper.currentDevice;
+          }
 
           // 1. Backfill email if missing or empty
           final existingEmail = data['email'] as String? ?? '';
@@ -314,6 +324,24 @@ class AppAuthProvider extends BaseProvider {
               data['regCountry'] == null ||
               data['regCountry'].toString().isEmpty) {
             updates['regCountry'] = _detectCountry();
+          }
+
+          // Backfill country if missing or empty using phone number from firestore
+          final currentCountry = data['country'] as String? ?? '';
+          final existingPhone = data['phoneNumber'] as String? ?? '';
+          if (currentCountry.trim().isEmpty && existingPhone.isNotEmpty) {
+            String? derivedCountry;
+            if (existingPhone.startsWith('+234')) derivedCountry = 'Nigeria';
+            else if (existingPhone.startsWith('+256')) derivedCountry = 'Uganda';
+            else if (existingPhone.startsWith('+254')) derivedCountry = 'Kenya';
+            else if (existingPhone.startsWith('+233')) derivedCountry = 'Ghana';
+            else if (existingPhone.startsWith('+27')) derivedCountry = 'South Africa';
+            else if (existingPhone.startsWith('+1')) derivedCountry = 'United States';
+            else if (existingPhone.startsWith('+44')) derivedCountry = 'United Kingdom';
+            
+            if (derivedCountry != null) {
+              updates['country'] = derivedCountry;
+            }
           }
 
           // 5. Backfill heardFrom if missing, null, empty or Unknown, and heardFrom param is provided
@@ -768,6 +796,16 @@ class AppAuthProvider extends BaseProvider {
     BuildContext context, {
     String? heardFrom,
   }) async {
+    bool hasNet = await AppHelper.isOnline();
+    if (!hasNet) {
+      if (context.mounted) {
+        NoInternetDialog.show(context, onRetry: () async {
+          loginWithGoogle(context, heardFrom: heardFrom);
+        });
+      }
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -800,10 +838,10 @@ class AppAuthProvider extends BaseProvider {
 
         notifyListeners();
       } else {
-        context.showInAppNotification('Sign-In failed');
+        if (context.mounted) context.showInAppNotification('Sign-In failed');
       }
     } catch (e) {
-      context.showInAppNotification('Error: $e');
+      if (context.mounted) context.showInAppNotification('Error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -811,6 +849,16 @@ class AppAuthProvider extends BaseProvider {
   }
 
   Future<void> loginWithApple(BuildContext context, {String? heardFrom}) async {
+    bool hasNet = await AppHelper.isOnline();
+    if (!hasNet) {
+      if (context.mounted) {
+        NoInternetDialog.show(context, onRetry: () async {
+          loginWithApple(context, heardFrom: heardFrom);
+        });
+      }
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -843,10 +891,10 @@ class AppAuthProvider extends BaseProvider {
 
         notifyListeners();
       } else {
-        context.showInAppNotification('Sign-In failed');
+        if (context.mounted) context.showInAppNotification('Sign-In failed');
       }
     } catch (e) {
-      context.showInAppNotification('Error: $e');
+      if (context.mounted) context.showInAppNotification('Error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();

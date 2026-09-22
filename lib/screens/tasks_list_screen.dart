@@ -8,7 +8,8 @@ class TasksListScreen extends StatefulWidget {
   State<TasksListScreen> createState() => _TasksListScreenState();
 }
 
-class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProviderStateMixin {
+class _TasksListScreenState extends State<TasksListScreen>
+    with SingleTickerProviderStateMixin {
   int? _expandedTaskId;
   late TabController _tabController;
 
@@ -23,7 +24,9 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.highlightTaskId != null) {
         final tasks = context.read<TaskProvider>().tasks;
-        final highlighted = tasks.where((t) => t.id == widget.highlightTaskId).firstOrNull;
+        final highlighted = tasks
+            .where((t) => t.id == widget.highlightTaskId)
+            .firstOrNull;
         if (highlighted != null && highlighted.isDone) {
           _tabController.animateTo(1);
         }
@@ -107,8 +110,7 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
             final downloadUrl = ConfigService().updateUrl;
             ShareService.captureAndShare(
               context,
-              text:
-                  "Crushing my goals one focus session at a time! 🚀 MindPilot keeps me sharp and on track. Who else is staying disciplined today?\n\nDownload MindPilot: $downloadUrl\n#MindPilot #Focus #Achievement",
+              text: "Crushing my goals with MindPilot! 🚀\n\n$downloadUrl",
               widget: ShareableCard(
                 mode: ShareableCardMode.tasks,
                 tasks: taskStore.tasks.map((t) => t.title).toList(),
@@ -146,7 +148,10 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
             children: [
               // Tab Bar
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
@@ -175,11 +180,16 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                       Tab(
                         child: Consumer<TaskProvider>(
                           builder: (context, taskStore, _) {
-                            final activeCount = taskStore.tasks.where((t) => !t.isDone).length;
+                            final activeCount = taskStore.tasks
+                                .where((t) => !t.isDone)
+                                .length;
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.radio_button_unchecked, size: 14),
+                                const Icon(
+                                  Icons.radio_button_unchecked,
+                                  size: 14,
+                                ),
                                 6.horizontalSpace,
                                 Text('Active ($activeCount)'),
                               ],
@@ -190,11 +200,16 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                       Tab(
                         child: Consumer<TaskProvider>(
                           builder: (context, taskStore, _) {
-                            final doneCount = taskStore.tasks.where((t) => t.isDone).length;
+                            final doneCount = taskStore.tasks
+                                .where((t) => t.isDone)
+                                .length;
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.check_circle_outline, size: 14),
+                                const Icon(
+                                  Icons.check_circle_outline,
+                                  size: 14,
+                                ),
                                 6.horizontalSpace,
                                 Text('Done ($doneCount)'),
                               ],
@@ -210,14 +225,29 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
               Expanded(
                 child: Consumer<TaskProvider>(
                   builder: (context, taskStore, _) {
-                    final activeTasks = taskStore.tasks.where((t) => !t.isDone).toList();
-                    final doneTasks = taskStore.tasks.where((t) => t.isDone).toList();
+                    final activeTasks = taskStore.tasks
+                        .where((t) => !t.isDone)
+                        .toList();
+                    final doneTasks = taskStore.tasks
+                        .where((t) => t.isDone)
+                        .toList();
 
                     return TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildTaskList(context, activeTasks, taskStore, isEmpty: 'No active tasks. Add a new task to get started! 🚀'),
-                        _buildTaskList(context, doneTasks, taskStore, isEmpty: 'No completed tasks yet. Keep going! 💪'),
+                        _buildTaskList(
+                          context,
+                          activeTasks,
+                          taskStore,
+                          isEmpty:
+                              'No active tasks. Add a new task to get started! 🚀',
+                        ),
+                        _buildTaskList(
+                          context,
+                          doneTasks,
+                          taskStore,
+                          isEmpty: 'No completed tasks yet. Keep going! 💪',
+                        ),
                       ],
                     );
                   },
@@ -299,21 +329,15 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                 leading: Checkbox(
                   value: task.isDone,
                   activeColor: theme.successPrimary,
-                  side: BorderSide(
-                    color: theme.accentTxt.withOpacity(0.5),
-                  ),
+                  side: BorderSide(color: theme.accentTxt.withOpacity(0.5)),
                   onChanged: (_) => taskStore.toggleTaskDone(task),
                 ),
                 title: PrimaryText(
                   text: task.title,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: theme.accentTxt.withOpacity(
-                    task.isDone ? 0.5 : 1,
-                  ),
-                  decoration: task.isDone
-                      ? TextDecoration.lineThrough
-                      : null,
+                  color: theme.accentTxt.withOpacity(task.isDone ? 0.5 : 1),
+                  decoration: task.isDone ? TextDecoration.lineThrough : null,
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,12 +381,9 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                                   task.startTime != null &&
                                       task.completionTime != null
                                   ? '${task.startTime} - ${task.completionTime}'
-                                  : (task.startTime ??
-                                        task.completionTime!),
+                                  : (task.startTime ?? task.completionTime!),
                               fontSize: 10,
-                              color: theme.primaryBase.withOpacity(
-                                0.7,
-                              ),
+                              color: theme.primaryBase.withOpacity(0.7),
                               fontWeight: FontWeight.bold,
                               textOverflow: TextOverflow.ellipsis,
                             ),
@@ -414,9 +435,7 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                       Icons.delete_outline,
                       color: theme.errorPrimary.withOpacity(0.5),
                       size: 22,
-                    ).rippleClick(
-                      () => taskStore.deleteTask(task.id!),
-                    ),
+                    ).rippleClick(() => taskStore.deleteTask(task.id!)),
                   ],
                 ),
                 onTap: () {
@@ -431,9 +450,7 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Divider(
-                        color: theme.accentTxt.withOpacity(0.1),
-                      ),
+                      Divider(color: theme.accentTxt.withOpacity(0.1)),
                       8.verticalSpace,
                       SecondaryText(
                         text: 'Description',
@@ -445,19 +462,14 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                       TextFormField(
                         initialValue: task.description,
                         maxLines: null,
-                        style: TextStyle(
-                          color: theme.accentTxt,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: theme.accentTxt, fontSize: 13),
                         decoration: InputDecoration(
                           hintText: 'Add details...',
                           hintStyle: TextStyle(
                             color: theme.accentTxt.withOpacity(0.3),
                           ),
                           filled: true,
-                          fillColor: theme.accentTxt.withOpacity(
-                            0.05,
-                          ),
+                          fillColor: theme.accentTxt.withOpacity(0.05),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -465,10 +477,7 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                           contentPadding: const EdgeInsets.all(12),
                         ),
                         onFieldSubmitted: (val) {
-                          taskStore.updateTaskDescription(
-                            task.id!,
-                            val,
-                          );
+                          taskStore.updateTaskDescription(task.id!, val);
                         },
                         onChanged: (val) {
                           _tempNotes[task.id!] = val;
@@ -484,12 +493,8 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: theme.primaryBase.withOpacity(
-                                  0.1,
-                                ),
-                                borderRadius: BorderRadius.circular(
-                                  8,
-                                ),
+                                color: theme.primaryBase.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -510,12 +515,8 @@ class _TasksListScreenState extends State<TasksListScreen> with SingleTickerProv
                               ),
                             ).rippleClick(() {
                               final note =
-                                  _tempNotes[task.id!] ??
-                                  task.description;
-                              taskStore.updateTaskDescription(
-                                task.id!,
-                                note,
-                              );
+                                  _tempNotes[task.id!] ?? task.description;
+                              taskStore.updateTaskDescription(task.id!, note);
                               context.showInAppNotification(
                                 'Note updated',
                                 type: InAppNotificationType.success,

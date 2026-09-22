@@ -38,7 +38,7 @@ class _VoiceBibleStudyScreenState extends State<VoiceBibleStudyScreen> {
   }
 
   void _initializeGemini() async {
-    final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+    final apiKey = ConfigService().openRouterApiKey;
     _geminiService.init(apiKey);
   }
 

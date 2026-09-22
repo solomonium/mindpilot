@@ -228,7 +228,7 @@ class NotificationProvider extends ChangeNotifier {
       
       // Ensure initialized
       if (!gemini.isInitialized) {
-        final apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
+        final apiKey = ConfigService().openRouterApiKey;
         final models = await gemini.listModels(apiKey);
         String selectedModel = 'google/gemini-flash-1.5-8b:free';
         if (models.isNotEmpty) selectedModel = models.first;

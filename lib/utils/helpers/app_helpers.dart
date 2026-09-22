@@ -868,6 +868,127 @@ class AppHelper {
       },
     );
   }
+
+  static void showMedicalDisclaimer(BuildContext context, {bool isDismissible = false, VoidCallback? onAccepted}) {
+    final theme = context.read<AppTheme>();
+    showDialog(
+      context: context,
+      barrierDismissible: isDismissible,
+      builder: (dialogContext) {
+        final contentWidget = SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SecondaryText(
+                text: 'MindPilot is an AI-powered personal productivity and clarity companion. It is NOT a medical device, and does NOT provide medical advice, diagnosis, treatment, or mental health therapy.',
+                color: theme.accentTxt,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              12.verticalSpace,
+              SecondaryText(
+                text: 'By using this app, you acknowledge and agree that:',
+                color: theme.accentTxt.withValues(alpha: 0.8),
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+              8.verticalSpace,
+              _bulletPoint(theme, 'The app and its AI assistant do not replace professional medical consult, advice, diagnosis, or treatment.'),
+              8.verticalSpace,
+              _bulletPoint(theme, 'Always consult a qualified healthcare professional or physician with any questions you may have regarding a medical or mental health condition.'),
+              8.verticalSpace,
+              _bulletPoint(theme, 'Never disregard professional medical advice or delay seeking it because of something you have read or received in this app.'),
+              8.verticalSpace,
+              _bulletPoint(theme, 'In the event of a medical or mental health emergency, please immediately call your local emergency services (like 911) or go to the nearest emergency room.'),
+            ],
+          ),
+        );
+
+        final titleWidget = Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+            10.horizontalSpace,
+            Expanded(
+              child: PrimaryText(
+                text: 'Health & Medical Disclaimer',
+                color: theme.accentTxt,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+
+        final actionButton = Center(
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryBase,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () {
+                onAccepted?.call();
+                Navigator.of(dialogContext).pop();
+              },
+              child: PrimaryText(
+                text: isDismissible ? 'Close' : 'I Accept & Understand',
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+
+        if (isDismissible) {
+          return AlertDialog(
+            backgroundColor: theme.brandDark,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.accentTxt.withValues(alpha: 0.1), width: 1),
+            ),
+            title: titleWidget,
+            content: contentWidget,
+            actions: [actionButton],
+          );
+        }
+
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            backgroundColor: theme.brandDark,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.accentTxt.withValues(alpha: 0.1), width: 1),
+            ),
+            title: titleWidget,
+            content: contentWidget,
+            actions: [actionButton],
+          ),
+        );
+      },
+    );
+  }
+
+  static Widget _bulletPoint(AppTheme theme, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PrimaryText(text: '• ', color: theme.primaryBase, fontSize: 14),
+        Expanded(
+          child: SecondaryText(
+            text: text,
+            color: theme.accentTxt.withValues(alpha: 0.8),
+            fontSize: 12.5,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 void safePrint(Object? object) {
@@ -922,3 +1043,8 @@ mixin FormMixin<T extends StatefulWidget> on State<T> {
     return result;
   }
 }
+
+Future<bool> hasInternetConnection() async {
+  return await AppHelper.isOnline();
+}
+

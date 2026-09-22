@@ -1,40 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy - MindPilot</title>
-  
+  <title>Privacy Policy — SolteQ Innovations Ltd (MindPilot)</title>
+
   <!-- SEO Meta Tags -->
-  <meta name="description" content="Privacy Policy for MindPilot - Learn how we secure your data, handle local caching, Firestore storage, and provide AI insights.">
-  <meta property="og:title" content="Privacy Policy - MindPilot">
-  <meta property="og:description" content="Learn how MindPilot keeps your personal data, local offline logs, and smart insights private and secure.">
-  <meta property="og:image" content="https://mindpilot-131f1.web.app/preview.png">
+  <meta name="description"
+    content="Privacy Policy for SolteQ Innovations Ltd and MindPilot. Learn how we safeguard your data, local on-device cache, Firestore synchronization, and AI insights.">
+  <meta property="og:title" content="Privacy Policy — SolteQ Innovations Ltd">
+  <meta property="og:description"
+    content="Learn how SolteQ Innovations Ltd keeps your personal data, local offline logs, and smart insights private and secure.">
+  <meta property="og:image" content="https://mindpilot-131f1.web.app/solteq-logo.jpg">
   <meta property="og:url" content="https://mindpilot-131f1.web.app/privacy">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Privacy Policy - MindPilot">
-  <meta name="twitter:description" content="Learn how MindPilot keeps your personal data, local offline logs, and smart insights private and secure.">
-  <meta name="twitter:image" content="https://mindpilot-131f1.web.app/preview.png">
-  
+
   <!-- Favicon & App Icons -->
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
-  
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800;900&display=swap"
+    rel="stylesheet">
+
   <style>
     :root {
-      --bg-gradient: radial-gradient(circle at 50% 0%, #111827 0%, #030712 100%);
-      --card-bg: rgba(17, 24, 39, 0.6);
-      --border-color: rgba(255, 255, 255, 0.06);
+      --bg-gradient: radial-gradient(circle at 50% 0%, #060d07 0%, #020406 50%, #000000 100%);
+      --card-bg: rgba(14, 22, 16, 0.7);
+      --border-color: rgba(140, 198, 63, 0.18);
       --text-primary: #f3f4f6;
       --text-secondary: #9ca3af;
-      --accent-color: #6366f1;
-      --accent-gradient: linear-gradient(135deg, #6366f1 0%, #3b82f6 50%, #10b981 100%);
-      --accent-glow: rgba(99, 102, 241, 0.15);
+      --accent-green: #8cc63f;
+      --accent-green-bright: #9fe826;
+      --accent-gradient-green: linear-gradient(135deg, #9fe826 0%, #8cc63f 50%, #10b981 100%);
       --font-heading: 'Outfit', sans-serif;
       --font-body: 'Inter', sans-serif;
     }
@@ -46,52 +47,33 @@
     }
 
     body {
-      background: var(--bg-gradient);
+      background: #000000;
+      background-image: var(--bg-gradient);
+      background-attachment: fixed;
       color: var(--text-primary);
       font-family: var(--font-body);
-      line-height: 1.6;
+      line-height: 1.7;
       min-height: 100vh;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Ambient Background Glows */
-    .glow-blob {
-      position: absolute;
-      width: 400px;
-      height: 400px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(99, 102, 241, 0) 70%);
-      top: -100px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    .glow-blob-secondary {
-      position: absolute;
-      width: 500px;
-      height: 500px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0) 70%);
-      bottom: 10%;
-      right: -10%;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    /* Header / Navbar */
     header {
-      width: 100%;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(4, 8, 5, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(140, 198, 63, 0.1);
+    }
+
+    nav {
       max-width: 1000px;
       margin: 0 auto;
-      padding: 30px 24px;
+      padding: 16px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      position: relative;
-      z-index: 10;
     }
 
     .brand {
@@ -99,321 +81,262 @@
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      color: var(--text-primary);
+      color: #ffffff;
       font-family: var(--font-heading);
-      font-size: 1.5rem;
       font-weight: 800;
-      letter-spacing: -0.5px;
-      transition: transform 0.2s ease;
-    }
-
-    .brand:hover {
-      transform: scale(1.02);
+      font-size: 1.25rem;
     }
 
     .brand img {
-      width: 80px;
-      height: 80px;
-      border-radius: 18px;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid rgba(140, 198, 63, 0.3);
     }
 
     .brand span {
-      background: var(--accent-gradient);
+      background: var(--accent-gradient-green);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .back-btn {
-      color: var(--text-secondary);
+    .nav-link-back {
+      color: var(--accent-green);
       text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 500;
-      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
       border-radius: 100px;
-      border: 1px solid var(--border-color);
-      background: rgba(255, 255, 255, 0.02);
-      transition: all 0.2s ease;
+      background: rgba(140, 198, 63, 0.1);
+      border: 1px solid rgba(140, 198, 63, 0.2);
     }
 
-    .back-btn:hover {
-      color: var(--text-primary);
-      border-color: rgba(255, 255, 255, 0.15);
-      background: rgba(255, 255, 255, 0.05);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    .nav-link-back:hover {
+      background: rgba(140, 198, 63, 0.2);
+      color: var(--accent-green-bright);
     }
 
-    /* Main Container */
     main {
       max-width: 900px;
-      margin: 0 auto;
-      padding: 0 24px 80px 24px;
-      position: relative;
-      z-index: 10;
+      margin: 40px auto 80px auto;
+      padding: 0 24px;
     }
 
-    .hero {
-      text-align: center;
-      margin-bottom: 50px;
-      margin-top: 20px;
-    }
-
-    .hero h1 {
-      font-family: var(--font-heading);
-      font-size: 2.8rem;
-      font-weight: 800;
-      line-height: 1.2;
-      margin-bottom: 12px;
-      letter-spacing: -1px;
-      background: var(--accent-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero p {
-      font-size: 1.1rem;
-      color: var(--text-secondary);
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* Privacy Card (Glassmorphism) */
-    .policy-card {
+    .policy-container {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
-      border-radius: 24px;
-      padding: 40px 48px;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      border-radius: 28px;
+      padding: 48px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     }
 
-    .meta-info {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
+    h1 {
+      font-family: var(--font-heading);
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+      color: #ffffff;
+    }
+
+    .policy-subtitle {
+      font-size: 0.95rem;
+      color: var(--accent-green);
       margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-weight: 600;
     }
 
-    .meta-info::before {
-      content: '';
+    .meta-tag {
       display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background-color: #10b981;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px 12px;
+      border-radius: 6px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    /* Content styling */
     h2 {
       font-family: var(--font-heading);
-      font-size: 1.6rem;
-      font-weight: 600;
-      color: var(--text-primary);
+      font-size: 1.4rem;
+      font-weight: 700;
       margin-top: 36px;
-      margin-bottom: 16px;
-      letter-spacing: -0.5px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    h2::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%);
+      margin-bottom: 14px;
+      color: #ffffff;
+      border-bottom: 1px solid rgba(140, 198, 63, 0.15);
+      padding-bottom: 8px;
     }
 
     p {
       color: var(--text-secondary);
-      font-size: 1rem;
-      margin-bottom: 20px;
-      line-height: 1.7;
+      font-size: 0.98rem;
+      margin-bottom: 16px;
     }
 
-    ul, ol {
-      margin-bottom: 24px;
-      padding-left: 24px;
+    ul {
+      margin-left: 20px;
+      margin-bottom: 20px;
       color: var(--text-secondary);
     }
 
     li {
-      margin-bottom: 10px;
-      font-size: 1rem;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
     }
 
     strong {
-      color: var(--text-primary);
-      font-weight: 600;
+      color: #ffffff;
     }
 
     .highlight-box {
-      background: rgba(99, 102, 241, 0.05);
-      border-left: 4px solid var(--accent-color);
-      padding: 20px;
-      border-radius: 0 12px 12px 0;
+      background: rgba(140, 198, 63, 0.08);
+      border: 1px solid rgba(140, 198, 63, 0.25);
+      border-radius: 16px;
+      padding: 18px 22px;
       margin: 24px 0;
     }
 
     .highlight-box p {
-      margin-bottom: 0;
-      color: var(--text-primary);
-      font-weight: 500;
+      margin: 0;
+      color: #e5e7eb;
+      font-size: 0.92rem;
     }
 
-    /* Footer styling */
+    .company-box {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(140, 198, 63, 0.2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
     footer {
-      width: 100%;
-      border-top: 1px solid var(--border-color);
+      border-top: 1px solid rgba(140, 198, 63, 0.15);
       padding: 40px 24px;
       text-align: center;
-      background: rgba(3, 7, 18, 0.8);
-      position: relative;
-      z-index: 10;
-      margin-top: 80px;
+      background: rgba(2, 5, 3, 0.95);
     }
 
     .footer-links {
       display: flex;
       justify-content: center;
       gap: 24px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .footer-links a {
       color: var(--text-secondary);
       text-decoration: none;
       font-size: 0.9rem;
-      font-weight: 500;
-      transition: color 0.2s ease;
     }
 
     .footer-links a:hover {
-      color: var(--text-primary);
+      color: var(--accent-green);
     }
 
     .copyright {
-      font-size: 0.85rem;
-      color: rgba(156, 163, 175, 0.6);
+      font-size: 0.82rem;
+      color: #6b7280;
     }
 
-    /* Responsiveness */
-    @media (max-width: 768px) {
-      header {
-        padding: 20px;
+    @media (max-width: 600px) {
+      .policy-container {
+        padding: 28px 20px;
       }
-      
-      .hero h1 {
-        font-size: 2.2rem;
-      }
-      
-      .policy-card {
-        padding: 30px 24px;
-        border-radius: 16px;
-      }
-      
-      h2 {
-        font-size: 1.4rem;
+
+      h1 {
+        font-size: 1.9rem;
       }
     }
   </style>
 </head>
+
 <body>
 
-  <!-- Ambient Glow Background Blobs -->
-  <div class="glow-blob"></div>
-  <div class="glow-blob-secondary"></div>
-
-  <!-- Header -->
   <header>
-    <a href="/" class="brand">
-      <img src="favicon.png" alt="MindPilot Logo">
-      Mind<span>Pilot</span>
-    </a>
-    <a href="/" class="back-btn">Back to Home</a>
+    <nav>
+      <a href="/" class="brand">
+        <img src="solteq-icon.jpg" alt="SolteQ Logo">
+        SolteQ <span>Innovations Ltd</span>
+      </a>
+      <a href="/" class="nav-link-back">← Back to Home</a>
+    </nav>
   </header>
 
-  <!-- Main Policy Section -->
   <main>
-    <div class="hero">
+    <div class="policy-container">
       <h1>Privacy Policy</h1>
-      <p>Your mental clarity is your private space. Learn how we respect and protect your data.</p>
-    </div>
+      <div class="policy-subtitle">Issued by SolteQ Innovations Ltd for MindPilot & Digital Services</div>
+      <div class="meta-tag">Last Updated: September 1, 2026 • Legal Entity: SolteQ Innovations Ltd (Kubwa, Abuja, Nigeria)</div>
 
-    <div class="policy-card">
-      <div class="meta-info">Last Updated: May 18, 2026</div>
+      <p>Welcome to <strong>SolteQ Innovations Ltd</strong> ("SolteQ," "we," "our," "us"). We are committed to protecting your privacy, safeguarding personal data, and maintaining strict transparency. This Privacy Policy governs your use of the <strong>MindPilot</strong> mobile application and all hosted software, APIs, and web services operated by SolteQ Innovations Ltd.</p>
 
-      <p>Welcome to <strong>MindPilot</strong> ("we," "our," "us"). We are committed to protecting your privacy and ensuring your personal information is kept safe and secure. This Privacy Policy describes how we collect, use, process, and protect your information when you use the MindPilot mobile application and our hosted services.</p>
-
-      <p>By using the MindPilot application, you consent to the data practices described in this policy. If you do not agree with these practices, please do not use the application.</p>
+      <p>By downloading, installing, or using MindPilot or any SolteQ digital product, you acknowledge and agree to the data collection and processing practices described herein.</p>
 
       <h2>1. Information We Collect</h2>
-      <p>MindPilot provides dynamic tools like smart journaling, task management, and personalized, server-side AI insights. To deliver these premium features, we may collect the following categories of information:</p>
-      
+      <p>To provide high-performance features including cognitive journaling, local offline storage, AI-driven reflection analysis, and custom reminder alarms, we collect the following limited categories of information:</p>
+
       <ul>
-        <li><strong>Authentication Information:</strong> When you register or log in, we secure your profile using Google Firebase Authentication (which includes email addresses, display names, and profile pictures).</li>
-        <li><strong>App Content & Interactions:</strong> We store your personal journals, streaks, progress milestones, and WhatsApp-style chat messages securely inside Google Firestore to enable seamless cross-device synchronization.</li>
-        <li><strong>FCM Push Tokens:</strong> To support server-side push alerts for your custom task alarms and personalized insights, we store your Firebase Cloud Messaging (FCM) token on our secure backend.</li>
-        <li><strong>Device State & Network Diagnostics:</strong> We check active network connections dynamically on your device. This is used solely to restrict features like cloud journaling and screenshot sharing during outages, ensuring offline data integrity.</li>
+        <li><strong>Authentication Credentials:</strong> When you register or sign in, authentication is securely processed via Google Firebase Authentication (email addresses, display names, and unique cryptographic user IDs).</li>
+        <li><strong>User Content & Journaling:</strong> Your journal entries, streak milestones, wellness metrics, and encrypted chat messages are stored locally on your device and synchronized via Google Cloud Firestore.</li>
+        <li><strong>Push Notification Tokens:</strong> We collect Firebase Cloud Messaging (FCM) device tokens to route your server-side AI reflections and local reminder notifications accurately.</li>
+        <li><strong>Diagnostic & Device Diagnostics:</strong> Network connectivity state is monitored locally on-device to enforce offline data preservation and prevent data collision during carrier disruptions.</li>
       </ul>
 
       <div class="highlight-box">
-        <p>🔒 Offline Integrity: When you are offline, all journal logs, task configurations, and active streaks remain securely stored in your local on-device cache. We do not transmit this data until a secure connection is re-established.</p>
+        <p>🔒 <strong>Offline-First Privacy:</strong> While your device is offline, your journaling records and personal entries remain exclusively inside your device's secured local cache. No data is transmitted to the cloud until a validated secure connection is established.</p>
       </div>
 
       <h2>2. How We Use Your Information</h2>
-      <p>We use the data we collect to operate, maintain, and refine the core features of MindPilot. Specifically, we use your information to:</p>
+      <p>SolteQ Innovations Ltd uses collected information solely to power, secure, and refine product functionality:</p>
       <ul>
-        <li>Deliver real-time chat synchronizations, message notifications, and streak achievements.</li>
-        <li>Compile and trigger personalized daily AI insights based on your journaling intervals (user-configurable to every 1-3 hours).</li>
-        <li>Schedule and loop custom task reminder alarms (e.g. continuous 5-loop alarms) locally on your device.</li>
-        <li>Improve performance and verify security constraints, preventing unauthorized access by immediately wiping temporary sessions and requiring prompt re-authentication upon manual logouts.</li>
+        <li>To synchronize journal entries, progress milestones, and streak achievements across authorized devices.</li>
+        <li>To execute secure server-side AI reflection routines via Firebase Cloud Functions at intervals configured by the user (1–3 hours).</li>
+        <li>To trigger local looping reminder alarms and scheduled focus checkpoints.</li>
+        <li>To maintain security audits, invalidate revoked sessions upon manual logout, and protect account integrity.</li>
       </ul>
 
-      <h2>3. Data Storage, Security, and Protection</h2>
-      <p>The security of your personal data is our absolute priority. We adopt standard industry practices to ensure safe processing:</p>
+      <h2>3. Data Storage & Security Standards</h2>
+      <p>Security is fundamental to our software engineering principles at SolteQ:</p>
       <ul>
-        <li><strong>Secure Server Environments:</strong> All cloud-synchronized data is stored on highly secure Firebase and Google Cloud servers protected by enterprise-grade firewalls and access controls.</li>
-        <li><strong>Encrypted Connections:</strong> Data transmitted between the mobile application and our databases is protected by Secure Socket Layer (SSL) and Transport Layer Security (TLS) encryption.</li>
-        <li><strong>Session Hardening:</strong> When you manually log out of MindPilot, our systems immediately invalidate your active authentication tokens, preventing unauthorized sessions on the next launch.</li>
+        <li><strong>Cloud Infrastructure:</strong> All synchronized data is hosted on enterprise-grade Google Firebase and Google Cloud server infrastructure protected by multi-layered encryption at rest and in transit (SSL/TLS).</li>
+        <li><strong>Session Revocation:</strong> When logging out of MindPilot, your active authentication session is immediately invalidated across our database gateways to prevent physical device intrusion.</li>
       </ul>
 
-      <h2>4. Third-Party Services and Analytics</h2>
-      <p>MindPilot integrates with reputable third-party tools to guarantee excellent service delivery:</p>
+      <h2>4. Third-Party Services</h2>
+      <p>We work exclusively with vetted infrastructure providers who adhere to rigorous global security standards:</p>
       <ul>
-        <li><strong>Google Firebase:</strong> We utilize Firebase Authentication, Firestore Database, Cloud Functions, and Firebase Cloud Messaging (FCM) to power real-time services and notifications.</li>
-        <li><strong>Analytics Providers:</strong> We collect aggregate, non-identifying telemetry to monitor app performance, screen loading delays, and overall stability.</li>
-      </ul>
-      <p>These third parties are bound by strict confidentiality agreements and privacy laws and are permitted to use your information only as necessary to provide services to us.</p>
-
-      <h2>5. Your Choices, Access, and Deletion Rights</h2>
-      <p>We respect your sovereignty over your own thoughts and data. You have complete control over what you share:</p>
-      <ul>
-        <li><strong>Insight Frequency Control:</strong> You can completely configure or turn off AI insight intervals (ranging from 1-3 hours) straight from your App Settings panel.</li>
-        <li><strong>Data Portability & Account Deletion:</strong> You can request the absolute deletion of your entire cloud profile and synchronized content. Contact our support team below, and all related Firestore databases and Firebase credentials will be permanently erased.</li>
+        <li><strong>Google Firebase / Google Cloud:</strong> Powers database storage, authentication, push alerts, and serverless compute.</li>
+        <li><strong>Google Analytics:</strong> Collects anonymized telemetry to assess stability and performance.</li>
       </ul>
 
-      <h2>6. Children's Privacy</h2>
-      <p>Our services are not intended for children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us, and we will take immediate steps to remove it.</p>
+      <h2>5. Your Rights & Data Deletion</h2>
+      <p>You maintain full sovereignty over your data:</p>
+      <ul>
+        <li><strong>Insight Preferences:</strong> You can configure or disable AI insight intervals anytime via MindPilot App Settings.</li>
+        <li><strong>Account & Data Deletion:</strong> You have the right to request permanent deletion of your account, database records, and Firestore documents at any time by contacting our support team below.</li>
+      </ul>
 
-      <h2>7. Changes to This Privacy Policy</h2>
-      <p>We may update our Privacy Policy from time to time to align with legal compliance or new app features. We will notify you of any changes by posting the new policy on this page and updating the "Last Updated" timestamp above.</p>
+      <h2>6. Regulatory Compliance</h2>
+      <p>This policy complies with applicable global and regional data protection frameworks, including the Nigeria Data Protection Regulation (NDPR), General Data Protection Regulation (GDPR), Google Play Developer Policies, and Apple App Store Review Guidelines.</p>
 
-      <h2>8. Contact Us</h2>
-      <p>If you have any questions, feedback, or data removal requests regarding this Privacy Policy, please feel free to reach out to us:</p>
-      <p style="margin-top: 10px;">
-        <strong>Email:</strong> solteqinnovationsltd@gmail.com<br>
-        <strong>Website:</strong> <a href="https://mindpilot-131f1.web.app/" style="color: var(--accent-color); text-decoration: none;">mindpilot-131f1.web.app</a>
-      </p>
+      <h2>7. Corporate Contact & Inquiries</h2>
+      <p>For privacy inquiries, data deletion requests, or regulatory correspondence, please contact the SolteQ Innovations Ltd compliance team:</p>
+      
+      <div class="company-box">
+        <p><strong>Corporate Entity:</strong> SolteQ Innovations Ltd</p>
+        <p><strong>Headquarters:</strong> Kubwa, Abuja, Nigeria</p>
+        <p><strong>Official Contact Email:</strong> <a href="mailto:solteqinnovationsltd@gmail.com" style="color: var(--accent-green);">solteqinnovationsltd@gmail.com</a></p>
+        <p><strong>Official Web Portal:</strong> <a href="https://mindpilot-131f1.web.app/" style="color: var(--accent-green);">mindpilot-131f1.web.app</a></p>
+      </div>
     </div>
   </main>
 
-  <!-- Footer -->
   <footer>
     <div class="footer-links">
       <a href="/">Home</a>
@@ -421,9 +344,10 @@
       <a href="mailto:solteqinnovationsltd@gmail.com">Support</a>
     </div>
     <div class="copyright">
-      &copy; 2026 MindPilot. All rights reserved.
+      &copy; 2026 <strong>SolteQ Innovations Ltd</strong>. All rights reserved. Registered in Kubwa, Abuja, Nigeria.
     </div>
   </footer>
 
 </body>
+
 </html>

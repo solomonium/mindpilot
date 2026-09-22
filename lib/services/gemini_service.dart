@@ -27,7 +27,16 @@ class GeminiService {
     safePrint('GeminiService: Updated LLM provider to $_selectedLlmProvider');
   }
 
-  bool get isInitialized => _apiKey != null && _apiKey!.isNotEmpty;
+  String get _effectiveOpenRouterApiKey {
+    if (_apiKey != null && _apiKey!.trim().isNotEmpty) {
+      return _apiKey!.trim();
+    }
+    return ConfigService().openRouterApiKey.trim();
+  }
+
+  bool get isInitialized =>
+      _effectiveOpenRouterApiKey.isNotEmpty ||
+      ConfigService().geminiApiKey.isNotEmpty;
 
   void setPersonalization(List<String> goals) {
     _personalization = goals;
@@ -67,7 +76,7 @@ class GeminiService {
     String name = rawModelName.trim();
     name = name.replaceAll(RegExp(r'^google/'), '');
     name = name.replaceAll(RegExp(r':free$'), '');
-    return name.isEmpty ? 'gemini-2.0-flash' : name;
+    return name.isEmpty ? 'gemini-2.5-flash' : name;
   }
 
   String _sanitizeOpenRouterModel(String rawModel) {
@@ -86,16 +95,16 @@ class GeminiService {
     int maxTokens = 1000,
     String? overrideModel,
   }) async {
-    final geminiApiKey = dotenv.env['GEMINI_API_KEY'];
-    if (geminiApiKey == null || geminiApiKey.isEmpty) {
-      safePrint('GeminiService: GEMINI_API_KEY is not configured in .env.');
+    final geminiApiKey = ConfigService().geminiApiKey;
+    if (geminiApiKey.isEmpty) {
+      safePrint('GeminiService: GEMINI_API_KEY is not configured.');
       return null;
     }
 
     final String rawModelName = overrideModel ??
         (ConfigService().directGeminiModel.isNotEmpty
             ? ConfigService().directGeminiModel
-            : 'gemini-2.0-flash');
+            : 'gemini-2.5-flash');
     final String directModelName = _sanitizeDirectGeminiModel(rawModelName);
 
     try {
@@ -121,6 +130,7 @@ class GeminiService {
           promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
           responseTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
           totalTokens: response.usageMetadata?.totalTokenCount ?? 0,
+          prompt: _extractPromptText(contents),
         );
         return responseText;
       }
@@ -162,6 +172,7 @@ class GeminiService {
         totalTokens: 0,
         status: 'failed',
         errorMessage: e.toString(),
+        prompt: _extractPromptText(contents),
       );
     }
     return null;
@@ -173,14 +184,12 @@ class GeminiService {
     required String feature,
     int maxTokens = 1500,
   }) async {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-    if (_apiKey == null || _apiKey!.isEmpty) {
+    final cleanKey = _effectiveOpenRouterApiKey;
+    if (cleanKey.isEmpty) {
+      safePrint('GeminiService: OpenRouter API key is not configured.');
       return null;
     }
 
-    final cleanKey = _apiKey!.trim();
     String? lastError;
 
     for (var i = 0; i < models.length; i++) {
@@ -224,6 +233,7 @@ class GeminiService {
               promptTokens: usage['prompt_tokens'] as int? ?? 0,
               responseTokens: usage['completion_tokens'] as int? ?? 0,
               totalTokens: usage['total_tokens'] as int? ?? 0,
+              prompt: _extractMessagesPromptText(messages),
             );
           } else {
             _logUsage(
@@ -233,6 +243,7 @@ class GeminiService {
               promptTokens: 0,
               responseTokens: 0,
               totalTokens: 0,
+              prompt: _extractMessagesPromptText(messages),
             );
           }
           return content;
@@ -264,6 +275,7 @@ class GeminiService {
       totalTokens: 0,
       status: 'failed',
       errorMessage: lastError ?? 'All attempted models failed.',
+      prompt: _extractMessagesPromptText(messages),
     );
     return null;
   }
@@ -274,9 +286,9 @@ class GeminiService {
     required String feature,
     int maxTokens = 1500,
   }) async {
-    final agentRouterApiKey = dotenv.env['AGENT_ROUTER_API_KEY'] ?? '';
+    final agentRouterApiKey = ConfigService().agentRouterApiKey;
     if (agentRouterApiKey.isEmpty) {
-      safePrint('GeminiService: AGENT_ROUTER_API_KEY is not configured in .env.');
+      safePrint('GeminiService: AGENT_ROUTER_API_KEY is not configured.');
       return null;
     }
 
@@ -321,6 +333,7 @@ class GeminiService {
             promptTokens: usage != null ? (usage['prompt_tokens'] as int? ?? 0) : 0,
             responseTokens: usage != null ? (usage['completion_tokens'] as int? ?? 0) : 0,
             totalTokens: usage != null ? (usage['total_tokens'] as int? ?? 0) : 0,
+            prompt: _extractMessagesPromptText(messages),
           );
           return content;
         } else {
@@ -347,6 +360,7 @@ class GeminiService {
       totalTokens: 0,
       status: 'failed',
       errorMessage: lastError ?? 'All attempted models failed.',
+      prompt: _extractMessagesPromptText(messages),
     );
     return null;
   }
@@ -421,10 +435,6 @@ class GeminiService {
     bool preferFlash = true,
     String? cacheKey,
   }) async {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-
     if (_messages.isEmpty) {
       String context = "";
 
@@ -444,7 +454,8 @@ class GeminiService {
       }
 
       context +=
-          "Crucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it.";
+          "Crucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it. "
+          "Policy Directive: You are an AI companion, not a medical or mental health professional. You must NOT diagnose conditions, recommend medications, or provide medical/mental health treatment plans. If a user asks for medical advice, diagnoses, or treatment, you must politely remind them of your AI nature, advise them to consult a qualified healthcare professional, and decline to provide medical recommendations.";
 
       if (context.isNotEmpty) {
         _messages.add({'role': 'system', 'content': context});
@@ -521,6 +532,13 @@ class GeminiService {
       return response;
     }
 
+    AiDowntimeAlertService().reportFailure(
+      provider: _selectedLlmProvider,
+      feature: feature,
+      errorMessage: 'Failed to get response from AI models. Primary and all fallback gateways failed.',
+      force: false,
+    );
+
     throw Exception("Failed to get response from AI models. Please try again in a moment.");
   }
 
@@ -532,10 +550,6 @@ class GeminiService {
     bool preferFlash = true,
     String? cacheKey,
   }) async {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = dotenv.env['OPEN_ROUTER_API_KEY'] ?? '';
-    }
-
     String defaultSystemInstruction = systemInstruction ?? '';
     if (defaultSystemInstruction.isEmpty) {
       String context = "";
@@ -554,7 +568,7 @@ class GeminiService {
       defaultSystemInstruction = context;
     }
 
-    final String completeInstruction = "$defaultSystemInstruction\nCrucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it.".trim();
+    final String completeInstruction = "$defaultSystemInstruction\nCrucial: Your response must be complete, fully finished, and must never cut off mid-sentence. Keep it concise enough to fit within length constraints if necessary, but always complete it. Policy Directive: You are an AI companion, not a medical or mental health professional. You must NOT diagnose conditions, recommend medications, or provide medical/mental health treatment plans. If a user asks for medical advice, diagnoses, or treatment, you must politely remind them of your AI nature, advise them to consult a qualified healthcare professional, and decline to provide medical recommendations.".trim();
 
     String? response;
 
@@ -619,6 +633,13 @@ class GeminiService {
       return response;
     }
 
+    AiDowntimeAlertService().reportFailure(
+      provider: _selectedLlmProvider,
+      feature: feature,
+      errorMessage: 'Failed to get response from AI models in OneShot. Primary and all fallback gateways failed.',
+      force: false,
+    );
+
     throw Exception("Failed to get response from AI models. Please try again in a moment.");
   }
 
@@ -670,6 +691,7 @@ class GeminiService {
     required int totalTokens,
     String status = 'success',
     String? errorMessage,
+    String? prompt,
   }) {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -685,11 +707,61 @@ class GeminiService {
         'totalTokens': totalTokens,
         'status': status,
         'errorMessage': errorMessage,
-      }).catchError((e) {
+        'prompt': prompt ?? '',
+        'device': DeviceHelper.currentDevice,
+      }).then((_) {}, onError: (e) {
         safePrint('GeminiService Log Usage Error (async): $e');
       });
+
+      if (status == 'failed' && errorMessage != null && errorMessage.isNotEmpty) {
+        AiDowntimeAlertService().reportFailure(
+          provider: source,
+          feature: feature,
+          errorMessage: errorMessage,
+        );
+      }
     } catch (e) {
       safePrint('GeminiService Log Usage Error (sync): $e');
+    }
+  }
+
+  String _extractPromptText(List<Content> contents) {
+    try {
+      // Find the last user message instead of concatenating the entire history
+      for (int i = contents.length - 1; i >= 0; i--) {
+        final content = contents[i];
+        if (content.role == 'user' || content.role == null) {
+          final textParts = <String>[];
+          for (final part in content.parts) {
+            if (part is TextPart && part.text.trim().isNotEmpty) {
+              textParts.add(part.text);
+            }
+          }
+          if (textParts.isNotEmpty) {
+            return PromptCleanHelper.extractUserPrompt(textParts.join('\n'));
+          }
+        }
+      }
+      return 'No prompt recorded';
+    } catch (e) {
+      return 'Could not extract prompt';
+    }
+  }
+
+  String _extractMessagesPromptText(List<Map<String, String>> messages) {
+    try {
+      final userMessages = messages
+          .where((m) => m['role'] == 'user')
+          .map((m) => m['content'] ?? '')
+          .toList();
+      if (userMessages.isNotEmpty) {
+        return PromptCleanHelper.extractUserPrompt(userMessages.last);
+      }
+      return messages.isNotEmpty
+          ? PromptCleanHelper.extractUserPrompt(messages.last['content'] ?? '')
+          : '';
+    } catch (e) {
+      return '';
     }
   }
 }

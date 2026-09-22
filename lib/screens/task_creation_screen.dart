@@ -14,7 +14,6 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
   TimeOfDay? _startTime;
   int _durationMinutes = 30; // Default 30 mins
 
-
   Future<void> _pickTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -58,21 +57,27 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
 
     if (_startTime != null) {
       final now = DateTime.now();
-      final startDt = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
+      final startDt = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        _startTime!.hour,
+        _startTime!.minute,
+      );
       final endDt = startDt.add(Duration(minutes: _durationMinutes));
-      
+
       startTimeStr = DateFormat('hh:mm a').format(startDt);
       completionTimeStr = DateFormat('hh:mm a').format(endDt);
     }
 
     final success = await context.read<TaskProvider>().addTask(
-      title, 
-      desc, 
+      title,
+      desc,
       startTime: startTimeStr,
       durationMinutes: _durationMinutes,
       completionTime: completionTimeStr,
     );
-    
+
     if (!success) {
       setState(() => _isLoading = false);
       return;
@@ -80,19 +85,27 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
 
     if (_startTime != null) {
       final now = DateTime.now();
-      var startDt = DateTime(now.year, now.month, now.day, _startTime!.hour, _startTime!.minute);
-      
+      var startDt = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        _startTime!.hour,
+        _startTime!.minute,
+      );
+
       // If the selected time has already passed today, assume it's for tomorrow
       if (startDt.isBefore(now)) {
         startDt = startDt.add(const Duration(days: 1));
       }
-      
-      await NotificationService().scheduleTaskAlarm(title, startDt, _durationMinutes);
+
+      await NotificationService().scheduleTaskAlarm(
+        title,
+        startDt,
+        _durationMinutes,
+      );
     }
 
-
     setState(() => _isLoading = false);
-
 
     if (mounted) {
       context.showInAppNotification(
@@ -122,10 +135,7 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
           centerTitle: true,
           leading: Padding(
             padding: const EdgeInsets.only(left: 16),
-            child: Icon(
-              Icons.chevron_left,
-              color: theme.accentTxt,
-            ),
+            child: Icon(Icons.chevron_left, color: theme.accentTxt),
           ).rippleClick(() => context.pop()),
         ),
         body: Stack(
@@ -194,14 +204,20 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
                     decoration: BoxDecoration(
                       color: theme.accentTxt.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: theme.accentTxt.withOpacity(0.1)),
+                      border: Border.all(
+                        color: theme.accentTxt.withOpacity(0.1),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         PrimaryText(
-                          text: _startTime == null ? R.S.setStartTime : _startTime!.format(context),
-                          color: theme.accentTxt.withOpacity(_startTime == null ? 0.4 : 1),
+                          text: _startTime == null
+                              ? R.S.setStartTime
+                              : _startTime!.format(context),
+                          color: theme.accentTxt.withOpacity(
+                            _startTime == null ? 0.4 : 1,
+                          ),
                           fontSize: 16,
                         ),
                         Icon(Icons.access_time, color: theme.primaryBase),
@@ -218,7 +234,8 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                       PrimaryText(
-                        text: '${_durationMinutes ~/ 60}h ${_durationMinutes % 60}m',
+                        text:
+                            '${_durationMinutes ~/ 60}h ${_durationMinutes % 60}m',
                         color: theme.primaryBase,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -233,19 +250,24 @@ class _TaskCreationScreenState extends State<TaskCreationScreen> {
                     divisions: 15, // 10 min increments
                     activeColor: theme.primaryBase,
                     inactiveColor: theme.accentTxt.withOpacity(0.1),
-                    onChanged: (val) => setState(() => _durationMinutes = val.toInt()),
+                    onChanged: (val) =>
+                        setState(() => _durationMinutes = val.toInt()),
                   ),
                   if (_startTime != null) ...[
                     12.verticalSpace,
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.primaryBase.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: SecondaryText(
-                          text: 'Scheduled: ${_startTime!.format(context)} - ${DateFormat('hh:mm a').format(DateTime(2024, 1, 1, _startTime!.hour, _startTime!.minute).add(Duration(minutes: _durationMinutes)))}',
+                          text:
+                              'Scheduled: ${_startTime!.format(context)} - ${DateFormat('hh:mm a').format(DateTime(2024, 1, 1, _startTime!.hour, _startTime!.minute).add(Duration(minutes: _durationMinutes)))}',
                           color: theme.primaryBase,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,

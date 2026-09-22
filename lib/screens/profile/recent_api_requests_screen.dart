@@ -4,7 +4,8 @@ class RecentApiRequestsScreen extends StatefulWidget {
   const RecentApiRequestsScreen({super.key});
 
   @override
-  State<RecentApiRequestsScreen> createState() => _RecentApiRequestsScreenState();
+  State<RecentApiRequestsScreen> createState() =>
+      _RecentApiRequestsScreenState();
 }
 
 class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
@@ -41,7 +42,8 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
             fontWeight: FontWeight.bold,
           ),
           content: SecondaryText(
-            text: 'Are you sure you want to delete the ${_selectedDocIds.length} selected API request logs? This action cannot be undone.',
+            text:
+                'Are you sure you want to delete the ${_selectedDocIds.length} selected API request logs? This action cannot be undone.',
             color: theme.accentTxt.withOpacity(0.8),
             fontSize: 13,
           ),
@@ -85,7 +87,10 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
       _selectedDocIds.clear();
     });
 
-    context.showInAppNotification('Deleting ${idsToDelete.length} requests...', type: InAppNotificationType.success);
+    context.showInAppNotification(
+      'Deleting ${idsToDelete.length} requests...',
+      type: InAppNotificationType.success,
+    );
 
     try {
       final firestore = FirebaseFirestore.instance;
@@ -101,11 +106,17 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
         await batch.commit();
       }
       if (mounted) {
-        context.showInAppNotification('Successfully deleted requests.', type: InAppNotificationType.success);
+        context.showInAppNotification(
+          'Successfully deleted requests.',
+          type: InAppNotificationType.success,
+        );
       }
     } catch (e) {
       if (mounted) {
-        context.showInAppNotification('Error deleting requests: $e', type: InAppNotificationType.error);
+        context.showInAppNotification(
+          'Error deleting requests: $e',
+          type: InAppNotificationType.error,
+        );
       }
     }
   }
@@ -130,24 +141,28 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
           fontWeight: FontWeight.bold,
         ),
         centerTitle: true,
-        leading: Icon(
-          _isSelectionMode ? Icons.close : Icons.chevron_left,
-          color: theme.accentTxt,
-        ).rippleClick(() {
-          if (_isSelectionMode) {
-            setState(() {
-              _isSelectionMode = false;
-              _selectedDocIds.clear();
-            });
-          } else {
-            context.pop();
-          }
-        }),
+        leading:
+            Icon(
+              _isSelectionMode ? Icons.close : Icons.chevron_left,
+              color: theme.accentTxt,
+            ).rippleClick(() {
+              if (_isSelectionMode) {
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedDocIds.clear();
+                });
+              } else {
+                context.pop();
+              }
+            }),
         actions: isSuperAdmin
             ? [
                 if (!_isSelectionMode) ...[
                   IconButton(
-                    icon: Icon(Icons.check_box_outlined, color: theme.accentTxt),
+                    icon: Icon(
+                      Icons.check_box_outlined,
+                      color: theme.accentTxt,
+                    ),
                     onPressed: () {
                       setState(() {
                         _isSelectionMode = true;
@@ -165,10 +180,15 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
                     onPressed: _toggleSelectAll,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                    onPressed: _selectedDocIds.isEmpty ? null : _confirmDeleteSelected,
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.redAccent,
+                    ),
+                    onPressed: _selectedDocIds.isEmpty
+                        ? null
+                        : _confirmDeleteSelected,
                   ),
-                ]
+                ],
               ]
             : null,
       ),
@@ -283,10 +303,14 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isSelected ? theme.primaryBase : theme.accentTxt.withOpacity(0.1),
+        color: isSelected
+            ? theme.primaryBase
+            : theme.accentTxt.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected ? theme.primaryBase : theme.accentTxt.withOpacity(0.1),
+          color: isSelected
+              ? theme.primaryBase
+              : theme.accentTxt.withOpacity(0.1),
         ),
       ),
       child: SecondaryText(
@@ -382,26 +406,37 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
         final docs = snapshot.data!.docs;
-        
+
         bool directOk = true;
         String? directError;
         bool openRouterOk = true;
         String? openRouterError;
+        bool foundDirect = false;
+        bool foundOpenRouter = false;
 
+        // Check the latest state for each provider
         for (var doc in docs) {
           final data = doc.data() as Map<String, dynamic>;
           final source = data['source'] as String? ?? 'direct';
           final status = data['status'] as String? ?? 'success';
           final error = data['errorMessage'] as String?;
 
-          if (source == 'direct' && directError == null && status != 'success') {
-            directOk = false;
-            directError = error ?? 'Unknown error';
+          if (source == 'direct' && !foundDirect) {
+            foundDirect = true;
+            directOk = (status == 'success');
+            directError = status != 'success'
+                ? (error ?? 'Request failed')
+                : null;
           }
-          if (source == 'openrouter' && openRouterError == null && status != 'success') {
-            openRouterOk = false;
-            openRouterError = error ?? 'Unknown error';
+          if (source == 'openrouter' && !foundOpenRouter) {
+            foundOpenRouter = true;
+            openRouterOk = (status == 'success');
+            openRouterError = status != 'success'
+                ? (error ?? 'Request failed')
+                : null;
           }
+
+          if (foundDirect && foundOpenRouter) break;
         }
 
         return Padding(
@@ -448,14 +483,23 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
     );
   }
 
-  Widget _statusIndicator(String title, bool isOperational, String? error, AppTheme theme) {
+  Widget _statusIndicator(
+    String title,
+    bool isOperational,
+    String? error,
+    AppTheme theme,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isOperational ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+        color: isOperational
+            ? Colors.green.withOpacity(0.1)
+            : Colors.red.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isOperational ? Colors.greenAccent.withOpacity(0.3) : Colors.redAccent.withOpacity(0.3),
+          color: isOperational
+              ? Colors.greenAccent.withOpacity(0.3)
+              : Colors.redAccent.withOpacity(0.3),
         ),
       ),
       child: Column(
@@ -489,6 +533,16 @@ class _RecentApiRequestsScreenState extends State<RecentApiRequestsScreen> {
               ),
             ],
           ),
+          if (!isOperational && error != null) ...[
+            6.verticalSpace,
+            SecondaryText(
+              text: error,
+              color: Colors.redAccent.withOpacity(0.85),
+              fontSize: 10,
+              maxLines: 2,
+              textOverflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );
@@ -518,6 +572,7 @@ class _ApiRequestItem extends StatefulWidget {
 
 class _ApiRequestItemState extends State<_ApiRequestItem> {
   bool _isExpanded = false;
+  bool _showFullPrompt = false;
 
   @override
   Widget build(BuildContext context) {
@@ -538,90 +593,302 @@ class _ApiRequestItemState extends State<_ApiRequestItem> {
         ? DateFormat('yyyy-MM-dd HH:mm:ss').format(timeStamp.toDate())
         : 'Unknown Time';
 
+    final rawPrompt =
+        data['prompt'] as String? ?? 'No prompt recorded for this log';
+    final cleanPrompt = PromptCleanHelper.extractUserPrompt(rawPrompt);
+    final hasPromptDifferences =
+        rawPrompt.trim() != cleanPrompt.trim() && rawPrompt.trim().isNotEmpty;
+    final displayPrompt = _showFullPrompt ? rawPrompt : cleanPrompt;
+    final rawDevice = data['device'];
+    final deviceStr = DeviceHelper.formatDevice(rawDevice, data);
+
     Widget itemContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PrimaryText(
-                    text: email,
-                    color: theme.accentTxt,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  4.verticalSpace,
-                  SecondaryText(
-                    text: timeStr,
-                    color: theme.accentTxt.withOpacity(0.4),
-                    fontSize: 11,
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              children: [
-                if (isFailed) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (widget.isSelectionMode) {
+              widget.onToggleSelection();
+            } else {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            }
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PrimaryText(
+                      text: email,
+                      color: theme.accentTxt,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: const SecondaryText(
-                      text: 'FAILED',
-                      color: Colors.redAccent,
+                    4.verticalSpace,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.primaryBase.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: theme.primaryBase.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.smart_toy_outlined,
+                                  size: 11,
+                                  color: theme.primaryBase,
+                                ),
+                                4.horizontalSpace,
+                                Flexible(
+                                  child: SecondaryText(
+                                    text: model,
+                                    color: theme.accentTxt,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    textOverflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        6.horizontalSpace,
+                        Expanded(
+                          child: SecondaryText(
+                            text: timeStr,
+                            color: theme.accentTxt.withOpacity(0.4),
+                            fontSize: 10,
+                            textOverflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  if (isFailed) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: Colors.redAccent.withOpacity(0.3),
+                        ),
+                      ),
+                      child: const SecondaryText(
+                        text: 'FAILED',
+                        color: Colors.redAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    8.horizontalSpace,
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: source == 'direct'
+                          ? theme.primaryBase.withOpacity(0.2)
+                          : Colors.amber.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: source == 'direct'
+                          ? theme.primaryBase.withOpacity(0.3)
+                          : Colors.amber.withOpacity(0.3),
+                      ),
+                    ),
+                    child: SecondaryText(
+                      text: source == 'direct' ? 'Direct SDK' : 'OpenRouter',
+                      color: source == 'direct'
+                          ? theme.primaryBase
+                          : Colors.amber,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  8.horizontalSpace,
-                ],
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: source == 'direct'
-                        ? theme.primaryBase.withOpacity(0.2)
-                        : Colors.amber.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: source == 'direct'
-                          ? theme.primaryBase.withOpacity(0.3)
-                          : Colors.amber.withOpacity(0.3),
+                  if (!widget.isSelectionMode) ...[
+                    8.horizontalSpace,
+                    Icon(
+                      _isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: theme.accentTxt.withOpacity(0.6),
+                      size: 20,
                     ),
-                  ),
-                  child: SecondaryText(
-                    text: source == 'direct' ? 'Direct SDK' : 'OpenRouter',
-                    color: source == 'direct' ? theme.primaryBase : Colors.amber,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (!widget.isSelectionMode) ...[
-                  8.horizontalSpace,
-                  Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: theme.accentTxt.withOpacity(0.6),
-                    size: 20,
-                  ),
+                  ],
                 ],
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
         if (_isExpanded && !widget.isSelectionMode) ...[
           12.verticalSpace,
           const Divider(color: Colors.white12),
           12.verticalSpace,
-          SecondaryText(
-            text: 'Model: $model',
-            color: theme.accentTxt.withOpacity(0.7),
-            fontSize: 12,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.memory,
+                  size: 14,
+                  color: theme.primaryBase,
+                ),
+                6.horizontalSpace,
+                SecondaryText(
+                  text: 'Model Used: ',
+                  color: theme.accentTxt.withOpacity(0.7),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+                Expanded(
+                  child: SecondaryText(
+                    text: model,
+                    color: theme.accentTxt,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    textOverflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (deviceStr != 'Not recorded yet') ...[
+                  8.horizontalSpace,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          DeviceHelper.isApple(deviceStr)
+                              ? Icons.apple
+                              : (DeviceHelper.isAndroid(deviceStr)
+                                  ? Icons.android
+                                  : Icons.phone_android),
+                          size: 11,
+                          color: DeviceHelper.isApple(deviceStr)
+                              ? Colors.white
+                              : (DeviceHelper.isAndroid(deviceStr)
+                                  ? Colors.greenAccent
+                                  : Colors.white70),
+                        ),
+                        4.horizontalSpace,
+                        SecondaryText(
+                          text: deviceStr,
+                          color: DeviceHelper.isApple(deviceStr)
+                              ? Colors.white
+                              : (DeviceHelper.isAndroid(deviceStr)
+                                  ? Colors.greenAccent
+                                  : Colors.white70),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          8.verticalSpace,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              SecondaryText(
+                text: _showFullPrompt
+                    ? 'Full Prompt (Engineering & System):'
+                    : 'User Asked AI:',
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+                color: _showFullPrompt ? Colors.amberAccent : Colors.white70,
+              ),
+              if (hasPromptDifferences)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    setState(() {
+                      _showFullPrompt = !_showFullPrompt;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.primaryBase.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: theme.primaryBase.withOpacity(0.35),
+                      ),
+                    ),
+                    child: SecondaryText(
+                      text: _showFullPrompt
+                          ? 'Show User Question'
+                          : 'View Full Prompt',
+                      color: theme.primaryBase,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          4.verticalSpace,
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 130),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _showFullPrompt
+                    ? Colors.amberAccent.withOpacity(0.2)
+                    : Colors.white.withOpacity(0.08),
+              ),
+            ),
+            child: SingleChildScrollView(
+              child: SecondaryText(
+                text: displayPrompt,
+                color: _showFullPrompt
+                    ? Colors.amber.shade200.withOpacity(0.9)
+                    : theme.accentTxt.withOpacity(0.85),
+                fontSize: 11,
+              ),
+            ),
           ),
           if (isFailed && errorMessage != null) ...[
             8.verticalSpace,
@@ -669,8 +936,12 @@ class _ApiRequestItemState extends State<_ApiRequestItem> {
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
             child: Icon(
-              widget.isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-              color: widget.isSelected ? theme.primaryBase : theme.accentTxt.withOpacity(0.6),
+              widget.isSelected
+                  ? Icons.check_box
+                  : Icons.check_box_outline_blank,
+              color: widget.isSelected
+                  ? theme.primaryBase
+                  : theme.accentTxt.withOpacity(0.6),
               size: 24,
             ),
           ),
@@ -679,7 +950,7 @@ class _ApiRequestItemState extends State<_ApiRequestItem> {
       );
     }
 
-    return GlassContainer(
+    final cardWidget = GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       gradient: isFailed
@@ -693,15 +964,16 @@ class _ApiRequestItemState extends State<_ApiRequestItem> {
             )
           : theme.glassGradient,
       child: itemContent,
-    ).rippleClick(() {
-      if (widget.isSelectionMode) {
-        widget.onToggleSelection();
-      } else {
-        setState(() {
-          _isExpanded = !_isExpanded;
-        });
-      }
-    });
+    );
+
+    if (widget.isSelectionMode) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onToggleSelection,
+        child: cardWidget,
+      );
+    }
+
+    return cardWidget;
   }
 }
-
