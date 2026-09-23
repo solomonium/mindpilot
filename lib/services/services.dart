@@ -16,6 +16,8 @@ export 'livekit_service.dart';
 export 'prompt_clean_helper.dart';
 export 'ai_downtime_alert_service.dart';
 export 'device_helper.dart';
+export 'in_app_review_service.dart';
+export 'in_app_update_service.dart';
 
 
 

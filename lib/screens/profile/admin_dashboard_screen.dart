@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:mindpilot/export.dart';
 import 'package:mindpilot/screens/profile/ai_model_management_screen.dart';
@@ -87,6 +88,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool _isQuotaExpanded = false;
   bool _isBroadcastExpanded = false;
   bool _isFeedbackCardExpanded = false;
+  String _feedbackFilter = 'All';
   bool _isUsersExpanded = true;
   bool _isAdminsExpanded = false;
 
@@ -220,17 +222,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 decoration: BoxDecoration(
                   color: theme.primaryBase.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: theme.primaryBase.withOpacity(0.3),
-                  ),
+                  border: Border.all(color: theme.primaryBase.withOpacity(0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _areAllExpanded
-                          ? Icons.unfold_less
-                          : Icons.unfold_more,
+                      _areAllExpanded ? Icons.unfold_less : Icons.unfold_more,
                       color: theme.primaryBase,
                       size: 15,
                     ),
@@ -298,7 +296,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   subtitle: 'Direct Gemini & OpenRouter candidates',
                   isExpanded: _isAiModelsExpanded,
                   onToggle: () => setState(
-                      () => _isAiModelsExpanded = !_isAiModelsExpanded),
+                    () => _isAiModelsExpanded = !_isAiModelsExpanded,
+                  ),
                 ),
                 if (_isAiModelsExpanded) ...[
                   12.verticalSpace,
@@ -312,7 +311,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   subtitle: 'Real-time ping & candidate auto-switching',
                   isExpanded: _isHealthCheckExpanded,
                   onToggle: () => setState(
-                      () => _isHealthCheckExpanded = !_isHealthCheckExpanded),
+                    () => _isHealthCheckExpanded = !_isHealthCheckExpanded,
+                  ),
                 ),
                 if (_isHealthCheckExpanded) ...[
                   12.verticalSpace,
@@ -341,8 +341,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     icon: Icons.data_usage_outlined,
                     subtitle: 'API rate limits & token metrics',
                     isExpanded: _isQuotaExpanded,
-                    onToggle: () => setState(
-                        () => _isQuotaExpanded = !_isQuotaExpanded),
+                    onToggle: () =>
+                        setState(() => _isQuotaExpanded = !_isQuotaExpanded),
                   ),
                   if (_isQuotaExpanded) ...[
                     12.verticalSpace,
@@ -357,7 +357,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   subtitle: 'Push in-app reflections & alerts',
                   isExpanded: _isBroadcastExpanded,
                   onToggle: () => setState(
-                      () => _isBroadcastExpanded = !_isBroadcastExpanded),
+                    () => _isBroadcastExpanded = !_isBroadcastExpanded,
+                  ),
                 ),
                 if (_isBroadcastExpanded) ...[
                   12.verticalSpace,
@@ -366,12 +367,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 20.verticalSpace,
                 _buildCollapsibleHeader(
                   context: context,
-                  title: 'Feedback Card Control',
+                  title: 'User Feedback & Reviews',
                   icon: Icons.rate_review_outlined,
-                  subtitle: 'Toggle user feedback banner',
+                  subtitle: 'Live ratings, messages & banner control',
                   isExpanded: _isFeedbackCardExpanded,
-                  onToggle: () => setState(() =>
-                      _isFeedbackCardExpanded = !_isFeedbackCardExpanded),
+                  onToggle: () => setState(
+                    () => _isFeedbackCardExpanded = !_isFeedbackCardExpanded,
+                  ),
                 ),
                 if (_isFeedbackCardExpanded) ...[
                   12.verticalSpace,
@@ -666,15 +668,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               decoration: BoxDecoration(
                 color: theme.primaryBase.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: theme.primaryBase.withOpacity(0.25),
-                ),
+                border: Border.all(color: theme.primaryBase.withOpacity(0.25)),
               ),
-              child: Icon(
-                icon,
-                size: 16,
-                color: theme.primaryBase,
-              ),
+              child: Icon(icon, size: 16, color: theme.primaryBase),
             ),
             12.horizontalSpace,
             Expanded(
@@ -700,10 +696,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ),
             ),
-            if (trailingBadge != null) ...[
-              trailingBadge,
-              8.horizontalSpace,
-            ],
+            if (trailingBadge != null) ...[trailingBadge, 8.horizontalSpace],
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -927,8 +920,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       _whatsappPhoneController.text = config.whatsappAlertPhone;
                       _whatsappApiKeyController.text =
                           config.whatsappAlertApiKey;
-                      _textMeBotApiKeyController.text =
-                          config.textMeBotApiKey;
+                      _textMeBotApiKeyController.text = config.textMeBotApiKey;
                       _telegramTokenController.text = config.telegramBotToken;
                       _telegramChatIdController.text = config.telegramChatId;
                       _forceUpdateValue = config.forceUpdate;
@@ -1396,7 +1388,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                     SecondaryText(
-                      text: 'Notifies your phone the second an AI key fails or leaks',
+                      text:
+                          'Notifies your phone the second an AI key fails or leaks',
                       color: theme.accentTxt.withOpacity(0.7),
                       fontSize: 11,
                     ),
@@ -1410,7 +1403,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // --- 1. TEXTMEBOT WHATSAPP ---
           Row(
             children: [
-              const Icon(Icons.mark_chat_unread, color: Colors.greenAccent, size: 18),
+              const Icon(
+                Icons.mark_chat_unread,
+                color: Colors.greenAccent,
+                size: 18,
+              ),
               8.horizontalSpace,
               Expanded(
                 child: PrimaryText(
@@ -1435,24 +1432,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: (_textMeBotTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.15),
+                color:
+                    (_textMeBotTestSuccess == true
+                            ? theme.successPrimary
+                            : theme.errorPrimary)
+                        .withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: (_textMeBotTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.4),
+                  color:
+                      (_textMeBotTestSuccess == true
+                              ? theme.successPrimary
+                              : theme.errorPrimary)
+                          .withOpacity(0.4),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    _textMeBotTestSuccess == true ? Icons.check_circle : Icons.error_outline,
-                    color: _textMeBotTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                    _textMeBotTestSuccess == true
+                        ? Icons.check_circle
+                        : Icons.error_outline,
+                    color: _textMeBotTestSuccess == true
+                        ? theme.successPrimary
+                        : theme.errorPrimary,
                     size: 18,
                   ),
                   8.horizontalSpace,
                   Expanded(
                     child: SecondaryText(
                       text: _textMeBotTestResult!,
-                      color: _textMeBotTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                      color: _textMeBotTestSuccess == true
+                          ? theme.successPrimary
+                          : theme.errorPrimary,
                       fontSize: 12,
                     ),
                   ),
@@ -1462,7 +1473,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
           12.verticalSpace,
           CustomButton(
-            label: _isTestingTextMeBot ? 'Sending TextMeBot Test...' : 'Send Test TextMeBot WhatsApp Alert',
+            label: _isTestingTextMeBot
+                ? 'Sending TextMeBot Test...'
+                : 'Send Test TextMeBot WhatsApp Alert',
             loading: _isTestingTextMeBot,
             onPressed: _testTextMeBotAlert,
           ),
@@ -1474,7 +1487,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           // --- 2. TELEGRAM BOT ---
           Row(
             children: [
-              const Icon(Icons.send_rounded, color: Colors.lightBlueAccent, size: 18),
+              const Icon(
+                Icons.send_rounded,
+                color: Colors.lightBlueAccent,
+                size: 18,
+              ),
               8.horizontalSpace,
               Expanded(
                 child: PrimaryText(
@@ -1503,24 +1520,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: (_telegramTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.15),
+                color:
+                    (_telegramTestSuccess == true
+                            ? theme.successPrimary
+                            : theme.errorPrimary)
+                        .withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: (_telegramTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.4),
+                  color:
+                      (_telegramTestSuccess == true
+                              ? theme.successPrimary
+                              : theme.errorPrimary)
+                          .withOpacity(0.4),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    _telegramTestSuccess == true ? Icons.check_circle : Icons.error_outline,
-                    color: _telegramTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                    _telegramTestSuccess == true
+                        ? Icons.check_circle
+                        : Icons.error_outline,
+                    color: _telegramTestSuccess == true
+                        ? theme.successPrimary
+                        : theme.errorPrimary,
                     size: 18,
                   ),
                   8.horizontalSpace,
                   Expanded(
                     child: SecondaryText(
                       text: _telegramTestResult!,
-                      color: _telegramTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                      color: _telegramTestSuccess == true
+                          ? theme.successPrimary
+                          : theme.errorPrimary,
                       fontSize: 12,
                     ),
                   ),
@@ -1530,7 +1561,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
           12.verticalSpace,
           CustomButton(
-            label: _isTestingTelegram ? 'Sending Telegram Test...' : 'Send Test Telegram Alert',
+            label: _isTestingTelegram
+                ? 'Sending Telegram Test...'
+                : 'Send Test Telegram Alert',
             loading: _isTestingTelegram,
             onPressed: _testTelegramAlert,
           ),
@@ -1567,24 +1600,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: (_whatsappTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.15),
+                color:
+                    (_whatsappTestSuccess == true
+                            ? theme.successPrimary
+                            : theme.errorPrimary)
+                        .withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: (_whatsappTestSuccess == true ? theme.successPrimary : theme.errorPrimary).withOpacity(0.4),
+                  color:
+                      (_whatsappTestSuccess == true
+                              ? theme.successPrimary
+                              : theme.errorPrimary)
+                          .withOpacity(0.4),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    _whatsappTestSuccess == true ? Icons.check_circle : Icons.error_outline,
-                    color: _whatsappTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                    _whatsappTestSuccess == true
+                        ? Icons.check_circle
+                        : Icons.error_outline,
+                    color: _whatsappTestSuccess == true
+                        ? theme.successPrimary
+                        : theme.errorPrimary,
                     size: 18,
                   ),
                   8.horizontalSpace,
                   Expanded(
                     child: SecondaryText(
                       text: _whatsappTestResult!,
-                      color: _whatsappTestSuccess == true ? theme.successPrimary : theme.errorPrimary,
+                      color: _whatsappTestSuccess == true
+                          ? theme.successPrimary
+                          : theme.errorPrimary,
                       fontSize: 12,
                     ),
                   ),
@@ -1594,7 +1641,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
           12.verticalSpace,
           CustomButton(
-            label: _isTestingWhatsApp ? 'Sending CallMeBot Test...' : 'Send Test CallMeBot Alert',
+            label: _isTestingWhatsApp
+                ? 'Sending CallMeBot Test...'
+                : 'Send Test CallMeBot Alert',
             loading: _isTestingWhatsApp,
             onPressed: _testWhatsAppAlert,
           ),
@@ -2540,51 +2589,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SecondaryText(
-            text:
-                'Instantly trigger a feedback card for all active users. Toggle ON to show the feedback prompt app-wide.',
-            color: theme.accentTxt.withOpacity(0.7),
-            fontSize: 13,
-          ),
-          20.verticalSpace,
-          StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('app_config')
-                .doc('settings')
-                .snapshots(),
-            builder: (context, snapshot) {
-              bool isEnabled = false;
-              if (snapshot.hasData && snapshot.data!.exists) {
-                final data = snapshot.data!.data() as Map<String, dynamic>?;
-                isEnabled = data?['showFeedbackCard'] ?? false;
-              }
-
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Banner Control Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        isEnabled ? Icons.feedback : Icons.feedback_outlined,
-                        color: isEnabled
-                            ? theme.successPrimary
-                            : theme.accentTxt.withOpacity(0.5),
-                        size: 22,
-                      ),
-                      12.horizontalSpace,
-                      PrimaryText(
-                        text: isEnabled
-                            ? 'Feedback Card Active'
-                            : 'Feedback Card Off',
-                        color: isEnabled
-                            ? theme.successPrimary
-                            : theme.accentTxt.withOpacity(0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ],
+                  PrimaryText(
+                    text: 'In-App Feedback Prompt',
+                    color: theme.accentTxt,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
                   ),
-                  Switch(
+                  4.verticalSpace,
+                  SecondaryText(
+                    text: 'Prompt active users to share feedback',
+                    color: theme.accentTxt.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                ],
+              ),
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('app_config')
+                    .doc('settings')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  bool isEnabled = false;
+                  if (snapshot.hasData && snapshot.data!.exists) {
+                    final data = snapshot.data!.data() as Map<String, dynamic>?;
+                    isEnabled = data?['showFeedbackCard'] ?? false;
+                  }
+
+                  return Switch(
                     value: isEnabled,
                     activeColor: theme.successPrimary,
                     onChanged: (val) async {
@@ -2598,8 +2636,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         if (mounted) {
                           context.showInAppNotification(
                             val
-                                ? '✅ Feedback card activated for all users!'
-                                : '⛔ Feedback card deactivated.',
+                                ? '✅ Feedback prompt activated for all users!'
+                                : '⛔ Feedback prompt deactivated.',
                             type: val
                                 ? InAppNotificationType.success
                                 : InAppNotificationType.error,
@@ -2609,7 +2647,421 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         if (mounted) context.showInAppNotification('Error: $e');
                       }
                     },
+                  );
+                },
+              ),
+            ],
+          ),
+
+          20.verticalSpace,
+          Divider(color: Colors.white.withOpacity(0.1)),
+          16.verticalSpace,
+
+          // Live Feedback Stream & Analytics
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('feedback')
+                .orderBy('createdAt', descending: true)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SecondaryText(
+                      text: 'Failed to load feedbacks: ${snapshot.error}',
+                      color: theme.errorPrimary,
+                    ),
                   ),
+                );
+              }
+
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              final docs = snapshot.data?.docs ?? [];
+              final totalCount = docs.length;
+
+              // Calculate Ratings Statistics
+              int rating5 = 0;
+              int rating4 = 0;
+              int rating3 = 0;
+              int rating2 = 0;
+              int rating1 = 0;
+              int ratedSum = 0;
+              int ratedCount = 0;
+
+              for (final doc in docs) {
+                final data = doc.data() as Map<String, dynamic>?;
+                final r = (data?['rating'] as num?)?.toInt() ?? 0;
+                if (r > 0) {
+                  ratedSum += r;
+                  ratedCount++;
+                  if (r == 5)
+                    rating5++;
+                  else if (r == 4)
+                    rating4++;
+                  else if (r == 3)
+                    rating3++;
+                  else if (r == 2)
+                    rating2++;
+                  else if (r == 1)
+                    rating1++;
+                }
+              }
+
+              final double avgRating = ratedCount > 0
+                  ? (ratedSum / ratedCount)
+                  : 0.0;
+
+              // Filtered list
+              final filteredDocs = docs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>?;
+                final r = (data?['rating'] as num?)?.toInt() ?? 0;
+                if (_feedbackFilter == '5 Stars') return r == 5;
+                if (_feedbackFilter == '4 Stars') return r == 4;
+                if (_feedbackFilter == '1-3 Stars') return r >= 1 && r <= 3;
+                return true;
+              }).toList();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Metrics Overview Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: theme.primaryBase.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: theme.primaryBase.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: Color(0xFFF59E0B),
+                                  size: 24,
+                                ),
+                                4.horizontalSpace,
+                                PrimaryText(
+                                  text: avgRating > 0
+                                      ? avgRating.toStringAsFixed(1)
+                                      : 'N/A',
+                                  color: theme.accentTxt,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ],
+                            ),
+                            4.verticalSpace,
+                            SecondaryText(
+                              text: 'Avg Rating ($ratedCount ratings)',
+                              color: theme.accentTxt.withOpacity(0.6),
+                              fontSize: 11,
+                            ),
+                          ],
+                        ),
+                        Container(width: 1, height: 36, color: Colors.white12),
+                        Column(
+                          children: [
+                            PrimaryText(
+                              text: '$totalCount',
+                              color: theme.primaryBase,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            4.verticalSpace,
+                            SecondaryText(
+                              text: 'Total Submissions',
+                              color: theme.accentTxt.withOpacity(0.6),
+                              fontSize: 11,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  16.verticalSpace,
+
+                  // Star Distribution Breakdown
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _ratingBadge(
+                          theme,
+                          '5★',
+                          rating5,
+                          const Color(0xFF10B981),
+                        ),
+                        8.horizontalSpace,
+                        _ratingBadge(
+                          theme,
+                          '4★',
+                          rating4,
+                          const Color(0xFF3B82F6),
+                        ),
+                        8.horizontalSpace,
+                        _ratingBadge(
+                          theme,
+                          '3★',
+                          rating3,
+                          const Color(0xFFF59E0B),
+                        ),
+                        8.horizontalSpace,
+                        _ratingBadge(
+                          theme,
+                          '2★',
+                          rating2,
+                          const Color(0xFFF97316),
+                        ),
+                        8.horizontalSpace,
+                        _ratingBadge(
+                          theme,
+                          '1★',
+                          rating1,
+                          const Color(0xFFEF4444),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  16.verticalSpace,
+
+                  // Filter Chips Row
+                  Row(
+                    children: [
+                      _feedbackFilterChip(theme, 'All', 'All (${docs.length})'),
+                      8.horizontalSpace,
+                      _feedbackFilterChip(theme, '5 Stars', '5★ ($rating5)'),
+                      8.horizontalSpace,
+                      _feedbackFilterChip(theme, '4 Stars', '4★ ($rating4)'),
+                      8.horizontalSpace,
+                      _feedbackFilterChip(
+                        theme,
+                        '1-3 Stars',
+                        '1-3★ (${rating1 + rating2 + rating3})',
+                      ),
+                    ],
+                  ),
+
+                  16.verticalSpace,
+
+                  // Feedback list
+                  if (filteredDocs.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.mark_email_read_outlined,
+                              size: 40,
+                              color: theme.accentTxt.withOpacity(0.3),
+                            ),
+                            12.verticalSpace,
+                            SecondaryText(
+                              text: _feedbackFilter == 'All'
+                                  ? 'No user feedback received yet.'
+                                  : 'No feedbacks matching "$_feedbackFilter".',
+                              color: theme.accentTxt.withOpacity(0.6),
+                              fontSize: 13,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredDocs.length,
+                      separatorBuilder: (_, __) => 12.verticalSpace,
+                      itemBuilder: (context, index) {
+                        final doc = filteredDocs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final docId = doc.id;
+                        final name = data['userName'] ?? 'Anonymous User';
+                        final email = data['userEmail'] ?? 'No email provided';
+                        final message = data['message'] ?? '';
+                        final rating = (data['rating'] as num?)?.toInt() ?? 0;
+                        final timestamp = data['createdAt'] as Timestamp?;
+                        final dateStr = timestamp != null
+                            ? DateFormat(
+                                'MMM dd, yyyy • hh:mm a',
+                              ).format(timestamp.toDate())
+                            : 'Just now';
+
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.08),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Top Row: User details, Stars & Delete Action
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: theme.primaryBase
+                                        .withOpacity(0.2),
+                                    child: PrimaryText(
+                                      text: (name.isNotEmpty ? name[0] : 'U')
+                                          .toUpperCase(),
+                                      color: theme.primaryBase,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  10.horizontalSpace,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        PrimaryText(
+                                          text: name,
+                                          color: theme.accentTxt,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        SecondaryText(
+                                          text: email,
+                                          color: theme.accentTxt.withOpacity(
+                                            0.5,
+                                          ),
+                                          fontSize: 11,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Star Rating Visual
+                                  if (rating > 0)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: List.generate(5, (starIdx) {
+                                        return Icon(
+                                          starIdx < rating
+                                              ? Icons.star_rounded
+                                              : Icons.star_outline_rounded,
+                                          color: starIdx < rating
+                                              ? const Color(0xFFF59E0B)
+                                              : Colors.white24,
+                                          size: 16,
+                                        );
+                                      }),
+                                    ),
+                                  8.horizontalSpace,
+                                  // Delete Button
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.redAccent,
+                                      size: 18,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () =>
+                                        _confirmDeleteFeedback(docId, name),
+                                  ),
+                                ],
+                              ),
+
+                              12.verticalSpace,
+
+                              // Feedback message
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: theme.brandDark.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.05),
+                                  ),
+                                ),
+                                child: SelectableText(
+                                  message,
+                                  style: GoogleFonts.inter(
+                                    color: theme.accentTxt.withOpacity(0.9),
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+
+                              8.verticalSpace,
+
+                              // Timestamp & Copy
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  SecondaryText(
+                                    text: dateStr,
+                                    color: theme.accentTxt.withOpacity(0.4),
+                                    fontSize: 10,
+                                  ),
+                                  InkWell(
+                                    onTap: () {
+                                      Clipboard.setData(
+                                        ClipboardData(text: message),
+                                      );
+                                      context.showInAppNotification(
+                                        'Feedback copied to clipboard!',
+                                      );
+                                    },
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.copy,
+                                          size: 12,
+                                          color: theme.primaryBase.withOpacity(
+                                            0.8,
+                                          ),
+                                        ),
+                                        4.horizontalSpace,
+                                        SecondaryText(
+                                          text: 'Copy',
+                                          fontSize: 11,
+                                          color: theme.primaryBase.withOpacity(
+                                            0.8,
+                                          ),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                 ],
               );
             },
@@ -2617,6 +3069,120 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Widget _ratingBadge(AppTheme theme, String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PrimaryText(
+            text: label,
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+          4.horizontalSpace,
+          SecondaryText(
+            text: '($count)',
+            color: color.withOpacity(0.8),
+            fontSize: 11,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _feedbackFilterChip(AppTheme theme, String filterKey, String label) {
+    final bool isSelected = _feedbackFilter == filterKey;
+    return InkWell(
+      onTap: () => setState(() => _feedbackFilter = filterKey),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.primaryBase
+              : Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? theme.primaryBase : Colors.white12,
+          ),
+        ),
+        child: SecondaryText(
+          text: label,
+          color: isSelected ? Colors.black : theme.accentTxt.withOpacity(0.8),
+          fontSize: 11,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteFeedback(String docId, String userName) async {
+    final theme = context.read<AppTheme>();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.brandDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: PrimaryText(
+          text: 'Delete Feedback?',
+          color: theme.accentTxt,
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
+        content: SecondaryText(
+          text:
+              'Are you sure you want to delete this feedback from $userName? This action cannot be undone.',
+          color: theme.accentTxt.withOpacity(0.8),
+          fontSize: 13,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: SecondaryText(
+              text: 'Cancel',
+              color: theme.accentTxt.withOpacity(0.6),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('feedback')
+            .doc(docId)
+            .delete();
+        if (mounted)
+          context.showInAppNotification('Feedback deleted successfully');
+      } catch (e) {
+        if (mounted)
+          context.showInAppNotification('Failed to delete feedback: $e');
+      }
+    }
   }
 
   Future<void> _removeAdmin(String email) async {

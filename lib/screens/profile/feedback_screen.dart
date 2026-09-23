@@ -33,17 +33,23 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
       if (mounted) {
         context.showInAppNotification(
-          'Thank you for your feedback!',
+          _rating >= 4
+              ? 'Thank you for your positive feedback! 🌟'
+              : 'Thank you for your feedback! We will use it to improve MindPilot.',
           type: InAppNotificationType.success,
         );
-        final url = ConfigService().updateUrl;
-        AppHelper.launchURL(url);
+
+        if (_rating >= 4) {
+          // Trigger native in-app review directly in the app
+          InAppReviewService().requestReview();
+        }
+
         context.pop();
       }
     } catch (e) {
       if (mounted) context.showInAppNotification('Error: $e');
     } finally {
-      setState(() => _isSubmitting = false);
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 

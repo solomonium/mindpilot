@@ -37,6 +37,7 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   Color? _customExplanationColor;
   String _bibleFontSizeCategory = 'medium';
   Color? _customBibleColor;
+  final ScrollController _readScrollController = ScrollController();
 
   // Quiz tab state
   int _questionCount = 5;
@@ -249,6 +250,7 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   @override
   void dispose() {
     _tabController.dispose();
+    _readScrollController.dispose();
     _customReadController.dispose();
     _chapterOrTopicController.dispose();
     _riddleGuessController.dispose();
@@ -784,7 +786,22 @@ class _BibleMainScreenState extends State<BibleMainScreen> with SingleTickerProv
   }
 
   void _explainChapter() {
-    if (_chapterText == null || _chapterText!.trim().isEmpty) return;
+    if (_isExplaining) return;
+
+    if (_isLoadingChapter) {
+      context.showInAppNotification('Please wait while chapter is loading...');
+      return;
+    }
+
+    if (_chapterText == null || _chapterText!.trim().isEmpty) {
+      context.showInAppNotification('Loading chapter text, please wait...');
+      _fetchBibleChapter().then((_) {
+        if (_chapterText != null && _chapterText!.trim().isNotEmpty && mounted) {
+          _explainChapter();
+        }
+      });
+      return;
+    }
 
     final authStore = context.read<AppAuthProvider>();
     final isPro = authStore.isPro;
@@ -836,6 +853,15 @@ Ensure the output is beautifully styled in Markdown. Crucial: Make sure all sect
         if (!isPro) {
           await authStore.incrementExplanationCount();
         }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_readScrollController.hasClients) {
+            _readScrollController.animateTo(
+              _readScrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOut,
+            );
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -1677,6 +1703,7 @@ $explanation
           );
         },
         child: SingleChildScrollView(
+          controller: _readScrollController,
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2046,7 +2073,8 @@ $explanation
                       child: CustomButton(
                         label: 'Explanation',
                         prefixIcon: Icon(Icons.auto_awesome, size: 18, color: theme.primaryBase),
-                        onPressed: _explainChapter,
+                        loading: _isExplaining,
+                        onPressed: _isExplaining ? null : _explainChapter,
                         isGlass: true,
                       ),
                     ),

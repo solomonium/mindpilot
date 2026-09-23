@@ -684,11 +684,40 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   .withOpacity(0.2),
                                             ),
                                           ),
-                                          child: _buildHighlightedText(
-                                            notifStore.insightExplanation!,
-                                            const Color(
-                                              0xFFADFF2F,
-                                            ), // Lemon Green
+                                          child: MarkdownBody(
+                                            data: notifStore.insightExplanation!,
+                                            styleSheet: MarkdownStyleSheet(
+                                              p: GoogleFonts.inter(
+                                                color: Colors.white.withOpacity(0.9),
+                                                fontSize: 13,
+                                                height: 1.5,
+                                              ),
+                                              strong: GoogleFonts.inter(
+                                                color: const Color(
+                                                  0xFFADFF2F,
+                                                ), // Lemon Green
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                height: 1.5,
+                                              ),
+                                              blockquote: GoogleFonts.inter(
+                                                color: theme.errorPrimary,
+                                                fontStyle: FontStyle.italic,
+                                                fontSize: 13,
+                                                height: 1.5,
+                                              ),
+                                              blockquoteDecoration: BoxDecoration(
+                                                color: theme.errorPrimary.withOpacity(0.05),
+                                                border: Border(
+                                                  left: BorderSide(color: theme.errorPrimary, width: 3),
+                                                ),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              h1: TextStyle(color: theme.primaryBase, fontSize: 16, fontWeight: FontWeight.bold),
+                                              h2: TextStyle(color: theme.primaryBase, fontSize: 15, fontWeight: FontWeight.bold),
+                                              h3: TextStyle(color: theme.primaryBase, fontSize: 14, fontWeight: FontWeight.bold),
+                                              listBullet: const TextStyle(color: Color(0xFFADFF2F)),
+                                            ),
                                           ),
                                         ),
                                     ],

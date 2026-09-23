@@ -3,7 +3,7 @@ description: "A new Flutter project."
 
 publish_to: "none"
 
-version: 1.0.22+34
+version: 1.0.23+35
 
 environment:
   sdk: ^3.10.1
@@ -60,6 +60,8 @@ dependencies:
   cloud_functions: ^6.3.4
   speech_to_text: ^7.4.0
   flutter_tts: ^4.2.5
+  in_app_review: ^2.0.9
+  in_app_update: ^4.2.3
 
 dev_dependencies:
   flutter_test:

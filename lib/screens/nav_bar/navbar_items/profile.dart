@@ -139,7 +139,10 @@ class ProfileScreen extends StatelessWidget {
                       Icons.warning_amber_rounded,
                       'Health Disclaimer',
                       onTap: () {
-                        AppHelper.showMedicalDisclaimer(context, isDismissible: true);
+                        AppHelper.showMedicalDisclaimer(
+                          context,
+                          isDismissible: true,
+                        );
                       },
                     ),
                     _menuItem(
@@ -152,6 +155,9 @@ class ProfileScreen extends StatelessWidget {
                             "Level up your focus, decisions, and growth with MindPilot!\n\n"
                             "$shareUrl";
 
+                        final origin = AppHelper.getSharePositionOrigin(
+                          context,
+                        );
                         try {
                           await Clipboard.setData(
                             ClipboardData(text: shareText),
@@ -167,9 +173,7 @@ class ProfileScreen extends StatelessWidget {
                         await Share.share(
                           shareText,
                           subject: 'Level up your focus with MindPilot 🧠',
-                          sharePositionOrigin: AppHelper.getSharePositionOrigin(
-                            context,
-                          ),
+                          sharePositionOrigin: origin,
                         );
                       },
                     ),
@@ -201,8 +205,52 @@ class ProfileScreen extends StatelessWidget {
                           4.verticalSpace,
                           SecondaryText(
                             text: 'v${ConfigService().currentAppVersion}',
-                            color: theme.accentTxt.withValues(alpha: 0.3),
-                            fontSize: 10,
+                            color: theme.accentTxt.withValues(alpha: 0.4),
+                            fontSize: 11,
+                          ),
+                          10.verticalSpace,
+                          TextButton(
+                            onPressed: () {
+                              InAppUpdateService().checkForInAppUpdate(
+                                context,
+                                isManual: true,
+                              );
+                            },
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              backgroundColor: theme.primaryBase.withValues(
+                                alpha: 0.1,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: BorderSide(
+                                  color: theme.primaryBase.withValues(
+                                    alpha: 0.25,
+                                  ),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.system_update_alt_rounded,
+                                  size: 15,
+                                  color: theme.primaryBase,
+                                ),
+                                8.horizontalSpace,
+                                PrimaryText(
+                                  text: 'Check for Updates',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.primaryBase,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
