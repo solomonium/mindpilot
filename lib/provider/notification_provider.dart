@@ -236,29 +236,24 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       final author = _dailyInsightAuthor;
-      final shortName = (author != null && author != "Unknown") 
-          ? author.trim().split(' ').first 
-          : null;
-      final hasAuthor = shortName != null;
-      final authorRef = hasAuthor ? shortName : "the author";
+      final hasAuthor = author != null && author != "Unknown" && author.trim().isNotEmpty;
       
-      final prompt = "Explain what $authorRef means by this insight: '$_dailyInsight'. "
-          "If the insight is a Bible verse or passage (or is attributed to a biblical source, book, or verse), "
-          "you MUST explain it based on the context of that specific Bible passage rather than analyzing it randomly or in isolation. "
-          "Use very simple, 1-2 sentence language suitable for a teenager. "
-          "${hasAuthor ? "Refer to the author by their first name only (e.g., '$shortName means...' or 'What $shortName is saying is...')." : "Refer to the insight (e.g., 'This means...' or 'What this is saying is...')."} "
-          "Then, provide a dynamic section starting with '**Quick Tip:**' that links this specific explanation "
-          "to the most relevant feature in the MindPilot app, narrowing it down to how to use the MindPilot tools to engage with the explanation. "
-          "If the insight/passage is about productivity or focus, highly recommend using the **Focus Session** to reflect on or work on the lesson. "
-          "If it is about clarity, choices, or mental clutter, highly recommend using the **Decision Analyzer** to evaluate a specific decision or choice related to the passage. "
-          "Explain exactly how using that specific tool will help them put the lesson into practice today. "
-          "Use **bold markers** for the feature names and the 'Quick Tip' label.";
+      final prompt = """
+Provide a simple, clear, and concise explanation of this daily insight in 2-3 short sentences:
+"$_dailyInsight" ${hasAuthor ? "- $author" : ""}
+
+Guidelines:
+- Explain the core meaning and practical takeaway in plain, encouraging language.
+- Keep it brief, simple, and direct (one short paragraph, maximum 2-3 sentences).
+- Do not use long essays, numbered lists, bullet points, or multiple section headers.
+- Ensure the response is complete, well-formed, and completely finishes its thought without cutting off.
+""";
       
       safePrint("Explaining Insight: $_dailyInsight");
       final response = await gemini.sendMessageOneShot(
         prompt,
         feature: 'daily_insight',
-        maxTokens: 600,
+        maxTokens: 300,
         cacheKey: 'daily_insight:$_dailyInsight',
       );
       
@@ -266,7 +261,7 @@ class NotificationProvider extends ChangeNotifier {
         throw Exception("Empty response from AI");
       }
 
-      _insightExplanation = response;
+      _insightExplanation = response.trim();
       return true;
     } catch (e) {
       safePrint("Explanation Fetch Error: $e");

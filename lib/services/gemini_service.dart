@@ -506,20 +506,50 @@ class GeminiService {
       return response;
     }
 
-    // Fallback if the selected provider fails
-    safePrint('GeminiService: Selected provider ($provider) failed. Falling back to Direct Gemini...');
-    response = await _sendDirectGemini(
-      contents: _convertToGenerativeContent(),
-      systemInstruction: systemInstruction,
-      feature: feature,
-      maxTokens: maxTokens,
-    );
-    if (response != null) {
-      _messages.add({'role': 'assistant', 'content': response});
-      return response;
+    // Comprehensive Fallback Pipeline across all available gateways
+    safePrint('GeminiService: Selected provider ($provider) failed. Attempting alternative AI gateways...');
+
+    if (provider != 'Direct Gemini') {
+      response = await _sendDirectGemini(
+        contents: _convertToGenerativeContent(),
+        systemInstruction: systemInstruction,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
+      if (response != null) {
+        _messages.add({'role': 'assistant', 'content': response});
+        return response;
+      }
     }
 
-    // Ultimate Safety Net
+    if (provider != 'OpenRouter') {
+      final openRouterModels = _isPro ? ConfigService().openRouterProModels : ConfigService().openRouterFreeModels;
+      response = await _sendOpenRouter(
+        models: openRouterModels,
+        messages: _messages,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
+      if (response != null) {
+        _messages.add({'role': 'assistant', 'content': response});
+        return response;
+      }
+    }
+
+    if (provider != 'Agent Router' && ConfigService().agentRouterApiKey.isNotEmpty) {
+      response = await _sendAgentRouter(
+        models: ConfigService().agentRouterModels,
+        messages: _messages,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
+      if (response != null) {
+        _messages.add({'role': 'assistant', 'content': response});
+        return response;
+      }
+    }
+
+    // Ultimate Safety Net: Direct Gemini with fallback model
     response = await _sendDirectGemini(
       contents: _convertToGenerativeContent(),
       systemInstruction: systemInstruction,
@@ -609,19 +639,47 @@ class GeminiService {
       return response;
     }
 
-    // Fallback if the selected provider fails
-    safePrint('GeminiService OneShot: Selected provider ($provider) failed. Falling back to Direct Gemini...');
-    response = await _sendDirectGemini(
-      contents: [Content.text(message)],
-      systemInstruction: completeInstruction,
-      feature: feature,
-      maxTokens: maxTokens,
-    );
-    if (response != null) {
-      return response;
+    // Comprehensive Fallback Pipeline across all available gateways
+    safePrint('GeminiService OneShot: Selected provider ($provider) failed. Attempting alternative AI gateways...');
+
+    if (provider != 'Direct Gemini') {
+      response = await _sendDirectGemini(
+        contents: [Content.text(message)],
+        systemInstruction: completeInstruction,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
+      if (response != null) {
+        return response;
+      }
     }
 
-    // Ultimate Safety Net
+    if (provider != 'OpenRouter') {
+      final openRouterModels = _isPro ? ConfigService().openRouterProModels : ConfigService().openRouterFreeModels;
+      response = await _sendOpenRouter(
+        models: openRouterModels,
+        messages: messages,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
+      if (response != null) {
+        return response;
+      }
+    }
+
+    if (provider != 'Agent Router' && ConfigService().agentRouterApiKey.isNotEmpty) {
+      response = await _sendAgentRouter(
+        models: ConfigService().agentRouterModels,
+        messages: messages,
+        feature: feature,
+        maxTokens: maxTokens,
+      );
+      if (response != null) {
+        return response;
+      }
+    }
+
+    // Ultimate Safety Net: Direct Gemini with fallback model
     response = await _sendDirectGemini(
       contents: [Content.text(message)],
       systemInstruction: completeInstruction,
